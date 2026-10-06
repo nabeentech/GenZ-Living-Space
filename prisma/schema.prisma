@@ -1,0 +1,395 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String    @id @default(cuid())
+  email            String    @unique
+  passwordHash     String
+  name             String
+  phone            String?
+  role             String    @default("CUSTOMER") // SUPER_ADMIN, PROPERTY_MANAGER, RECEPTIONIST, FINANCE, HOUSEKEEPING, SUPPORT_STAFF, CUSTOMER
+  avatarUrl        String?
+  gender           String?   // MALE, FEMALE, OTHER
+  dateOfBirth      DateTime?
+  address          String?
+  emergencyContact String?
+  govtIdType       String?   // AADHAAR, PASSPORT, DRIVING_LICENSE, VOTER_ID
+  govtIdNumber     String?
+  active           Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  bookings         Booking[]
+  payments         Payment[]
+  reviews          Review[]
+  supportTickets   SupportTicket[]
+  assignedTasks    HousekeepingTask[] @relation("AssignedHousekeeping")
+  auditLogs        AuditLog[]
+}
+
+model Hostel {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  name         String
+  tagline      String
+  city         String
+  state        String
+  address      String
+  postalCode   String
+  latitude     Float?
+  longitude    Float?
+  description  String
+  coverImage   String
+  images       String   @default("[]") // JSON string of image URLs
+  contactPhone String
+  contactEmail String
+  checkInTime  String   @default("13:00")
+  checkOutTime String   @default("11:00")
+  rating       Float    @default(4.8)
+  rules        String   @default("[]") // JSON string of house rules
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  rooms        Room[]
+  beds         Bed[]
+  bookings     Booking[]
+  invoices     Invoice[]
+  reviews      Review[]
+  tickets      SupportTicket[]
+  tasks        HousekeepingTask[]
+  amenities    HostelAmenity[]
+}
+
+model Amenity {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  icon        String   // Lucide icon name
+  category    String   // COMMUNITY, ROOM, TECH, UTILITY, ENTERTAINMENT
+  description String?
+
+  hostels     HostelAmenity[]
+}
+
+model HostelAmenity {
+  id        String  @id @default(cuid())
+  hostelId  String
+  amenityId String
+
+  hostel    Hostel  @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  amenity   Amenity @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+
+  @@unique([hostelId, amenityId])
+}
+
+model RoomType {
+  id                String   @id @default(cuid())
+  name              String   // e.g. "4 Bed Tech Dorm", "Private Studio Pod"
+  slug              String   @unique
+  description       String
+  totalBeds         Int      @default(4)
+  genderCategory    String   @default("MIXED") // MALE, FEMALE, MIXED, PRIVATE
+  basePrice         Float    // Daily rate in INR
+  weeklyDiscountPct Float    @default(10.0)
+  monthlyPrice      Float    // Monthly rate in INR
+  securityDeposit   Float    @default(3000.0)
+  images            String   @default("[]") // JSON array
+  amenities         String   @default("[]") // JSON array
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  rooms             Room[]
+}
+
+model Room {
+  id             String   @id @default(cuid())
+  hostelId       String
+  roomTypeId     String
+  building       String   @default("Block A")
+  floor          Int      @default(1)
+  roomNumber     String   // e.g. "101", "204"
+  capacity       Int      @default(4)
+  genderCategory String   @default("MIXED")
+  status         String   @default("ACTIVE") // ACTIVE, MAINTENANCE, BLOCKED
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  hostel         Hostel   @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  roomType       RoomType @relation(fields: [roomTypeId], references: [id])
+  beds           Bed[]
+  bookings       Booking[]
+  tasks          HousekeepingTask[]
+}
+
+model Bed {
+  id                String   @id @default(cuid())
+  roomId            String
+  hostelId          String
+  bedNumber         String   // e.g. "Bed A", "Pod 1"
+  tier              String   @default("LOWER_BUNK") // LOWER_BUNK, UPPER_BUNK, SINGLE, DOUBLE
+  status            String   @default("AVAILABLE") // AVAILABLE, RESERVED, OCCUPIED, MAINTENANCE, CLEANING, BLOCKED
+  currentOccupantId String?
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  room              Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  hostel            Hostel   @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  bookings          Booking[]
+  tasks             HousekeepingTask[]
+}
+
+model Booking {
+  id                 String    @id @default(cuid())
+  bookingReference   String    @unique // e.g. "GZ-829104"
+  customerId         String
+  hostelId           String
+  roomId             String
+  bedId              String
+  checkInDate        DateTime
+  checkOutDate       DateTime
+  stayType           String    @default("DAILY") // DAILY, WEEKLY, MONTHLY
+  guestsCount        Int       @default(1)
+  
+  // Pricing breakdown
+  baseAmount         Float
+  extraGuestCharges  Float     @default(0.0)
+  taxAmount          Float     // 12% GST
+  serviceFee         Float     @default(0.0)
+  securityDeposit    Float     @default(0.0)
+  discountAmount     Float     @default(0.0)
+  couponCode         String?
+  totalAmount        Float
+  paidAmount         Float     @default(0.0)
+  balanceAmount      Float     @default(0.0)
+  
+  // Statuses
+  bookingStatus      String    @default("CONFIRMED") // PENDING, PAYMENT_PENDING, CONFIRMED, CHECKED_IN, CHECKED_OUT, CANCELLED, REFUND_PENDING, REFUNDED, NO_SHOW
+  paymentStatus      String    @default("PAID")      // PENDING, PAID, PARTIAL, REFUNDED, FAILED
+  
+  // Guest Details
+  guestName          String
+  guestEmail         String
+  guestPhone         String
+  guestGender        String?
+  guestGovtId        String?
+  
+  // QR & Holds
+  qrCodeData         String?   // Encoded check-in verification string
+  specialRequests    String?
+  internalNotes      String?
+  holdExpiresAt      DateTime? // 15-minute lock for payment sessions
+  
+  // Operations
+  checkInTime        DateTime?
+  checkOutTime       DateTime?
+  checkedInBy        String?
+  checkedOutBy       String?
+  
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  customer           User      @relation(fields: [customerId], references: [id])
+  hostel             Hostel    @relation(fields: [hostelId], references: [id])
+  room               Room      @relation(fields: [roomId], references: [id])
+  bed                Bed       @relation(fields: [bedId], references: [id])
+  payments           Payment[]
+  refunds            Refund[]
+  invoices           Invoice[]
+  additionalCharges  AdditionalCharge[]
+  review             Review?
+  extensions         BookingExtension[]
+}
+
+model Payment {
+  id                 String   @id @default(cuid())
+  bookingId          String
+  customerId         String
+  amount             Float
+  currency           String   @default("INR")
+  gateway            String   @default("RAZORPAY") // RAZORPAY, CASH, UPI, CARD, BANK_TRANSFER
+  gatewayPaymentId   String?  // rzp_pay_...
+  gatewayOrderId     String?  // rzp_order_...
+  gatewaySignature   String?
+  status             String   @default("CAPTURED") // CREATED, PENDING, AUTHORIZED, CAPTURED, FAILED, REFUNDED, PARTIALLY_REFUNDED
+  paymentMethod      String?  // upi, card, netbanking, cash
+  metadata           String?  // JSON string
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  booking            Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  customer           User     @relation(fields: [customerId], references: [id])
+  refunds            Refund[]
+}
+
+model Refund {
+  id                 String    @id @default(cuid())
+  bookingId          String
+  paymentId          String?
+  amount             Float
+  reason             String
+  status             String    @default("REQUESTED") // REQUESTED, APPROVED, REJECTED, PROCESSED
+  processedBy        String?   // Admin username/id
+  requestedAt        DateTime  @default(now())
+  processedAt        DateTime?
+  notes              String?
+
+  booking            Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  payment            Payment?  @relation(fields: [paymentId], references: [id])
+}
+
+model Invoice {
+  id                 String   @id @default(cuid())
+  invoiceNumber      String   @unique // e.g. "INV-2026-0001"
+  bookingId          String
+  customerId         String
+  hostelId           String
+  issueDate          DateTime @default(now())
+  dueDate            DateTime
+  baseAmount         Float
+  taxAmount          Float
+  serviceFee         Float    @default(0.0)
+  securityDeposit    Float    @default(0.0)
+  discountAmount     Float    @default(0.0)
+  totalAmount        Float
+  paidAmount         Float
+  balanceDue         Float    @default(0.0)
+  status             String   @default("PAID") // PAID, PARTIAL, DUE, CANCELLED
+  createdAt          DateTime @default(now())
+
+  booking            Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  hostel             Hostel   @relation(fields: [hostelId], references: [id])
+}
+
+model Coupon {
+  id                 String    @id @default(cuid())
+  code               String    @unique
+  description        String
+  discountType       String    @default("PERCENTAGE") // PERCENTAGE, FIXED
+  discountValue      Float
+  minBookingAmount   Float     @default(0.0)
+  maxDiscountAmount  Float?
+  startDate          DateTime  @default(now())
+  expiryDate         DateTime
+  usageLimit         Int       @default(100)
+  usedCount          Int       @default(0)
+  applicableHostelId String?
+  active             Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+}
+
+model AdditionalCharge {
+  id          String   @id @default(cuid())
+  bookingId   String
+  category    String   // LAUNDRY, FOOD, LOST_KEY, DAMAGE, LATE_CHECKOUT, OTHER
+  description String
+  amount      Float
+  status      String   @default("PENDING") // PENDING, PAID
+  addedBy     String
+  createdAt   DateTime @default(now())
+
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+model SupportTicket {
+  id          String   @id @default(cuid())
+  ticketNumber String  @unique // e.g. "TKT-8291"
+  customerId  String
+  hostelId    String
+  category    String   // ROOM, BED, MAINTENANCE, CLEANING, PAYMENT, STAFF, NOISE, WIFI, OTHER
+  priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  status      String   @default("OPEN") // OPEN, IN_PROGRESS, WAITING_FOR_CUSTOMER, RESOLVED, CLOSED
+  subject     String
+  description String
+  staffReply  String?
+  assignedTo  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  customer    User     @relation(fields: [customerId], references: [id])
+  hostel      Hostel   @relation(fields: [hostelId], references: [id])
+}
+
+model HousekeepingTask {
+  id            String    @id @default(cuid())
+  hostelId      String
+  roomId        String
+  bedId         String?
+  taskType      String    @default("CLEANING") // CLEANING, INSPECTION, LINEN_CHANGE, DEEP_CLEAN
+  status        String    @default("DIRTY")    // DIRTY, CLEANING, CLEAN, INSPECTED, MAINTENANCE
+  assignedTo    String?
+  scheduledDate DateTime  @default(now())
+  completedAt   DateTime?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  hostel        Hostel    @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  room          Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  bed           Bed?      @relation(fields: [bedId], references: [id], onDelete: Cascade)
+  assignee      User?     @relation("AssignedHousekeeping", fields: [assignedTo], references: [id])
+}
+
+model BookingExtension {
+  id                 String   @id @default(cuid())
+  bookingId          String
+  originalCheckOut   DateTime
+  newCheckOut        DateTime
+  additionalAmount   Float
+  status             String   @default("REQUESTED") // REQUESTED, CONFIRMED, CANCELLED
+  createdAt          DateTime @default(now())
+
+  booking            Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+model Review {
+  id                 String   @id @default(cuid())
+  hostelId           String
+  bookingId          String   @unique
+  customerId         String
+  overallRating      Float
+  cleanlinessRating  Float
+  locationRating     Float
+  staffRating        Float
+  facilitiesRating   Float
+  valueRating        Float
+  title              String
+  comment            String
+  status             String   @default("APPROVED") // PENDING, APPROVED, HIDDEN
+  staffResponse      String?
+  createdAt          DateTime @default(now())
+
+  hostel             Hostel   @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  booking            Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  customer           User     @relation(fields: [customerId], references: [id])
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  userId        String?
+  userName      String   @default("System")
+  action        String   // e.g. "CHANGE_BED", "CHECK_IN", "PROCESS_REFUND"
+  entity        String   // "Booking", "Bed", "Payment", etc.
+  entityId      String
+  previousValue String?  // JSON string
+  newValue      String?  // JSON string
+  ipAddress     String?
+  createdAt     DateTime @default(now())
+
+  user          User?    @relation(fields: [userId], references: [id])
+}
+
+model WebsiteContent {
+  id          String   @id @default(cuid())
+  sectionKey  String   @unique // e.g. "hero", "why_us", "faqs", "contact_info"
+  contentJson String   // JSON string
+  updatedAt   DateTime @updatedAt
+}
