@@ -1,4 +1,4 @@
-# Implementation Plan: GenZ Living Space Hostel Booking & Operating Platform
+  # Implementation Plan: GenZ Living Space Hostel Booking & Operating Platform
 
 Build a complete, production-ready hostel booking and hostel management web application from scratch for the proprietary brand **GenZ Living Space**, managing its two exclusive Madhapur properties in Hyderabad.
 
@@ -7,7 +7,7 @@ Build a complete, production-ready hostel booking and hostel management web appl
 ## User Review Required
 
 > [!IMPORTANT]
-> **Database Selection:** We will implement the database using **Prisma ORM with SQLite** for instantaneous, zero-configuration local execution (`prisma/dev.db`). The schema and queries are 100% PostgreSQL-compatible, so switching to a production PostgreSQL database simply requires updating the `DATABASE_URL` in `.env`.
+> **Database Selection:** We will implement the database using **Prisma ORM with SQLite** for instantaneous, zero-configuration local execution (`prisma/dev.db`). The schema and queries are 100% PostgreSQL-compatible, so switching to a production PostgreSQL database simply requires updating the `DATABASE_URL` in `.env`
 
 > [!IMPORTANT]
 > **Payments Architecture:** A real Razorpay integration architecture is implemented with environment variable configuration (`PAYMENT_KEY_ID`, `PAYMENT_KEY_SECRET`, `PAYMENT_WEBHOOK_SECRET`). For local demo and immediate evaluation, an interactive **Razorpay Simulator / Sandbox Checkout** will be active when test keys are present, validating signatures and triggering webhooks server-side.

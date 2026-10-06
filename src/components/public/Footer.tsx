@@ -23,10 +23,10 @@ export const Footer: React.FC = () => {
             </div>
           </div>
 
-          {/* The 2 Properties */}
+          {/* Properties */}
           <div>
             <h4 className="text-sm font-semibold uppercase tracking-wider text-white mb-4">
-              Our 2 Properties
+              Our Hostels
             </h4>
             <ul className="space-y-2.5 text-sm">
               <li>

@@ -105,7 +105,7 @@ export default async function HomePage() {
             <div className="flex justify-center mb-6">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-panel border border-indigo-500/30 text-xs font-semibold text-indigo-300 shadow-glow">
                 <Flame className="w-3.5 h-3.5 text-pink-400" />
-                <span>Exclusively 2 Boutique Properties in Madhapur - HYD</span>
+                <span>Most Luxury and Comfortable Colive PG in Hyderabad</span>
               </div>
             </div>
 
@@ -127,10 +127,6 @@ export default async function HomePage() {
 
             {/* Quick Metrics Bar */}
             <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
-              <div className="glass-panel p-4 rounded-2xl text-center border border-slate-800/80 bg-[#111827]/60">
-                <span className="block text-2xl sm:text-3xl font-black text-white">2</span>
-                <span className="text-xs text-slate-400 font-medium">Boutique Properties</span>
-              </div>
               <div className="glass-panel p-4 rounded-2xl text-center border border-slate-800/80 bg-[#111827]/60">
                 <span className="block text-2xl sm:text-3xl font-black text-cyan-400">1 Gbps</span>
                 <span className="text-xs text-slate-400 font-medium">Fiber Optic Wi-Fi</span>
@@ -221,7 +217,7 @@ export default async function HomePage() {
                 <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
                   <Link href="/hostels">
                     <Button variant="glow" size="lg" rightIcon={<ArrowRight className="w-4 h-4" />}>
-                      Explore The 2 Properties
+                      Explore Our Hostels
                     </Button>
                   </Link>
                   <Link href="/auth/register">

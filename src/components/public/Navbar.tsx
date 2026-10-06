@@ -19,7 +19,6 @@ export const Navbar: React.FC<NavbarProps> = ({ user }) => {
   const pathname = usePathname();
 
   const navLinks = [
-    { label: "The 2 Properties", href: "/hostels" },
     { label: "Why GenZ", href: "/#why-us" },
     { label: "Amenities", href: "/#amenities" },
     { label: "Community", href: "/#community" },

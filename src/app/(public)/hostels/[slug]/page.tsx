@@ -121,7 +121,7 @@ export default async function HostelDetailPage({
             </Link>
             <span>/</span>
             <Link href="/hostels" className="hover:text-white">
-              The 2 Properties
+              Hostels
             </Link>
             <span>/</span>
             <span className="text-indigo-400 font-semibold">{hostel.name}</span>
