@@ -278,34 +278,6 @@ async function main() {
         "Visitors permitted in common cafe until 9 PM"
       ]),
     },
-    {
-      slug: "madhapur-02-hyd",
-      name: "Madhapur - 02",
-      tagline: "Cafe Culture & Community Living",
-      city: "Madhapur - HYD",
-      state: "Telangana",
-      address: "Kavuri Hills, Madhapur",
-      postalCode: "500033",
-      latitude: 17.4369,
-      longitude: 78.3986,
-      rating: 4.8,
-      description: "Set in the heart of Madhapur's cafe and startup district, Madhapur - 02 offers a vibrant social sanctuary with an open-air cafe, designer dorm suites, and acoustic weekend sessions.",
-      coverImage: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&auto=format&fit=crop&q=80",
-      images: JSON.stringify([
-        "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=800&auto=format&fit=crop&q=80"
-      ]),
-      contactPhone: "+91 98765 11002",
-      contactEmail: "madhapur02@genzlivingspace.com",
-      checkInTime: "13:00",
-      checkOutTime: "11:00",
-      rules: JSON.stringify([
-        "Keycard required for elevator & room entry",
-        "Free coffee bar open 7 AM to 11 AM daily",
-        "Pets allowed in select ground floor private studios"
-      ]),
-    },
   ];
 
   const createdHostels = [];

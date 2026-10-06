@@ -41,25 +41,14 @@ export default async function HomePage() {
     hostels = [
       {
         slug: "madhapur-01-hyd",
-        name: "Madhapur - 01",
-        tagline: "The Startup & Tech Creator Pad",
+        name: "GenZ Colive & PG Guest Rooms",
+        tagline: "Premium Coliving & Guest Rooms",
         city: "Madhapur - HYD",
         address: "Hitech City Road, Madhapur",
         rating: 4.9,
         coverImage: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=1200&auto=format&fit=crop&q=80",
-        startingPrice: 899,
-        availableBeds: 18,
-      },
-      {
-        slug: "madhapur-02-hyd",
-        name: "Madhapur - 02",
-        tagline: "Cafe Culture & Nightlife Haven",
-        city: "Madhapur - HYD",
-        address: "Kavuri Hills, Madhapur",
-        rating: 4.8,
-        coverImage: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&auto=format&fit=crop&q=80",
-        startingPrice: 799,
-        availableBeds: 14,
+        startingPrice: 599,
+        availableBeds: 50,
       },
     ];
   } else {
@@ -116,7 +105,7 @@ export default async function HomePage() {
                 <span className="gradient-text-primary">Live Your Way.</span>
               </h1>
               <p className="text-base sm:text-xl text-slate-300 max-w-2xl mx-auto font-normal leading-relaxed">
-                India's premier coliving habitat for creators, coders, and nomads. Gigabit Wi-Fi, creator pods, and vibrant community across our 2 hand-built properties.
+                India's premier coliving habitat for creators, coders, and nomads. Gigabit Wi-Fi, creator pods, and vibrant community living in Hyderabad.
               </p>
             </div>
 
@@ -126,7 +115,7 @@ export default async function HomePage() {
             </div>
 
             {/* Quick Metrics Bar */}
-            <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
+            <div className="mt-16 grid grid-cols-3 gap-4 max-w-4xl mx-auto justify-center">
               <div className="glass-panel p-4 rounded-2xl text-center border border-slate-800/80 bg-[#111827]/60">
                 <span className="block text-2xl sm:text-3xl font-black text-cyan-400">1 Gbps</span>
                 <span className="text-xs text-slate-400 font-medium">Fiber Optic Wi-Fi</span>
@@ -143,19 +132,19 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {/* THE 2 PROPERTIES SECTION */}
+        {/* PROPERTY SECTION */}
         <section id="hostels" className="py-24 bg-[#07090E] border-t border-slate-800/80">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6">
               <div className="space-y-3">
                 <span className="text-xs uppercase font-extrabold tracking-widest text-indigo-400 bg-indigo-950/60 border border-indigo-500/30 px-3.5 py-1.5 rounded-full">
-                  Our Exclusive Network
+                  Our Premium Property
                 </span>
                 <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight">
-                  The 4 <span className="gradient-text-primary">GenZ Hostels</span>
+                  GenZ <span className="gradient-text-primary">Colive & PG</span>
                 </h2>
                 <p className="text-slate-400 text-sm sm:text-base max-w-xl">
-                  Each space has its own distinct personality tailored for startups, party lovers, developers, or coastal nomads.
+                  Premium coliving experience with gigabit fiber, creator pods, and vibrant community living.
                 </p>
               </div>
 
@@ -166,8 +155,8 @@ export default async function HomePage() {
               </Link>
             </div>
 
-            {/* Grid of the 2 Properties */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Grid of the Property */}
+            <div className="grid grid-cols-1 gap-6">
               {hostels.map((h) => (
                 <PropertyCard
                   key={h.slug}

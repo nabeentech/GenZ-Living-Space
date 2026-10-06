@@ -12,15 +12,7 @@ export const Testimonials: React.FC = () => {
         "Moved here for 2 months to launch our YC application. The rooftop Wi-Fi is insane (850+ Mbps), met 3 other founders in the cafe, and the quiet hours are strictly honored. 10/10 living space.",
       rating: 5,
     },
-    {
-      name: "Sneha Kulkarni",
-      role: "Product Designer",
-      hostel: "Madhapur - 02",
-      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80",
-      content:
-        "The Female Sanctuary dorms are impeccably clean, private, and secure. Loved the vanity setup and the rooftop coffee morning sessions. It's so rare to find a hostel that feels this premium and safe.",
-      rating: 5,
-    },
+
     {
       name: "Rishi Menon",
       role: "Full-Stack Nomad",

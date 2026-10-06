@@ -6,14 +6,12 @@ import { Calendar, MapPin, Users, Search, ArrowRight } from "lucide-react";
 import Button from "../ui/Button";
 
 const HOSTELS = [
-  { id: "all", name: "All 2 Properties (Madhapur - HYD)" },
-  { id: "madhapur-01-hyd", name: "Madhapur - 01" },
-  { id: "madhapur-02-hyd", name: "Madhapur - 02" },
+  { id: "madhapur-01-hyd", name: "GenZ Colive & PG Guest Rooms" },
 ];
 
 export const HeroSearch: React.FC = () => {
   const router = useRouter();
-  const [selectedHostel, setSelectedHostel] = useState("all");
+  const [selectedHostel, setSelectedHostel] = useState("madhapur-01-hyd");
 
   const todayStr = new Date().toISOString().split("T")[0];
   const tomorrow = new Date();
@@ -26,13 +24,9 @@ export const HeroSearch: React.FC = () => {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedHostel !== "all") {
-      router.push(
-        `/hostels/${selectedHostel}?checkIn=${checkIn}&checkOut=${checkOut}&guests=${guests}`
-      );
-    } else {
-      router.push(`/hostels?checkIn=${checkIn}&checkOut=${checkOut}&guests=${guests}`);
-    }
+    router.push(
+      `/hostels/${selectedHostel}?checkIn=${checkIn}&checkOut=${checkOut}&guests=${guests}`
+    );
   };
 
   return (

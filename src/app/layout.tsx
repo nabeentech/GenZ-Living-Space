@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "GenZ Living Space | Find Your Space. Live Your Way.",
   description:
-    "Next-generation hostel coliving for creators, coders, and nomads. 2 exclusive boutique properties in Madhapur - HYD featuring gigabit fiber, creator pods, and vibrant community.",
+    "Premium coliving and guest rooms in Hyderabad. GenZ Colive & PG Guest Rooms offers gigabit fiber, creator pods, and vibrant community for coders, creators, and nomads.",
   keywords: [
     "hostel in madhapur",
     "madhapur coliving",

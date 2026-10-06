@@ -1,14 +1,12 @@
 # GenZ Living Space — Hostel Booking & Operating System (PMS)
 
-A complete, production-grade proprietary hostel operating system and customer booking web platform built exclusively for **GenZ Living Space** managing its 2 boutique properties in Madhapur, Hyderabad.
+A complete, production-grade proprietary hostel operating system and customer booking web platform built exclusively for **GenZ Colive & PG Guest Rooms** in Madhapur, Hyderabad.
 
 ---
 
 ## 1. Project Overview
 
-GenZ Living Space is **NOT an aggregator or marketplace** like Airbnb or Booking.com. It is a purpose-built, dedicated hospitality operating system for GenZ Living Space's 2 proprietary properties:
-1. **Madhapur - 01** — Tech startup pads & rooftop creator terrace
-2. **Madhapur - 02** — Artisanal cafe culture & social community living
+GenZ Colive & PG Guest Rooms is **NOT an aggregator or marketplace** like Airbnb or Booking.com. It is a purpose-built, dedicated hospitality operating system for premium coliving and guest room management featuring tech-enabled amenities, creator pods, and vibrant community living
 
 ### Key System Capabilities
 * **End-to-End Booking Engine**: Real-time bed availability matrix, 15-minute temporary reservation hold lock, double-booking prevention via atomic transactional queries, and automated GST/discount price breakdown.
