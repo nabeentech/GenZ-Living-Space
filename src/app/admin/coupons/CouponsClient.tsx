@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
-import { Tag, Plus, CheckCircle2, Calendar, Percent } from "lucide-react";
+import { Tag, Plus, CheckCircle2, Calendar, Percent, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
 
 interface CouponsClientProps {
   initialCoupons: any[];
@@ -15,6 +15,7 @@ export const CouponsClient: React.FC<CouponsClientProps> = ({
 }) => {
   const [coupons, setCoupons] = useState(initialCoupons);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [actioningCouponId, setActioningCouponId] = useState<string | null>(null);
 
   const [code, setCode] = useState("");
   const [description, setDescription] = useState("");
@@ -59,6 +60,54 @@ export const CouponsClient: React.FC<CouponsClientProps> = ({
       alert(err.message || "Coupon creation error");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleToggleCoupon = async (couponId: string, currentActive: boolean) => {
+    setActioningCouponId(couponId);
+    try {
+      const res = await fetch(`/api/admin/coupons/${couponId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active: !currentActive }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to toggle coupon");
+      }
+
+      setCoupons((prev) =>
+        prev.map((c) =>
+          c.id === couponId ? { ...c, active: !currentActive } : c
+        )
+      );
+    } catch (err: any) {
+      alert(err.message || "Error toggling coupon");
+    } finally {
+      setActioningCouponId(null);
+    }
+  };
+
+  const handleDeleteCoupon = async (couponId: string) => {
+    if (!confirm("Delete this coupon? This action cannot be undone.")) return;
+
+    setActioningCouponId(couponId);
+    try {
+      const res = await fetch(`/api/admin/coupons/${couponId}`, {
+        method: "DELETE",
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to delete coupon");
+      }
+
+      setCoupons((prev) => prev.filter((c) => c.id !== couponId));
+    } catch (err: any) {
+      alert(err.message || "Error deleting coupon");
+    } finally {
+      setActioningCouponId(null);
     }
   };
 
@@ -126,6 +175,34 @@ export const CouponsClient: React.FC<CouponsClientProps> = ({
                   {new Date(c.expiryDate).toLocaleDateString()}
                 </span>
               </div>
+            </div>
+
+            <div className="flex gap-2 pt-3 border-t border-slate-800">
+              <button
+                onClick={() => handleToggleCoupon(c.id, c.active)}
+                disabled={actioningCouponId === c.id}
+                className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition ${
+                  c.active
+                    ? "bg-amber-500/20 text-amber-300 hover:bg-amber-500/30"
+                    : "bg-slate-700 text-slate-300 hover:bg-slate-600"
+                } disabled:opacity-50`}
+              >
+                {c.active ? (
+                  <ToggleRight className="w-3.5 h-3.5" />
+                ) : (
+                  <ToggleLeft className="w-3.5 h-3.5" />
+                )}
+                {actioningCouponId === c.id ? "..." : c.active ? "Active" : "Inactive"}
+              </button>
+
+              <button
+                onClick={() => handleDeleteCoupon(c.id)}
+                disabled={actioningCouponId === c.id || c.usedCount > 0}
+                className="px-3 py-2 rounded-lg text-xs font-semibold bg-red-500/20 text-red-300 hover:bg-red-500/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition"
+                title={c.usedCount > 0 ? "Cannot delete used coupons. Deactivate instead." : "Delete coupon"}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
         ))}

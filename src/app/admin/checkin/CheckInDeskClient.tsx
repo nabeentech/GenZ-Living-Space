@@ -63,11 +63,11 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
     setGovernmentId(activeCheckInBooking?.guestGovtId || "");
   }, [activeCheckInBooking]);
 
-  const lookupBooking = (rawValue: string) => {
+  const lookupBooking = async (rawValue: string) => {
     let query = rawValue.trim();
     if (!query) return;
 
-    // Booking QR codes contain a JSON payload; USB scanners may paste it directly.
+  // Booking QR codes contain a JSON payload; USB scanners may paste it directly.
     try {
       const payload = JSON.parse(query);
       query = String(payload.ref || payload.id || query);
@@ -78,7 +78,7 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
     query = query.toUpperCase();
     if (!query) return;
 
-    // Check in expected or residents
+    // Check in expected or residents first
     const found =
       expectedCheckIns.find((b) => b.bookingReference.toUpperCase() === query) ||
       currentResidents.find((b) => b.bookingReference.toUpperCase() === query);
@@ -91,14 +91,31 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
         setActiveCheckOutBooking(found);
       }
     } else {
-      alert(`No active booking found for reference ${query}`);
+      // Fallback to server-side lookup if not found locally
+      try {
+        const res = await fetch(`/api/admin/bookings/lookup?q=${encodeURIComponent(query)}`);
+        const json = await res.json();
+
+        if (json.success && json.data) {
+          setLookupResult(json.data);
+          if (json.data.bookingStatus === "CONFIRMED") {
+            setActiveCheckInBooking(json.data);
+          } else if (json.data.bookingStatus === "CHECKED_IN") {
+            setActiveCheckOutBooking(json.data);
+          }
+        } else {
+          alert(json.message || `No active booking found for reference ${query}`);
+        }
+      } catch (err) {
+        alert(`No active booking found for reference ${query}`);
+      }
     }
   };
 
   // Manual or QR lookup
-  const handleLookup = (e: React.FormEvent) => {
+  const handleLookup = async (e: React.FormEvent) => {
     e.preventDefault();
-    lookupBooking(searchRef);
+    await lookupBooking(searchRef);
   };
 
   const stopScanner = () => {

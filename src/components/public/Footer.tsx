@@ -54,7 +54,7 @@ export const Footer: React.FC = () => {
                 </Link>
               </li>
               <li>
-                <Link href="/dashboard/support" className="hover:text-indigo-400 transition">
+                <Link href="/dashboard" className="hover:text-indigo-400 transition">
                   Resident Support Desk
                 </Link>
               </li>

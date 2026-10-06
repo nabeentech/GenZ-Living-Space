@@ -69,24 +69,14 @@ export async function POST(
     const additionalAmount = Math.max(0, pricing.totalAmount - booking.totalAmount);
 
     const updatedBooking = await prisma.$transaction(async (tx) => {
-      const updated = await tx.booking.update({
+      // DO NOT update checkOutDate yet - only update when payment is verified
+      // Keep the booking in its current state until extension payment is captured
+      const extended = await tx.booking.findUnique({
         where: { id: booking.id },
-        data: {
-          checkOutDate: requestedCheckOut,
-          stayType: pricing.stayType,
-          baseAmount: pricing.baseAmount,
-          taxAmount: pricing.taxAmount,
-          serviceFee: pricing.serviceFee,
-          securityDeposit: pricing.securityDeposit,
-          discountAmount: pricing.discountAmount,
-          totalAmount: pricing.totalAmount,
-          paidAmount: booking.paidAmount,
-          balanceAmount: additionalAmount,
-        },
         include: { hostel: true, room: true, bed: true },
       });
 
-      // Create extension record
+      // Create extension request record with the requested dates and amount
       await tx.bookingExtension.create({
         data: {
           bookingId: booking.id,
@@ -97,6 +87,7 @@ export async function POST(
         },
       });
 
+      // Only create payment if there's an additional amount
       if (additionalAmount > 0) {
         await tx.payment.create({
           data: {
@@ -108,16 +99,27 @@ export async function POST(
             gatewayPaymentId: `pay_extension_${Date.now()}`,
             status: "PENDING",
             paymentMethod: "razorpay",
-            metadata: JSON.stringify({ type: "BOOKING_EXTENSION", previousCheckOut: currentCheckOut.toISOString() }),
+            metadata: JSON.stringify({ type: "BOOKING_EXTENSION", previousCheckOut: currentCheckOut.toISOString(), requestedCheckOut: requestedCheckOut.toISOString() }),
+          },
+        });
+      } else {
+        // No additional charge - auto-approve the extension
+        await tx.booking.update({
+          where: { id: booking.id },
+          data: {
+            checkOutDate: requestedCheckOut,
+            stayType: pricing.stayType,
+            baseAmount: pricing.baseAmount,
+            taxAmount: pricing.taxAmount,
+            serviceFee: pricing.serviceFee,
+            securityDeposit: pricing.securityDeposit,
+            discountAmount: pricing.discountAmount,
+            totalAmount: pricing.totalAmount,
           },
         });
       }
 
-      await tx.invoice.updateMany({
-        where: { bookingId: booking.id },
-        data: {
-          totalAmount: pricing.totalAmount,
-          paidAmount: booking.paidAmount,
+      return extended;
           balanceDue: additionalAmount,
           baseAmount: pricing.baseAmount,
           taxAmount: pricing.taxAmount,

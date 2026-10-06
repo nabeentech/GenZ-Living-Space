@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import prisma from "@/lib/prisma";
 import { verifyPaymentSignature } from "@/lib/razorpay";
 import { generateBookingQRCode } from "@/lib/qr";
 import { generateUniqueInvoiceNumber } from "@/lib/invoice";
 import { logAuditAction } from "@/lib/audit";
+import { signToken, COOKIE_NAME } from "@/lib/auth";
 
 export async function POST(req: Request) {
   try {
@@ -50,7 +52,11 @@ export async function POST(req: Request) {
 
     // Handle balance payment for confirmed bookings (e.g., from booking extensions)
     if (booking.bookingStatus === "CONFIRMED" && booking.balanceAmount > 0) {
-      // This is a balance payment (e.g., from extension)
+      // Check if this is an extension payment
+      const extension = await prisma.bookingExtension.findFirst({
+        where: { bookingId: booking.id, status: "REQUESTED" },
+      });
+
       const updatedBooking = await prisma.$transaction(async (tx) => {
         // 1. Create Payment record
         const payment = await tx.payment.create({
@@ -68,14 +74,25 @@ export async function POST(req: Request) {
           },
         });
 
-        // 2. Update Booking - add balance to paid amount
+        let updateData: any = {
+          paidAmount: booking.paidAmount + booking.balanceAmount,
+          balanceAmount: 0,
+          paymentStatus: "PAID",
+        };
+
+        // If this is an extension payment, update the checkout date and pricing
+        if (extension) {
+          updateData = {
+            ...updateData,
+            checkOutDate: extension.newCheckOut,
+            // Re-fetch the pricing to get updated values (would need to recalculate or store them)
+          };
+        }
+
+        // 2. Update Booking
         const updatedBook = await tx.booking.update({
           where: { id: booking.id },
-          data: {
-            paidAmount: booking.paidAmount + booking.balanceAmount,
-            balanceAmount: 0,
-            paymentStatus: "PAID",
-          },
+          data: updateData,
           include: {
             hostel: true,
             room: { include: { roomType: true } },
@@ -99,6 +116,14 @@ export async function POST(req: Request) {
           });
         }
 
+        // 4. If extension, mark it as confirmed
+        if (extension) {
+          await tx.bookingExtension.update({
+            where: { id: extension.id },
+            data: { status: "CONFIRMED" },
+          });
+        }
+
         return updatedBook;
       });
 
@@ -106,7 +131,7 @@ export async function POST(req: Request) {
       await logAuditAction({
         userId: booking.customerId,
         userName: booking.guestName,
-        action: "BALANCE_PAYMENT_CAPTURED",
+        action: extension ? "EXTENSION_PAYMENT_CAPTURED" : "BALANCE_PAYMENT_CAPTURED",
         entity: "Booking",
         entityId: booking.id,
         newValue: {
@@ -118,7 +143,7 @@ export async function POST(req: Request) {
 
       return NextResponse.json({
         success: true,
-        message: "Balance payment captured successfully!",
+        message: extension ? "Extension confirmed!" : "Balance payment captured successfully!",
         data: {
           booking: updatedBooking,
         },
@@ -227,6 +252,30 @@ export async function POST(req: Request) {
         gatewayPaymentId: razorpayPaymentId,
       },
     });
+
+    // Set auth cookie for guest user so they can access dashboard and download invoice
+    const user = await prisma.user.findUnique({
+      where: { id: booking.customerId },
+    });
+
+    if (user) {
+      const token = signToken({
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        name: user.name,
+      });
+
+      cookies().set({
+        name: COOKIE_NAME,
+        value: token,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 7 * 24 * 60 * 60, // 7 days
+        path: "/",
+      });
+    }
 
     return NextResponse.json({
       success: true,

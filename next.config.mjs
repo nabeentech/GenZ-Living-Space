@@ -12,6 +12,8 @@ const nextConfig = {
       }
     ],
   },
+  // Prevent webpack bundling pdfkit since it relies on file system assets
+  serverExternalPackages: ["pdfkit"],
 };
 
 export default nextConfig;

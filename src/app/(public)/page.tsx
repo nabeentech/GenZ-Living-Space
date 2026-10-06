@@ -18,6 +18,26 @@ export const dynamic = "force-dynamic";
 export default async function HomePage() {
   const user = await getSessionUser();
 
+  // Fetch CMS content for homepage
+  const cmsContent = await prisma.websiteContent.findUnique({
+    where: { sectionKey: "hero" },
+  });
+
+  let heroData = {
+    badge: "Most Luxury and Comfortable Colive PG in Hyderabad",
+    headline: "Find Your Space. Live Your Way.",
+    subheadline: "Premium coliving, ultra-fast fiber, creative workspaces, and vibrant community living.",
+  };
+
+  if (cmsContent?.contentJson) {
+    try {
+      const parsed = JSON.parse(cmsContent.contentJson);
+      heroData = { ...heroData, ...parsed };
+    } catch {
+      // Use defaults if JSON parse fails
+    }
+  }
+
   // Fetch all active properties from database
   let hostels: any[] = [];
   try {
@@ -94,18 +114,17 @@ export default async function HomePage() {
             <div className="flex justify-center mb-6">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-panel border border-indigo-500/30 text-xs font-semibold text-indigo-300 shadow-glow">
                 <Flame className="w-3.5 h-3.5 text-pink-400" />
-                <span>Most Luxury and Comfortable Colive PG in Hyderabad</span>
+                <span>{heroData.badge}</span>
               </div>
             </div>
 
             {/* Main Headline */}
             <div className="text-center max-w-4xl mx-auto space-y-6">
               <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-[1.08] text-white">
-                Find Your Space. <br />
-                <span className="gradient-text-primary">Live Your Way.</span>
+                {heroData.headline}
               </h1>
               <p className="text-base sm:text-xl text-slate-300 max-w-2xl mx-auto font-normal leading-relaxed">
-                India's premier coliving habitat for creators, coders, and nomads. Gigabit Wi-Fi, creator pods, and vibrant community living in Hyderabad.
+                {heroData.subheadline}
               </p>
             </div>
 

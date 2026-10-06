@@ -79,23 +79,10 @@ export async function GET(req: Request) {
       },
     });
 
-    const longStayBookings = await prisma.booking.findMany({
-      where: {
-        hostelId,
-        OR: [
-          { bookingStatus: { in: ["CONFIRMED", "CHECKED_IN"] } },
-          { bookingStatus: "PAYMENT_PENDING", holdExpiresAt: { gt: now } },
-        ],
-      },
-      select: { bedId: true, checkInDate: true, checkOutDate: true },
-    });
-
+    // Mark unavailable only beds with date-overlapping bookings
+    // (conflictingBookings already filters by date, so long-stay beds are only marked
+    // unavailable if they actually overlap with the requested check-in/check-out dates)
     const unavailableBedIds = new Set(conflictingBookings.map((b) => b.bedId));
-    longStayBookings.forEach((booking) => {
-      if (isLongStay(booking.checkInDate, booking.checkOutDate)) {
-        unavailableBedIds.add(booking.bedId);
-      }
-    });
 
     // 3. Assemble availability matrix
     const availableRooms = rooms.map((room) => {

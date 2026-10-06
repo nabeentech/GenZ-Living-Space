@@ -77,6 +77,20 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
   const [ticketDesc, setTicketDesc] = useState("");
   const [isSubmittingTicket, setIsSubmittingTicket] = useState(false);
 
+  // Profile Editing
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [profileData, setProfileData] = useState({
+    name: user.name || "",
+    phone: user.phone || "",
+    gender: user.gender || "",
+    govtIdType: user.govtIdType || "",
+    govtIdNumber: user.govtIdNumber || "",
+    address: user.address || "",
+    emergencyContact: user.emergencyContact || "",
+  });
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [profileMsg, setProfileMsg] = useState("");
+
   // Find most recent active/upcoming confirmed booking
   const activeBooking = bookings.find(
     (b) => b.bookingStatus === "CONFIRMED" || b.bookingStatus === "CHECKED_IN"
@@ -86,6 +100,40 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
     await fetch("/api/auth/logout", { method: "POST" });
     router.replace("/auth/login");
     router.refresh();
+  };
+
+  const handleUpdateProfile = async () => {
+    if (!profileData.name || !profileData.phone) {
+      setProfileMsg("Name and phone are required");
+      return;
+    }
+
+    setIsUpdatingProfile(true);
+    setProfileMsg("");
+
+    try {
+      const res = await fetch("/api/auth/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(profileData),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Profile update failed");
+      }
+
+      setProfileMsg("Profile updated successfully");
+      setIsEditingProfile(false);
+      setTimeout(() => {
+        setProfileMsg("");
+        router.refresh();
+      }, 2000);
+    } catch (err: any) {
+      setProfileMsg(err.message || "Error updating profile");
+    } finally {
+      setIsUpdatingProfile(false);
+    }
   };
 
   // Handle Cancellation Action
@@ -694,26 +742,66 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
       {/* TAB 3: PROFILE */}
       {activeTab === "profile" && (
         <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800 bg-[#111827]/80 space-y-6 max-w-2xl">
-          <h3 className="text-xl font-bold text-white">Resident Identity Profile</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-bold text-white">Resident Identity Profile</h3>
+            {!isEditingProfile && (
+              <button
+                onClick={() => setIsEditingProfile(true)}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold transition"
+              >
+                Edit Profile
+              </button>
+            )}
+          </div>
+
+          {profileMsg && (
+            <div className={`p-3 rounded-lg text-sm font-semibold ${
+              profileMsg.includes("successfully") 
+                ? "bg-green-500/20 text-green-300 border border-green-500/30" 
+                : "bg-red-500/20 text-red-300 border border-red-500/30"
+            }`}>
+              {profileMsg}
+            </div>
+          )}
+
           <div className="space-y-4 text-xs">
             <div>
               <label className="block font-bold text-slate-400 mb-1">Full Name</label>
               <input
                 type="text"
-                disabled
-                value={user.name}
-                className="w-full p-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 font-semibold"
+                disabled={!isEditingProfile}
+                value={profileData.name}
+                onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
+                className={`w-full p-3 rounded-xl border ${
+                  isEditingProfile
+                    ? "bg-slate-800 border-indigo-500/50 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    : "bg-slate-900 border-slate-800 text-slate-200"
+                } font-semibold`}
               />
             </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block font-bold text-slate-400 mb-1">Gender</label>
-                <input
-                  type="text"
-                  disabled
-                  value={user.gender ? user.gender.charAt(0) + user.gender.slice(1).toLowerCase() : "Not specified"}
-                  className="w-full p-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 font-semibold"
-                />
+                {isEditingProfile ? (
+                  <select
+                    value={profileData.gender}
+                    onChange={(e) => setProfileData({ ...profileData, gender: e.target.value })}
+                    className="w-full p-3 rounded-xl bg-slate-800 border border-indigo-500/50 text-white font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="MALE">Male</option>
+                    <option value="FEMALE">Female</option>
+                    <option value="OTHER">Other</option>
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    disabled
+                    value={profileData.gender ? profileData.gender.charAt(0) + profileData.gender.slice(1).toLowerCase() : "Not specified"}
+                    className="w-full p-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 font-semibold"
+                  />
+                )}
               </div>
               <div>
                 <label className="block font-bold text-slate-400 mb-1">Date of Birth</label>
@@ -725,6 +813,7 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
                 />
               </div>
             </div>
+
             <div>
               <label className="block font-bold text-slate-400 mb-1">Email</label>
               <input
@@ -734,34 +823,122 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
                 className="w-full p-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 font-semibold"
               />
             </div>
+
             <div>
               <label className="block font-bold text-slate-400 mb-1">Mobile</label>
               <input
                 type="tel"
-                disabled
-                value={user.phone || "+91 98765 43210"}
-                className="w-full p-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 font-semibold"
+                disabled={!isEditingProfile}
+                value={profileData.phone}
+                onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
+                className={`w-full p-3 rounded-xl border ${
+                  isEditingProfile
+                    ? "bg-slate-800 border-indigo-500/50 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    : "bg-slate-900 border-slate-800 text-slate-200"
+                } font-semibold`}
               />
             </div>
+
             <div>
-              <label className="block font-bold text-slate-400 mb-1">Government ID Type</label>
+              <label className="block font-bold text-slate-400 mb-1">Address</label>
+              <textarea
+                disabled={!isEditingProfile}
+                value={profileData.address}
+                onChange={(e) => setProfileData({ ...profileData, address: e.target.value })}
+                className={`w-full p-3 rounded-xl border min-h-20 resize-none ${
+                  isEditingProfile
+                    ? "bg-slate-800 border-indigo-500/50 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    : "bg-slate-900 border-slate-800 text-slate-200"
+                } font-semibold`}
+              />
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-400 mb-1">Emergency Contact</label>
               <input
                 type="text"
-                disabled
-                value={user.govtIdType || "Not specified"}
-                className="w-full p-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 font-semibold"
+                disabled={!isEditingProfile}
+                value={profileData.emergencyContact}
+                onChange={(e) => setProfileData({ ...profileData, emergencyContact: e.target.value })}
+                placeholder="Name and phone of emergency contact"
+                className={`w-full p-3 rounded-xl border ${
+                  isEditingProfile
+                    ? "bg-slate-800 border-indigo-500/50 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    : "bg-slate-900 border-slate-800 text-slate-200"
+                } font-semibold`}
               />
             </div>
+
+            <div>
+              <label className="block font-bold text-slate-400 mb-1">Government ID Type</label>
+              {isEditingProfile ? (
+                <select
+                  value={profileData.govtIdType}
+                  onChange={(e) => setProfileData({ ...profileData, govtIdType: e.target.value })}
+                  className="w-full p-3 rounded-xl bg-slate-800 border border-indigo-500/50 text-white font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">Select ID Type</option>
+                  <option value="AADHAAR">Aadhaar</option>
+                  <option value="PAN">PAN</option>
+                  <option value="PASSPORT">Passport</option>
+                  <option value="DRIVING_LICENSE">Driving License</option>
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  disabled
+                  value={profileData.govtIdType || "Not specified"}
+                  className="w-full p-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 font-semibold"
+                />
+              )}
+            </div>
+
             <div>
               <label className="block font-bold text-slate-400 mb-1">Government ID Number</label>
               <input
                 type="text"
-                disabled
-                value={user.govtIdNumber || "Verified at check-in (Aadhaar/Passport)"}
-                className="w-full p-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 font-semibold"
+                disabled={!isEditingProfile}
+                value={profileData.govtIdNumber}
+                onChange={(e) => setProfileData({ ...profileData, govtIdNumber: e.target.value })}
+                placeholder="Aadhaar, PAN, or Passport number"
+                className={`w-full p-3 rounded-xl border ${
+                  isEditingProfile
+                    ? "bg-slate-800 border-indigo-500/50 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    : "bg-slate-900 border-slate-800 text-slate-200"
+                } font-semibold`}
               />
             </div>
           </div>
+
+          {isEditingProfile && (
+            <div className="flex gap-3 pt-4">
+              <button
+                onClick={handleUpdateProfile}
+                disabled={isUpdatingProfile}
+                className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-slate-600 text-white rounded-lg font-semibold transition"
+              >
+                {isUpdatingProfile ? "Saving..." : "Save Changes"}
+              </button>
+              <button
+                onClick={() => {
+                  setIsEditingProfile(false);
+                  setProfileData({
+                    name: user.name || "",
+                    phone: user.phone || "",
+                    gender: user.gender || "",
+                    govtIdType: user.govtIdType || "",
+                    govtIdNumber: user.govtIdNumber || "",
+                    address: user.address || "",
+                    emergencyContact: user.emergencyContact || "",
+                  });
+                  setProfileMsg("");
+                }}
+                className="flex-1 px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
         </div>
       )}
 

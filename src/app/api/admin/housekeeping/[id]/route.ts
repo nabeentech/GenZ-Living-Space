@@ -40,12 +40,19 @@ export async function PATCH(
       },
     });
 
-    // If marked CLEAN or INSPECTED, and bed was attached, mark bed as AVAILABLE
+    // Only mark bed as AVAILABLE if it's currently in CLEANING status
+    // This prevents overwriting OCCUPIED or other statuses
     if (task.bedId && (status === "CLEAN" || status === "INSPECTED")) {
-      await prisma.bed.update({
+      const currentBed = await prisma.bed.findUnique({
         where: { id: task.bedId },
-        data: { status: "AVAILABLE" },
       });
+
+      if (currentBed?.status === "CLEANING") {
+        await prisma.bed.update({
+          where: { id: task.bedId },
+          data: { status: "AVAILABLE" },
+        });
+      }
     }
 
     return NextResponse.json({
