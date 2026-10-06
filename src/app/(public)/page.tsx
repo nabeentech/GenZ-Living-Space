@@ -95,7 +95,7 @@ export default async function HomePage() {
 
       <main className="flex-1">
         {/* HERO SECTION */}
-        <section className="relative pt-12 pb-24 lg:pt-20 lg:pb-32 overflow-hidden">
+        <section className="relative pt-6 pb-24 lg:pt-10 lg:pb-32 overflow-hidden">
           {/* Subtle Ambient Glow Gradients */}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-to-b from-indigo-600/15 via-purple-600/10 to-transparent blur-[120px] pointer-events-none" />
           <div className="absolute top-1/3 -left-48 w-96 h-96 bg-pink-500/10 blur-[120px] rounded-full pointer-events-none" />

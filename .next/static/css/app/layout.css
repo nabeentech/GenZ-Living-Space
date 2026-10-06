@@ -2949,6 +2949,10 @@ html.light ::-webkit-scrollbar-thumb {
     padding-top: 5rem;
   }
 
+  .lg\:pt-10 {
+    padding-top: 2.5rem;
+  }
+
   .lg\:text-5xl {
     font-size: 3rem;
     line-height: 1;
