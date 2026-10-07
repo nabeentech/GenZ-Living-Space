@@ -27,7 +27,7 @@ export async function GET(req: Request) {
     // Search by booking reference (primary method)
     let booking = await prisma.booking.findFirst({
       where: {
-        bookingReference: { mode: "insensitive", equals: searchQuery },
+        bookingReference: searchQuery,
       },
       include: {
         hostel: true,
@@ -37,14 +37,14 @@ export async function GET(req: Request) {
       },
     });
 
-    // If not found by reference, search by guest name or email
+    // If not found by reference, search by guest name, email, or phone
     if (!booking) {
       booking = await prisma.booking.findFirst({
         where: {
           OR: [
-            { guestEmail: { mode: "insensitive", contains: searchQuery } },
-            { guestName: { mode: "insensitive", contains: searchQuery } },
-            { guestPhone: { contains: searchQuery } },
+            { guestEmail: { contains: query.trim() } },
+            { guestName: { contains: query.trim() } },
+            { guestPhone: { contains: query.trim() } },
           ],
         },
         include: {

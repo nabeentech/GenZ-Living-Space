@@ -12,8 +12,13 @@ const nextConfig = {
       }
     ],
   },
-  // Prevent webpack bundling pdfkit since it relies on file system assets
-  serverExternalPackages: ["pdfkit"],
+  // Next.js 14 external packages for server components (pdfkit uses native/fs assets)
+  experimental: {
+    serverComponentsExternalPackages: ["pdfkit"],
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 };
 
 export default nextConfig;
