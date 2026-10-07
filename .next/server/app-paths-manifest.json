@@ -1,6 +1,1 @@
-{
-  "/(public)/page": "app/(public)/page.js",
-  "/(public)/auth/login/page": "app/(public)/auth/login/page.js",
-  "/(public)/dashboard/page": "app/(public)/dashboard/page.js",
-  "/api/auth/login/route": "app/api/auth/login/route.js"
-}
+{}

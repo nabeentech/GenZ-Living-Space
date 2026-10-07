@@ -120,17 +120,6 @@ export async function POST(
       }
 
       return extended;
-          balanceDue: additionalAmount,
-          baseAmount: pricing.baseAmount,
-          taxAmount: pricing.taxAmount,
-          serviceFee: pricing.serviceFee,
-          securityDeposit: pricing.securityDeposit,
-          discountAmount: pricing.discountAmount,
-          status: additionalAmount > 0 ? "PARTIAL" : "PAID",
-        },
-      });
-
-      return updated;
     });
 
     await logAuditAction({
