@@ -6,7 +6,18 @@ import { useRouter } from "next/navigation";
 import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
 import Button from "@/components/ui/Button";
-import { Sparkles, Lock, Mail, ArrowRight, ShieldAlert, Check } from "lucide-react";
+import { Sparkles, Lock, Mail, ArrowRight } from "lucide-react";
+
+// Maps a user's role to the landing page they should see right after login.
+// CUSTOMER falls through to the default "/dashboard" route.
+const ROLE_REDIRECTS: Record<string, string> = {
+  RECEPTIONIST: "/admin/receptionist",
+  PROPERTY_MANAGER: "/admin/manager",
+  SUPER_ADMIN: "/admin",
+  FINANCE: "/admin",
+  HOUSEKEEPING: "/admin",
+  SUPPORT_STAFF: "/admin",
+};
 
 export default function LoginPage() {
   const router = useRouter();
@@ -32,25 +43,13 @@ export default function LoginPage() {
         throw new Error(json.message || "Invalid credentials");
       }
 
-      if (json.data?.user?.role === "RECEPTIONIST") {
-        router.push("/admin/receptionist");
-      } else if (json.data?.user?.role === "PROPERTY_MANAGER") {
-        router.push("/admin/manager");
-      } else if (json.data?.user?.role !== "CUSTOMER") {
-        router.push("/admin");
-      } else {
-        router.push("/dashboard");
-      }
+      const role = json.data?.user?.role as string | undefined;
+      router.push((role && ROLE_REDIRECTS[role]) || "/dashboard");
     } catch (err: any) {
       setError(err.message || "Login failed");
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const fillDemo = (demoEmail: string, demoPass: string) => {
-    setEmail(demoEmail);
-    setPassword(demoPass);
   };
 
   return (
@@ -126,49 +125,8 @@ export default function LoginPage() {
               </Button>
             </form>
 
-            {/* Quick Demo Fill Buttons */}
-            <div className="pt-4 border-t border-slate-800 space-y-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block text-center">
-                1-Click Demo Accounts
-              </span>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <button
-                  type="button"
-                  onClick={() => fillDemo("admin@genzlivingspace.com", "Admin@123")}
-                  className="p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-indigo-500/30 text-indigo-300 font-medium text-left"
-                >
-                  <span className="font-bold block">Super Admin</span>
-                  <span className="text-[10px] text-slate-400">Full platform OS</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => fillDemo("reception@genzlivingspace.com", "Reception@123")}
-                  className="p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-purple-500/30 text-purple-300 font-medium text-left"
-                >
-                  <span className="font-bold block">Receptionist</span>
-                  <span className="text-[10px] text-slate-400">QR Check-in/out</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => fillDemo("manager@genzlivingspace.com", "Manager@123")}
-                  className="p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-pink-500/30 text-pink-300 font-medium text-left"
-                >
-                  <span className="font-bold block">Property Manager</span>
-                  <span className="text-[10px] text-slate-400">Hostel ops</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => fillDemo("sameer@gmail.com", "Customer@123")}
-                  className="p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-emerald-500/30 text-emerald-300 font-medium text-left"
-                >
-                  <span className="font-bold block">Resident</span>
-                  <span className="text-[10px] text-slate-400">Customer portal</span>
-                </button>
-              </div>
-            </div>
-
             <div className="text-center text-xs text-slate-400">
-              Don't have an account yet?{" "}
+              Don&apos;t have an account yet?{" "}
               <Link
                 href="/auth/register"
                 className="text-indigo-400 font-bold hover:underline"
