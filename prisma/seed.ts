@@ -161,6 +161,7 @@ async function main() {
       totalBeds: 2,
       genderCategory: "MIXED",
       securityDeposit: 4000,
+      basePrice: 1099,
       // Non-AC Pricing
       pricePerDayNonAC: 1099,
       price7DaysNonAC: 7090,
@@ -188,6 +189,7 @@ async function main() {
       totalBeds: 3,
       genderCategory: "MIXED",
       securityDeposit: 2500,
+      basePrice: 499,
       // Non-AC Pricing
       pricePerDayNonAC: 499,
       price7DaysNonAC: 3293,
@@ -215,6 +217,7 @@ async function main() {
       totalBeds: 1,
       genderCategory: "PRIVATE",
       securityDeposit: 5000,
+      basePrice: 1999,
       // Non-AC Pricing
       pricePerDayNonAC: 1999,
       price7DaysNonAC: 12993,
