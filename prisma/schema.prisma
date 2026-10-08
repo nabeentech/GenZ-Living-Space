@@ -118,6 +118,7 @@ model Room {
   capacity       Int      @default(4)
   genderCategory String   @default("MIXED")
   status         String   @default("ACTIVE") // ACTIVE, MAINTENANCE, BLOCKED
+  isAC           Boolean  @default(false) // AC or Non-AC room
   active         Boolean  @default(true)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt

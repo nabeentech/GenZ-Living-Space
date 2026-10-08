@@ -2,6 +2,36 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSessionUser, ROLES } from "@/lib/auth";
 
+export async function GET(req: NextRequest) {
+  try {
+    const sessionUser = await getSessionUser();
+
+    // Check authorization
+    if (!sessionUser || ![ROLES.SUPER_ADMIN, ROLES.PROPERTY_MANAGER, ROLES.RECEPTIONIST].includes(sessionUser.role as any)) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized access" },
+        { status: 403 }
+      );
+    }
+
+    // Fetch all rooms with their beds
+    const rooms = await prisma.room.findMany({
+      include: {
+        beds: true,
+      },
+      orderBy: [{ floor: "asc" }, { roomNumber: "asc" }],
+    });
+
+    return NextResponse.json(rooms);
+  } catch (error: any) {
+    console.error("Room fetch error:", error);
+    return NextResponse.json(
+      { success: false, message: error.message || "Failed to fetch rooms" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const sessionUser = await getSessionUser();

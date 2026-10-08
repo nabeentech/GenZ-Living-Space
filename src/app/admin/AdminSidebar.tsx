@@ -24,6 +24,7 @@ import {
   Layers,
   Users,
   Calendar,
+  Wind,
 } from "lucide-react";
 import Badge from "@/components/ui/Badge";
 
@@ -44,6 +45,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ user }) => {
     { label: "Reception Desk", href: "/admin/receptionist", icon: <QrCode className="w-4 h-4" />, roles: ["RECEPTIONIST", "SUPER_ADMIN"] },
     { label: "Manager Panel", href: "/admin/manager", icon: <LayoutDashboard className="w-4 h-4" />, roles: ["PROPERTY_MANAGER", "SUPER_ADMIN"] },
     { label: "Visual Bed Matrix", href: "/admin/beds", icon: <Grid className="w-4 h-4" />, roles: ["PROPERTY_MANAGER", "SUPER_ADMIN"] },
+    { label: "Room Management", href: "/admin/rooms", icon: <Wind className="w-4 h-4" />, roles: ["PROPERTY_MANAGER", "RECEPTIONIST", "SUPER_ADMIN"] },
     { label: "Check-In / Out QR Desk", href: "/admin/checkin", icon: <QrCode className="w-4 h-4" />, roles: ["RECEPTIONIST", "PROPERTY_MANAGER", "SUPER_ADMIN"] },
     { label: "Walk-In Reservation", href: "/admin/walkin", icon: <UserPlus className="w-4 h-4" />, roles: ["RECEPTIONIST", "PROPERTY_MANAGER", "SUPER_ADMIN"] },
     { label: "Bookings Management", href: "/admin/bookings", icon: <BookOpen className="w-4 h-4" />, roles: ["RECEPTIONIST", "PROPERTY_MANAGER", "SUPER_ADMIN"] },

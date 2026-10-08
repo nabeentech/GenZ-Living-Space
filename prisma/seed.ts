@@ -295,93 +295,97 @@ async function main() {
       });
     }
 
-    // Create Rooms and Beds for each Hostel: 6 Floors with 20 Rooms Each
-    const roomTypes = [dorm4, dorm6Female, dorm8Nomad, twinRoom, privateStudio];
-    
-    for (let floor = 1; floor <= 6; floor++) {
-      for (let roomIndex = 1; roomIndex <= 20; roomIndex++) {
-        const roomNumber = `${floor}${roomIndex.toString().padStart(2, "0")}`;
-        const roomTypeId = roomTypes[roomIndex % roomTypes.length].id;
-        const currentRoomType = roomTypes[roomIndex % roomTypes.length];
-        
-        // Determine capacity and gender category based on room type
-        let capacity: number;
-        let genderCategory: string;
-        
-        if (roomIndex % 5 === 1) {
-          capacity = 4;
-          genderCategory = "MIXED";
-        } else if (roomIndex % 5 === 2) {
-          capacity = 6;
-          genderCategory = "FEMALE";
-        } else if (roomIndex % 5 === 3) {
-          capacity = 8;
-          genderCategory = "MIXED";
-        } else if (roomIndex % 5 === 4) {
-          capacity = 2;
-          genderCategory = "MIXED";
-        } else {
-          capacity = 1;
-          genderCategory = "PRIVATE";
+    // Create Rooms for 1st Floor: 40 rooms with specific pricing and AC status
+    // Room configurations: [roomNumber, roomType, capacity, isAC, monthlyPriceNonAC, monthlyPriceAC]
+    const floor1Rooms = [
+      // 2-Sharing Standard (₹15.5K Non-AC, ₹17K AC) - Rooms 101-105, 116-120, 126-130, 131-135
+      { num: 101, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
+      { num: 102, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
+      { num: 103, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
+      { num: 104, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
+      { num: 105, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
+      { num: 116, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
+      { num: 117, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
+      { num: 118, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
+      { num: 119, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
+      { num: 120, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
+      { num: 126, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
+      { num: 127, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
+      { num: 128, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
+      { num: 129, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
+      { num: 130, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
+      { num: 131, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
+      { num: 132, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
+      { num: 133, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
+      { num: 134, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
+      { num: 135, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
+      
+      // 2-Sharing Discounted (₹14.5K Non-AC, ₹16K AC) - Rooms 107, 108, 113, 114
+      { num: 107, type: twinRoom, capacity: 2, monthlyNonAC: 14500, monthlyAC: 16000 },
+      { num: 108, type: twinRoom, capacity: 2, monthlyNonAC: 14500, monthlyAC: 16000 },
+      { num: 113, type: twinRoom, capacity: 2, monthlyNonAC: 14500, monthlyAC: 16000 },
+      { num: 114, type: twinRoom, capacity: 2, monthlyNonAC: 14500, monthlyAC: 16000 },
+      
+      // Single Sharing (₹25K Non-AC, ₹27K AC) - Rooms 106, 109, 110, 111, 112, 115
+      { num: 106, type: privateStudio, capacity: 1, monthlyNonAC: 25000, monthlyAC: 27000 },
+      { num: 109, type: privateStudio, capacity: 1, monthlyNonAC: 25000, monthlyAC: 27000 },
+      { num: 110, type: privateStudio, capacity: 1, monthlyNonAC: 25000, monthlyAC: 27000 },
+      { num: 111, type: privateStudio, capacity: 1, monthlyNonAC: 25000, monthlyAC: 27000 },
+      { num: 112, type: privateStudio, capacity: 1, monthlyNonAC: 25000, monthlyAC: 27000 },
+      { num: 115, type: privateStudio, capacity: 1, monthlyNonAC: 25000, monthlyAC: 27000 },
+      
+      // 3-Sharing (₹11.5K Non-AC, ₹13K AC) - Rooms 121-125, 136-140
+      { num: 121, type: dorm8Nomad, capacity: 3, monthlyNonAC: 11500, monthlyAC: 13000 },
+      { num: 122, type: dorm8Nomad, capacity: 3, monthlyNonAC: 11500, monthlyAC: 13000 },
+      { num: 123, type: dorm8Nomad, capacity: 3, monthlyNonAC: 11500, monthlyAC: 13000 },
+      { num: 124, type: dorm8Nomad, capacity: 3, monthlyNonAC: 11500, monthlyAC: 13000 },
+      { num: 125, type: dorm8Nomad, capacity: 3, monthlyNonAC: 11500, monthlyAC: 13000 },
+      { num: 136, type: dorm8Nomad, capacity: 3, monthlyNonAC: 11500, monthlyAC: 13000 },
+      { num: 137, type: dorm8Nomad, capacity: 3, monthlyNonAC: 11500, monthlyAC: 13000 },
+      { num: 138, type: dorm8Nomad, capacity: 3, monthlyNonAC: 11500, monthlyAC: 13000 },
+      { num: 139, type: dorm8Nomad, capacity: 3, monthlyNonAC: 11500, monthlyAC: 13000 },
+      { num: 140, type: dorm8Nomad, capacity: 3, monthlyNonAC: 11500, monthlyAC: 13000 },
+    ];
+
+    for (const roomConfig of floor1Rooms) {
+      const room = await prisma.room.create({
+        data: {
+          hostelId: hostel.id,
+          roomTypeId: roomConfig.type.id,
+          building: "Block A",
+          floor: 1,
+          roomNumber: roomConfig.num.toString(),
+          capacity: roomConfig.capacity,
+          genderCategory: "MIXED",
+          isAC: false, // Default to Non-AC, can be toggled by admin
+        },
+      });
+
+      // Create beds for this room
+      for (let bedIndex = 1; bedIndex <= roomConfig.capacity; bedIndex++) {
+        let bedNumber: string = `Bed ${bedIndex}`;
+        let tier: string = "LOWER_BUNK";
+
+        if (roomConfig.capacity === 1) {
+          bedNumber = "Single Bed";
+          tier = "SINGLE";
+        } else if (roomConfig.capacity === 2) {
+          bedNumber = bedIndex === 1 ? "Bed 1" : "Bed 2";
+          tier = "SINGLE";
+        } else if (roomConfig.capacity === 3) {
+          bedNumber = `Bed ${bedIndex}`;
+          tier = bedIndex <= 2 ? "LOWER_BUNK" : "UPPER_BUNK";
         }
-        
-        const room = await prisma.room.create({
+
+        await prisma.bed.create({
           data: {
+            roomId: room.id,
             hostelId: hostel.id,
-            roomTypeId: roomTypeId,
-            building: floor <= 3 ? "Main Wing" : "Sky Wing",
-            floor: floor,
-            roomNumber: roomNumber,
-            capacity: capacity,
-            genderCategory: genderCategory,
+            bedNumber: bedNumber,
+            tier: tier,
+            status: "AVAILABLE",
           },
         });
-        
-        // Create beds for this room
-        for (let bedIndex = 1; bedIndex <= capacity; bedIndex++) {
-          let bedNumber: string;
-          let tier: string;
-          
-          if (capacity === 1) {
-            bedNumber = "King Bed";
-            tier = "DOUBLE";
-          } else if (capacity === 2) {
-            bedNumber = bedIndex === 1 ? "Bed Left" : "Bed Right";
-            tier = "SINGLE";
-          } else if (capacity === 4) {
-            const bedLetters = ["A", "B", "C", "D"];
-            bedNumber = `Bed ${bedLetters[bedIndex - 1]}`;
-            tier = bedIndex % 2 === 1 ? "LOWER_BUNK" : "UPPER_BUNK";
-          } else if (capacity === 6) {
-            bedNumber = `Pod F-${bedIndex}`;
-            tier = bedIndex <= 3 ? "LOWER_BUNK" : "UPPER_BUNK";
-          } else {
-            bedNumber = `Nomad Bed ${bedIndex}`;
-            tier = bedIndex <= 4 ? "LOWER_BUNK" : "UPPER_BUNK";
-          }
-          
-          // Vary bed status for realistic demo
-          let status = "AVAILABLE";
-          if (floor === 1 && roomIndex === 1 && bedIndex === 1) {
-            status = "OCCUPIED";
-          } else if (floor === 2 && roomIndex === 2 && bedIndex === 1) {
-            status = "CLEANING";
-          } else if (bedIndex % 10 === 0) {
-            status = "RESERVED";
-          } else if (bedIndex % 7 === 0) {
-            status = "MAINTENANCE";
-          }
-          
-          await prisma.bed.create({
-            data: {
-              roomId: room.id,
-              hostelId: hostel.id,
-              bedNumber: bedNumber,
-              tier: tier,
-              status: status,
-            },
-          });
-        }
       }
     }
   }

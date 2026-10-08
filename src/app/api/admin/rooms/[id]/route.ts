@@ -15,10 +15,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
 
     const body = await req.json();
-    const { genderCategory, status, capacity } = body;
+    const { genderCategory, status, capacity, isAC } = body;
 
     // Validate inputs
-    if (!genderCategory && !status && capacity === undefined) {
+    if (!genderCategory && !status && capacity === undefined && isAC === undefined) {
       return NextResponse.json(
         { success: false, message: "No fields to update" },
         { status: 400 }
@@ -58,6 +58,16 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         );
       }
       updateData.status = status;
+    }
+
+    if (isAC !== undefined) {
+      if (typeof isAC !== "boolean") {
+        return NextResponse.json(
+          { success: false, message: "isAC must be a boolean value" },
+          { status: 400 }
+        );
+      }
+      updateData.isAC = isAC;
     }
 
     if (capacity !== undefined) {
