@@ -66,5 +66,8 @@ Thumbs.db
 *.sw?
 
 # Database Journals & Temporary Files
+*.db
 *.db-journal
+*.sqlite
 *.sqlite-journal
+prisma/dev.db
