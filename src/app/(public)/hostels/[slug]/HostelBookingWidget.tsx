@@ -40,6 +40,16 @@ export const HostelBookingWidget: React.FC<HostelBookingWidgetProps> = ({
     [roomTypes, selectedRoomTypeId]
   );
 
+  // Get starting price - use Non-AC daily rate as default
+  const startingPrice = useMemo(() => {
+    if (!selectedRoomType) return 599;
+    // Prefer Non-AC daily rate, fallback to AC rate, then basePrice
+    return selectedRoomType.pricePerDayNonAC || 
+           selectedRoomType.pricePerDayAC || 
+           selectedRoomType.basePrice || 
+           999;
+  }, [selectedRoomType]);
+
   // Compute live price quote
   const pricingQuote = useMemo(() => {
     if (!selectedRoomType) return null;
@@ -76,7 +86,7 @@ export const HostelBookingWidget: React.FC<HostelBookingWidgetProps> = ({
           </span>
           <div className="flex items-baseline gap-1">
             <span className="text-2xl font-black text-white">
-              ₹{selectedRoomType ? selectedRoomType.basePrice : 599}
+              ₹{startingPrice}
             </span>
             <span className="text-xs text-slate-400">/ night</span>
           </div>
@@ -97,11 +107,14 @@ export const HostelBookingWidget: React.FC<HostelBookingWidgetProps> = ({
             onChange={(e) => setSelectedRoomTypeId(e.target.value)}
             className="w-full p-3 rounded-xl bg-slate-900/80 border border-slate-700/80 text-sm font-semibold text-white focus:outline-none focus:border-indigo-500"
           >
-            {roomTypes.map((rt) => (
-              <option key={rt.id} value={rt.id} className="bg-[#111827]">
-                {rt.name} ({rt.genderCategory}) — ₹{rt.basePrice}/night
-              </option>
-            ))}
+            {roomTypes.map((rt) => {
+              const price = rt.pricePerDayNonAC || rt.pricePerDayAC || rt.basePrice || 999;
+              return (
+                <option key={rt.id} value={rt.id} className="bg-[#111827]">
+                  {rt.name} ({rt.genderCategory}) — ₹{price}/night
+                </option>
+              );
+            })}
           </select>
         </div>
 

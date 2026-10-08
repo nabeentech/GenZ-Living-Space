@@ -113,9 +113,8 @@ export const BookClient: React.FC = () => {
     async function checkAvail() {
       setIsLoadingAvailability(true);
       try {
-        const res = await fetch(
-          `/api/availability?hostelId=${activeHostel.id}&checkIn=${checkIn}&checkOut=${checkOut}`
-        );
+        const url = `/api/availability?hostelId=${activeHostel.id}&checkIn=${checkIn}&checkOut=${checkOut}`;
+        const res = await fetch(url);
         const json = await res.json();
         if (json.success && json.data?.rooms) {
           setRoomsData(json.data.rooms);
@@ -198,7 +197,9 @@ export const BookClient: React.FC = () => {
     const cOut = new Date(checkOut);
     
     if (isNaN(cIn.getTime()) || isNaN(cOut.getTime()) || cOut <= cIn) {
-      const basePrice = room.roomType.pricePerDay || room.roomType.basePrice;
+      const basePrice = room.isAC 
+        ? (room.roomType.pricePerDayAC || 999)
+        : (room.roomType.pricePerDayNonAC || 999);
       return { 
         price: basePrice, 
         displayText: "/day", 
@@ -208,45 +209,68 @@ export const BookClient: React.FC = () => {
     
     const daysDiff = Math.ceil((cOut.getTime() - cIn.getTime()) / (1000 * 60 * 60 * 24));
     
+    // Get price based on AC status
+    const getPriceByTier = (tier: string): number => {
+      if (room.isAC) {
+        switch(tier) {
+          case 'day': return room.roomType.pricePerDayAC || 999;
+          case '7': return room.roomType.price7DaysAC || (room.roomType.pricePerDayAC || 999) * 7;
+          case '10': return room.roomType.price10DaysAC || (room.roomType.pricePerDayAC || 999) * 10;
+          case '15': return room.roomType.price15DaysAC || (room.roomType.pricePerDayAC || 999) * 15;
+          case '30': return room.roomType.price30DaysAC || 21999;
+          default: return room.roomType.pricePerDayAC || 999;
+        }
+      } else {
+        switch(tier) {
+          case 'day': return room.roomType.pricePerDayNonAC || 999;
+          case '7': return room.roomType.price7DaysNonAC || (room.roomType.pricePerDayNonAC || 999) * 7;
+          case '10': return room.roomType.price10DaysNonAC || (room.roomType.pricePerDayNonAC || 999) * 10;
+          case '15': return room.roomType.price15DaysNonAC || (room.roomType.pricePerDayNonAC || 999) * 15;
+          case '30': return room.roomType.price30DaysNonAC || 21999;
+          default: return room.roomType.pricePerDayNonAC || 999;
+        }
+      }
+    };
+    
     // Determine pricing tier based on number of days
-    let price = room.roomType.basePrice;
+    let price = getPriceByTier('day');
     let displayText = "/day";
     let pricingInfo = "";
     
     if (daysDiff === 1) {
-      price = room.roomType.pricePerDay || room.roomType.basePrice;
+      price = getPriceByTier('day');
       displayText = "/day";
       pricingInfo = "1-DAY RATE";
     } else if (daysDiff >= 2 && daysDiff <= 6) {
-      price = room.roomType.pricePerDay || room.roomType.basePrice;
+      price = getPriceByTier('day');
       displayText = `/day (${daysDiff} days)`;
       pricingInfo = "DAILY RATE";
     } else if (daysDiff === 7) {
-      price = room.roomType.price7Days || (room.roomType.pricePerDay || room.roomType.basePrice) * 7;
+      price = getPriceByTier('7');
       displayText = "/week";
-      pricingInfo = "1-WEEK RATE";
+      pricingInfo = "7-DAY RATE";
     } else if (daysDiff >= 8 && daysDiff <= 9) {
-      price = room.roomType.pricePerDay || room.roomType.basePrice;
+      price = getPriceByTier('day');
       displayText = `/day (${daysDiff} days)`;
       pricingInfo = "DAILY RATE";
     } else if (daysDiff === 10) {
-      price = room.roomType.price10Days || (room.roomType.pricePerDay || room.roomType.basePrice) * 10;
+      price = getPriceByTier('10');
       displayText = "/10 days";
       pricingInfo = "10-DAY RATE";
     } else if (daysDiff >= 11 && daysDiff <= 14) {
-      price = room.roomType.pricePerDay || room.roomType.basePrice;
+      price = getPriceByTier('day');
       displayText = `/day (${daysDiff} days)`;
       pricingInfo = "DAILY RATE";
     } else if (daysDiff === 15) {
-      price = room.roomType.price15Days || (room.roomType.pricePerDay || room.roomType.basePrice) * 15;
+      price = getPriceByTier('15');
       displayText = "/15 days";
       pricingInfo = "15-DAY RATE";
     } else if (daysDiff >= 16 && daysDiff <= 29) {
-      price = room.roomType.pricePerDay || room.roomType.basePrice;
+      price = getPriceByTier('day');
       displayText = `/day (${daysDiff} days)`;
       pricingInfo = "DAILY RATE";
     } else if (daysDiff >= 30) {
-      price = room.roomType.price30Days || room.roomType.monthlyPrice;
+      price = getPriceByTier('30');
       displayText = `/month (${Math.floor(daysDiff / 30)} month${Math.floor(daysDiff / 30) > 1 ? 's' : ''})`;
       pricingInfo = `${Math.floor(daysDiff / 30)}-MONTH RATE`;
     }
@@ -261,12 +285,20 @@ export const BookClient: React.FC = () => {
     const cOut = new Date(checkOut);
     if (isNaN(cIn.getTime()) || isNaN(cOut.getTime()) || cOut <= cIn) return null;
 
+    const basePrice = selectedRoom.isAC
+      ? (selectedRoom.roomType.pricePerDayAC || 999)
+      : (selectedRoom.roomType.pricePerDayNonAC || 999);
+    
+    const monthlyPrice = selectedRoom.isAC
+      ? (selectedRoom.roomType.price30DaysAC || 21999)
+      : (selectedRoom.roomType.price30DaysNonAC || 21999);
+
     return calculateBookingPrice({
       checkInDate: cIn,
       checkOutDate: cOut,
-      basePrice: selectedRoom.roomType.basePrice || 999,
+      basePrice: basePrice,
       weeklyDiscountPct: selectedRoom.roomType.weeklyDiscountPct,
-      monthlyPrice: selectedRoom.roomType.monthlyPrice || 21999,
+      monthlyPrice: monthlyPrice,
       securityDeposit: selectedRoom.roomType.securityDeposit,
       coupon: appliedCoupon,
     });

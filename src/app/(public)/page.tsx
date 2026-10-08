@@ -76,9 +76,20 @@ export default async function HomePage() {
     hostels = hostels.map((h) => {
       let minPrice = 599;
       let totalAvail = 0;
+      
+      // Get minimum price from all room types (use Non-AC daily rate)
+      const seenRoomTypes = new Set<string>();
       h.rooms?.forEach((r: any) => {
-        if (r.roomType?.basePrice && r.roomType.basePrice < minPrice) {
-          minPrice = r.roomType.basePrice;
+        if (r.roomType && !seenRoomTypes.has(r.roomType.id)) {
+          seenRoomTypes.add(r.roomType.id);
+          // Use Non-AC daily rate, fall back to AC rate, then basePrice, then default
+          const roomPrice = r.roomType.pricePerDayNonAC || 
+                           r.roomType.pricePerDayAC || 
+                           r.roomType.basePrice || 
+                           599;
+          if (roomPrice < minPrice) {
+            minPrice = roomPrice;
+          }
         }
         r.beds?.forEach((b: any) => {
           if (b.status === "AVAILABLE") totalAvail++;
