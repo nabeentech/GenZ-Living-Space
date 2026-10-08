@@ -237,12 +237,12 @@ export default async function HostelDetailPage({
                       <div className="flex flex-col sm:items-end gap-2 w-full sm:w-auto">
                         <div>
                           <span className="text-2xl font-black text-white">
-                            ₹{rt.basePrice}
+                            ₹{(rt.pricePerDayNonAC || rt.pricePerDayAC || 999).toLocaleString()}
                           </span>
                           <span className="text-xs text-slate-400"> / night</span>
                         </div>
                         <span className="text-[11px] text-slate-400">
-                          Monthly: ₹{rt.monthlyPrice.toLocaleString()}
+                          Monthly: ₹{(rt.price30DaysNonAC || rt.price30DaysAC || 21999).toLocaleString()}
                         </span>
                         <Link
                           href={`/book?hostel=${hostel.slug}&roomType=${rt.id}`}
