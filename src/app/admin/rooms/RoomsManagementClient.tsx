@@ -219,8 +219,8 @@ export const RoomsManagementClient: React.FC = () => {
                       <div>
                         <div className="text-2xl font-bold text-white mb-1">{room.roomNumber}</div>
                         <div className="flex gap-2">
-                          <Badge label="Capacity" value={`${room.capacity} beds`} />
-                          <Badge label="Status" value={room.status} variant="info" />
+                          <Badge variant="indigo" size="sm">{room.capacity} beds</Badge>
+                          <Badge variant="default" size="sm">{room.status}</Badge>
                         </div>
                       </div>
                       {room.isAC ? (

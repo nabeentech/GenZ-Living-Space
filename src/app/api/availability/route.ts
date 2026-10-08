@@ -106,6 +106,7 @@ export async function GET(req: Request) {
         building: room.building,
         capacity: room.capacity,
         genderCategory: room.genderCategory,
+        isAC: room.isAC,
         roomType: room.roomType,
         beds: bedsWithStatus,
         totalAvailableBeds,

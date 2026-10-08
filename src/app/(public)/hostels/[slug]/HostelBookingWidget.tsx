@@ -50,9 +50,9 @@ export const HostelBookingWidget: React.FC<HostelBookingWidgetProps> = ({
     return calculateBookingPrice({
       checkInDate: cIn,
       checkOutDate: cOut,
-      basePrice: selectedRoomType.basePrice,
+      basePrice: selectedRoomType.basePrice || 999,
       weeklyDiscountPct: selectedRoomType.weeklyDiscountPct,
-      monthlyPrice: selectedRoomType.monthlyPrice,
+      monthlyPrice: selectedRoomType.monthlyPrice || 21999,
       securityDeposit: selectedRoomType.securityDeposit,
     });
   }, [selectedRoomType, checkIn, checkOut]);

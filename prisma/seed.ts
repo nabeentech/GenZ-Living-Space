@@ -152,55 +152,54 @@ async function main() {
 
   console.log("Amenities created.");
 
-  // 3. Create Room Types
-  const dorm4 = await prisma.roomType.create({
+  // 3. Create Room Types (Only 3 types with separate AC/Non-AC pricing)
+  const twinSharingPod = await prisma.roomType.create({
     data: {
-      name: "4-Bed Creator Dorm",
-      slug: "4-bed-creator-dorm",
-      description: "Spacious quad dorm equipped with ergonomic privacy pods, individual power stations, warm ambient lighting, and under-bed luggage lockers.",
-      totalBeds: 4,
+      name: "Twin Sharing Pod Room",
+      slug: "twin-sharing-pod-room",
+      description: "Shared between only two residents. Features two single beds, dedicated work desks, high-speed Ethernet ports, and attached balcony.",
+      totalBeds: 2,
       genderCategory: "MIXED",
-      basePrice: 899,
-      weeklyDiscountPct: 12,
-      monthlyPrice: 19999,
-      securityDeposit: 3000,
+      securityDeposit: 4000,
+      // Non-AC Pricing
+      pricePerDayNonAC: 1099,
+      price7DaysNonAC: 7090,
+      price10DaysNonAC: 10190,
+      price15DaysNonAC: 15285,
+      price30DaysNonAC: 23999,
+      // AC Pricing
+      pricePerDayAC: 1299,
+      price7DaysAC: 8392,
+      price10DaysAC: 11991,
+      price15DaysAC: 17986,
+      price30DaysAC: 27999,
       images: JSON.stringify([
-        "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=800&auto=format&fit=crop&q=80",
       ]),
-      amenities: JSON.stringify(["Personal Locker", "Bedside USB & Lamp", "Orthopedic Mattress", "Blackout Curtain"]),
+      amenities: JSON.stringify(["Work Desks", "Attached Balcony", "Ethernet Ports", "En-Suite Bath"]),
     },
   });
 
-  const dorm6Female = await prisma.roomType.create({
+  const tripleSharingRoom = await prisma.roomType.create({
     data: {
-      name: "6-Bed Female Sanctuary",
-      slug: "6-bed-female-sanctuary",
-      description: "Dedicated female-only dormitory with en-suite vanity station, full-length mirror, premium bedding, and keypad entry.",
-      totalBeds: 6,
-      genderCategory: "FEMALE",
-      basePrice: 799,
-      weeklyDiscountPct: 15,
-      monthlyPrice: 17499,
-      securityDeposit: 3000,
-      images: JSON.stringify([
-        "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800&auto=format&fit=crop&q=80",
-      ]),
-      amenities: JSON.stringify(["Vanity Station", "En-Suite Bathroom", "Curtains", "Biometric Lock"]),
-    },
-  });
-
-  const dorm8Nomad = await prisma.roomType.create({
-    data: {
-      name: "8-Bed Social Bunk Dorm",
-      slug: "8-bed-social-bunk-dorm",
-      description: "The ultimate social living space for digital nomads and backpackers. High energy, shared vibes, with ultra-comfortable bunk pods.",
-      totalBeds: 8,
+      name: "Triple Sharing",
+      slug: "triple-sharing",
+      description: "Perfect for groups of three. Features three comfortable beds with individual reading lamps, charging sockets, and shared lockers.",
+      totalBeds: 3,
       genderCategory: "MIXED",
-      basePrice: 599,
-      weeklyDiscountPct: 15,
-      monthlyPrice: 13499,
       securityDeposit: 2500,
+      // Non-AC Pricing
+      pricePerDayNonAC: 499,
+      price7DaysNonAC: 3293,
+      price10DaysNonAC: 4490,
+      price15DaysNonAC: 6735,
+      price30DaysNonAC: 11499,
+      // AC Pricing
+      pricePerDayAC: 599,
+      price7DaysAC: 3842,
+      price10DaysAC: 5390,
+      price15DaysAC: 8085,
+      price30DaysAC: 13499,
       images: JSON.stringify([
         "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800&auto=format&fit=crop&q=80",
       ]),
@@ -208,35 +207,26 @@ async function main() {
     },
   });
 
-  const twinRoom = await prisma.roomType.create({
-    data: {
-      name: "Twin Sharing Pod Room",
-      slug: "twin-sharing-pod-room",
-      description: "Shared between only two residents. Features two single beds, dedicated work desks, high-speed Ethernet ports, and attached balcony.",
-      totalBeds: 2,
-      genderCategory: "MIXED",
-      basePrice: 1299,
-      weeklyDiscountPct: 10,
-      monthlyPrice: 27999,
-      securityDeposit: 4000,
-      images: JSON.stringify([
-        "https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=800&auto=format&fit=crop&q=80",
-      ]),
-      amenities: JSON.stringify(["Work Desks", "Attached Balcony", "Air Conditioning", "En-Suite Bath"]),
-    },
-  });
-
-  const privateStudio = await prisma.roomType.create({
+  const privateCreatorStudio = await prisma.roomType.create({
     data: {
       name: "Private Creator Studio",
       slug: "private-creator-studio",
       description: "Ultra-luxe private sanctuary for solo builders or founders. Includes king-size bed, private work nook, smart TV, and designer bath.",
       totalBeds: 1,
       genderCategory: "PRIVATE",
-      basePrice: 2299,
-      weeklyDiscountPct: 10,
-      monthlyPrice: 42999,
       securityDeposit: 5000,
+      // Non-AC Pricing
+      pricePerDayNonAC: 1999,
+      price7DaysNonAC: 12993,
+      price10DaysNonAC: 17990,
+      price15DaysNonAC: 26985,
+      price30DaysNonAC: 37999,
+      // AC Pricing
+      pricePerDayAC: 2299,
+      price7DaysAC: 14793,
+      price10DaysAC: 20791,
+      price15DaysAC: 31186,
+      price30DaysAC: 42999,
       images: JSON.stringify([
         "https://images.unsplash.com/photo-1591088398332-8a7791972843?w=800&auto=format&fit=crop&q=80",
       ]),
@@ -295,102 +285,81 @@ async function main() {
       });
     }
 
-    // Create Rooms for 1st Floor: 40 rooms with specific pricing and AC status
-    // Room configurations: [roomNumber, roomType, capacity, isAC, monthlyPriceNonAC, monthlyPriceAC]
-    const floor1Rooms = [
-      // 2-Sharing Standard (₹15.5K Non-AC, ₹17K AC) - Rooms 101-105, 116-120, 126-130, 131-135
-      { num: 101, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
-      { num: 102, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
-      { num: 103, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
-      { num: 104, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
-      { num: 105, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
-      { num: 116, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
-      { num: 117, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
-      { num: 118, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
-      { num: 119, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
-      { num: 120, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
-      { num: 126, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
-      { num: 127, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
-      { num: 128, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
-      { num: 129, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
-      { num: 130, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
-      { num: 131, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
-      { num: 132, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
-      { num: 133, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
-      { num: 134, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
-      { num: 135, type: twinRoom, capacity: 2, monthlyNonAC: 15500, monthlyAC: 17000 },
-      
-      // 2-Sharing Discounted (₹14.5K Non-AC, ₹16K AC) - Rooms 107, 108, 113, 114
-      { num: 107, type: twinRoom, capacity: 2, monthlyNonAC: 14500, monthlyAC: 16000 },
-      { num: 108, type: twinRoom, capacity: 2, monthlyNonAC: 14500, monthlyAC: 16000 },
-      { num: 113, type: twinRoom, capacity: 2, monthlyNonAC: 14500, monthlyAC: 16000 },
-      { num: 114, type: twinRoom, capacity: 2, monthlyNonAC: 14500, monthlyAC: 16000 },
-      
-      // Single Sharing (₹25K Non-AC, ₹27K AC) - Rooms 106, 109, 110, 111, 112, 115
-      { num: 106, type: privateStudio, capacity: 1, monthlyNonAC: 25000, monthlyAC: 27000 },
-      { num: 109, type: privateStudio, capacity: 1, monthlyNonAC: 25000, monthlyAC: 27000 },
-      { num: 110, type: privateStudio, capacity: 1, monthlyNonAC: 25000, monthlyAC: 27000 },
-      { num: 111, type: privateStudio, capacity: 1, monthlyNonAC: 25000, monthlyAC: 27000 },
-      { num: 112, type: privateStudio, capacity: 1, monthlyNonAC: 25000, monthlyAC: 27000 },
-      { num: 115, type: privateStudio, capacity: 1, monthlyNonAC: 25000, monthlyAC: 27000 },
-      
-      // 3-Sharing (₹11.5K Non-AC, ₹13K AC) - Rooms 121-125, 136-140
-      { num: 121, type: dorm8Nomad, capacity: 3, monthlyNonAC: 11500, monthlyAC: 13000 },
-      { num: 122, type: dorm8Nomad, capacity: 3, monthlyNonAC: 11500, monthlyAC: 13000 },
-      { num: 123, type: dorm8Nomad, capacity: 3, monthlyNonAC: 11500, monthlyAC: 13000 },
-      { num: 124, type: dorm8Nomad, capacity: 3, monthlyNonAC: 11500, monthlyAC: 13000 },
-      { num: 125, type: dorm8Nomad, capacity: 3, monthlyNonAC: 11500, monthlyAC: 13000 },
-      { num: 136, type: dorm8Nomad, capacity: 3, monthlyNonAC: 11500, monthlyAC: 13000 },
-      { num: 137, type: dorm8Nomad, capacity: 3, monthlyNonAC: 11500, monthlyAC: 13000 },
-      { num: 138, type: dorm8Nomad, capacity: 3, monthlyNonAC: 11500, monthlyAC: 13000 },
-      { num: 139, type: dorm8Nomad, capacity: 3, monthlyNonAC: 11500, monthlyAC: 13000 },
-      { num: 140, type: dorm8Nomad, capacity: 3, monthlyNonAC: 11500, monthlyAC: 13000 },
-    ];
+    // Create Rooms for all 5 floors with the same structure
+    // Each floor: 
+    //   - Twin Sharing Pod Room: 20 rooms (X01-X20)
+    //   - Triple Sharing: 10 rooms (X21-X30)
+    //   - Private Creator Studio: 10 rooms (X31-X40)
+    // Total: 40 rooms per floor × 5 floors = 200 rooms
+    
+    for (let floorNum = 1; floorNum <= 5; floorNum++) {
+      const floorRooms = [
+        // Twin Sharing Pod Rooms (X01-X20) - 2 beds each
+        ...Array.from({ length: 20 }, (_, i) => ({
+          num: (floorNum * 100) + 1 + i,
+          type: twinSharingPod,
+          capacity: 2,
+        })),
+        // Triple Sharing Rooms (X21-X30) - 3 beds each
+        ...Array.from({ length: 10 }, (_, i) => ({
+          num: (floorNum * 100) + 21 + i,
+          type: tripleSharingRoom,
+          capacity: 3,
+        })),
+        // Private Creator Studio Rooms (X31-X40) - 1 bed each
+        ...Array.from({ length: 10 }, (_, i) => ({
+          num: (floorNum * 100) + 31 + i,
+          type: privateCreatorStudio,
+          capacity: 1,
+        })),
+      ];
 
-    for (const roomConfig of floor1Rooms) {
-      const room = await prisma.room.create({
-        data: {
-          hostelId: hostel.id,
-          roomTypeId: roomConfig.type.id,
-          building: "Block A",
-          floor: 1,
-          roomNumber: roomConfig.num.toString(),
-          capacity: roomConfig.capacity,
-          genderCategory: "MIXED",
-          isAC: false, // Default to Non-AC, can be toggled by admin
-        },
-      });
-
-      // Create beds for this room
-      for (let bedIndex = 1; bedIndex <= roomConfig.capacity; bedIndex++) {
-        let bedNumber: string = `Bed ${bedIndex}`;
-        let tier: string = "LOWER_BUNK";
-
-        if (roomConfig.capacity === 1) {
-          bedNumber = "Single Bed";
-          tier = "SINGLE";
-        } else if (roomConfig.capacity === 2) {
-          bedNumber = bedIndex === 1 ? "Bed 1" : "Bed 2";
-          tier = "SINGLE";
-        } else if (roomConfig.capacity === 3) {
-          bedNumber = `Bed ${bedIndex}`;
-          tier = bedIndex <= 2 ? "LOWER_BUNK" : "UPPER_BUNK";
-        }
-
-        await prisma.bed.create({
+      for (const roomConfig of floorRooms) {
+        const room = await prisma.room.create({
           data: {
-            roomId: room.id,
             hostelId: hostel.id,
-            bedNumber: bedNumber,
-            tier: tier,
-            status: "AVAILABLE",
+            roomTypeId: roomConfig.type.id,
+            building: "Block A",
+            floor: floorNum,
+            roomNumber: roomConfig.num.toString(),
+            capacity: roomConfig.capacity,
+            genderCategory: "MIXED",
+            // Make every other room AC for testing (rooms with even numbers are AC)
+            isAC: roomConfig.num % 2 === 0,
           },
         });
+
+        // Create beds for this room
+        for (let bedIndex = 1; bedIndex <= roomConfig.capacity; bedIndex++) {
+          let bedNumber: string = `Bed ${bedIndex}`;
+          let tier: string = "LOWER_BUNK";
+
+          if (roomConfig.capacity === 1) {
+            bedNumber = "Single Bed";
+            tier = "SINGLE";
+          } else if (roomConfig.capacity === 2) {
+            bedNumber = bedIndex === 1 ? "Bed 1" : "Bed 2";
+            tier = "SINGLE";
+          } else if (roomConfig.capacity === 3) {
+            bedNumber = `Bed ${bedIndex}`;
+            tier = bedIndex <= 2 ? "LOWER_BUNK" : "UPPER_BUNK";
+          }
+
+          await prisma.bed.create({
+            data: {
+              roomId: room.id,
+              hostelId: hostel.id,
+              bedNumber: bedNumber,
+              tier: tier,
+              status: "AVAILABLE",
+            },
+          });
+        }
       }
     }
   }
 
-  console.log("Both Madhapur properties with rooms and beds created.");
+  console.log("Madhapur properties with 5 floors (200 rooms total) and beds created.");
 
   // 5. Create Promotional Coupons
   await prisma.coupon.create({

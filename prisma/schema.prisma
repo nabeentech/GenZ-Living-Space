@@ -90,17 +90,35 @@ model HostelAmenity {
 
 model RoomType {
   id                String   @id @default(cuid())
-  name              String   // e.g. "4 Bed Tech Dorm", "Private Studio Pod"
+  name              String   // e.g. "Twin Sharing Pod Room", "Triple Sharing"
   slug              String   @unique
   description       String
-  totalBeds         Int      @default(4)
+  totalBeds         Int      @default(2)
   genderCategory    String   @default("MIXED") // MALE, FEMALE, MIXED, PRIVATE
-  basePrice         Float    // Daily rate in INR
+  
+  // Non-AC Pricing
+  pricePerDayNonAC      Float?   // 1-day rate (Non-AC)
+  price7DaysNonAC       Float?   // 7-day (1 week) rate (Non-AC)
+  price10DaysNonAC      Float?   // 10-day rate (Non-AC)
+  price15DaysNonAC      Float?   // 15-day rate (Non-AC)
+  price30DaysNonAC      Float?   // 30-day (monthly) rate (Non-AC)
+  
+  // AC Pricing
+  pricePerDayAC         Float?   // 1-day rate (AC)
+  price7DaysAC          Float?   // 7-day (1 week) rate (AC)
+  price10DaysAC         Float?   // 10-day rate (AC)
+  price15DaysAC         Float?   // 15-day rate (AC)
+  price30DaysAC         Float?   // 30-day (monthly) rate (AC)
+  
+  // Legacy/Fallback pricing
+  basePrice         Float?    // Daily rate in INR (fallback)
+  monthlyPrice      Float?    // Monthly rate in INR (fallback)
   weeklyDiscountPct Float    @default(10.0)
-  monthlyPrice      Float    // Monthly rate in INR
   securityDeposit   Float    @default(3000.0)
+  
   images            String   @default("[]") // JSON array
   amenities         String   @default("[]") // JSON array
+  
   active            Boolean  @default(true)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

@@ -61,6 +61,10 @@ export const BookClient: React.FC = () => {
   const [selectedBedId, setSelectedBedId] = useState<string>("");
   const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
 
+  // Room Filters
+  const [filterSharingType, setFilterSharingType] = useState<"1" | "2" | "3" | "all">("all");
+  const [filterAC, setFilterAC] = useState<"ac" | "non-ac" | "all">("all");
+
   // Guest Details
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
@@ -158,6 +162,98 @@ export const BookClient: React.FC = () => {
     [selectedRoom, selectedBedId]
   );
 
+  // Filter rooms based on sharing type and AC preference
+  const filteredAndGroupedRooms = useMemo(() => {
+    let filtered = roomsData;
+
+    // Filter by sharing type (capacity)
+    if (filterSharingType !== "all") {
+      const capacity = parseInt(filterSharingType);
+      filtered = filtered.filter((r) => r.capacity === capacity);
+    }
+
+    // Filter by AC status
+    if (filterAC !== "all") {
+      filtered = filtered.filter((r) => {
+        if (filterAC === "ac") return r.isAC === true;
+        if (filterAC === "non-ac") return r.isAC === false;
+        return true;
+      });
+    }
+
+    // Group by room type
+    const grouped: Record<string, any[]> = {};
+    filtered.forEach((room) => {
+      const key = room.roomType.name;
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(room);
+    });
+
+    return grouped;
+  }, [roomsData, filterSharingType, filterAC]);
+
+  // Get display price for a room (handles tiered pricing based on duration)
+  const getDisplayPrice = (room: any): { price: number; displayText: string; pricingInfo: string } => {
+    const cIn = new Date(checkIn);
+    const cOut = new Date(checkOut);
+    
+    if (isNaN(cIn.getTime()) || isNaN(cOut.getTime()) || cOut <= cIn) {
+      const basePrice = room.roomType.pricePerDay || room.roomType.basePrice;
+      return { 
+        price: basePrice, 
+        displayText: "/day", 
+        pricingInfo: "1-Day Rate"
+      };
+    }
+    
+    const daysDiff = Math.ceil((cOut.getTime() - cIn.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Determine pricing tier based on number of days
+    let price = room.roomType.basePrice;
+    let displayText = "/day";
+    let pricingInfo = "";
+    
+    if (daysDiff === 1) {
+      price = room.roomType.pricePerDay || room.roomType.basePrice;
+      displayText = "/day";
+      pricingInfo = "1-DAY RATE";
+    } else if (daysDiff >= 2 && daysDiff <= 6) {
+      price = room.roomType.pricePerDay || room.roomType.basePrice;
+      displayText = `/day (${daysDiff} days)`;
+      pricingInfo = "DAILY RATE";
+    } else if (daysDiff === 7) {
+      price = room.roomType.price7Days || (room.roomType.pricePerDay || room.roomType.basePrice) * 7;
+      displayText = "/week";
+      pricingInfo = "1-WEEK RATE";
+    } else if (daysDiff >= 8 && daysDiff <= 9) {
+      price = room.roomType.pricePerDay || room.roomType.basePrice;
+      displayText = `/day (${daysDiff} days)`;
+      pricingInfo = "DAILY RATE";
+    } else if (daysDiff === 10) {
+      price = room.roomType.price10Days || (room.roomType.pricePerDay || room.roomType.basePrice) * 10;
+      displayText = "/10 days";
+      pricingInfo = "10-DAY RATE";
+    } else if (daysDiff >= 11 && daysDiff <= 14) {
+      price = room.roomType.pricePerDay || room.roomType.basePrice;
+      displayText = `/day (${daysDiff} days)`;
+      pricingInfo = "DAILY RATE";
+    } else if (daysDiff === 15) {
+      price = room.roomType.price15Days || (room.roomType.pricePerDay || room.roomType.basePrice) * 15;
+      displayText = "/15 days";
+      pricingInfo = "15-DAY RATE";
+    } else if (daysDiff >= 16 && daysDiff <= 29) {
+      price = room.roomType.pricePerDay || room.roomType.basePrice;
+      displayText = `/day (${daysDiff} days)`;
+      pricingInfo = "DAILY RATE";
+    } else if (daysDiff >= 30) {
+      price = room.roomType.price30Days || room.roomType.monthlyPrice;
+      displayText = `/month (${Math.floor(daysDiff / 30)} month${Math.floor(daysDiff / 30) > 1 ? 's' : ''})`;
+      pricingInfo = `${Math.floor(daysDiff / 30)}-MONTH RATE`;
+    }
+    
+    return { price, displayText, pricingInfo };
+  };
+
   // Price Calculation
   const pricing = useMemo(() => {
     if (!selectedRoom?.roomType) return null;
@@ -168,9 +264,9 @@ export const BookClient: React.FC = () => {
     return calculateBookingPrice({
       checkInDate: cIn,
       checkOutDate: cOut,
-      basePrice: selectedRoom.roomType.basePrice,
+      basePrice: selectedRoom.roomType.basePrice || 999,
       weeklyDiscountPct: selectedRoom.roomType.weeklyDiscountPct,
-      monthlyPrice: selectedRoom.roomType.monthlyPrice,
+      monthlyPrice: selectedRoom.roomType.monthlyPrice || 21999,
       securityDeposit: selectedRoom.roomType.securityDeposit,
       coupon: appliedCoupon,
     });
@@ -452,58 +548,135 @@ export const BookClient: React.FC = () => {
                   </div>
 
                   {/* Rooms Available */}
-                  <div className="space-y-3 pt-4 border-t border-slate-800">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400">
-                      Available Room Categories
-                    </label>
+                  <div className="space-y-4 pt-4 border-t border-slate-800">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-3">
+                        Available Room Categories
+                      </label>
+
+                      {/* Filter Options */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                        {/* Sharing Type Filter */}
+                        <div>
+                          <label className="block text-xs text-slate-300 mb-2">Room Type</label>
+                          <div className="flex gap-2">
+                            {["all", "1", "2", "3"].map((type) => (
+                              <button
+                                key={type}
+                                onClick={() => setFilterSharingType(type as any)}
+                                className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition ${
+                                  filterSharingType === type
+                                    ? "bg-indigo-600 text-white"
+                                    : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                                }`}
+                              >
+                                {type === "all" ? "All" : `${type}-Share`}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* AC Filter */}
+                        <div>
+                          <label className="block text-xs text-slate-300 mb-2">AC Preference</label>
+                          <div className="flex gap-2">
+                            {["all", "ac", "non-ac"].map((ac) => (
+                              <button
+                                key={ac}
+                                onClick={() => setFilterAC(ac as any)}
+                                className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition ${
+                                  filterAC === ac
+                                    ? "bg-indigo-600 text-white"
+                                    : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                                }`}
+                              >
+                                {ac === "all" ? "All" : ac === "ac" ? "🌬️ AC" : "⚡ Non-AC"}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
 
                     {isLoadingAvailability ? (
                       <div className="p-8 text-center text-slate-400">
                         <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-400" />
                         <span>Checking real-time bed inventory...</span>
                       </div>
+                    ) : Object.keys(filteredAndGroupedRooms).length === 0 ? (
+                      <div className="p-6 text-center text-slate-400 bg-slate-950 rounded-xl border border-slate-800">
+                        <AlertCircle className="w-6 h-6 mx-auto mb-2" />
+                        <p>No rooms available matching your preferences.</p>
+                      </div>
                     ) : (
-                      <div className="space-y-3">
-                        {roomsData.map((r) => (
-                          <div
-                            key={r.id}
-                            onClick={() => r.hasAvailability && setSelectedRoomId(r.id)}
-                            className={`p-4 rounded-2xl border flex items-center justify-between transition cursor-pointer ${
-                              selectedRoomId === r.id
-                                ? "selection-glow bg-indigo-950/60 border-indigo-500 shadow-glow"
-                                : r.hasAvailability
-                                ? "bg-slate-900/60 border-slate-800 hover:border-slate-700"
-                                : "opacity-40 bg-slate-950 border-slate-900 cursor-not-allowed"
-                            }`}
-                          >
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-sm text-white">
-                                  {r.roomType.name} (Room {r.roomNumber})
-                                </span>
-                                <Badge
-                                  variant={
-                                    r.roomType.genderCategory === "FEMALE"
-                                      ? "coral"
-                                      : r.roomType.genderCategory === "PRIVATE"
-                                      ? "cyan"
-                                      : "default"
-                                  }
-                                  size="sm"
+                      <div className="space-y-4">
+                        {Object.entries(filteredAndGroupedRooms).map(([categoryName, rooms]) => (
+                          <div key={categoryName} className="space-y-2">
+                            <h4 className="text-sm font-bold text-indigo-300 pl-2">{categoryName}</h4>
+                            <div className="space-y-2">
+                              {rooms.map((r) => (
+                                <div
+                                  key={r.id}
+                                  onClick={() => r.hasAvailability && setSelectedRoomId(r.id)}
+                                  className={`p-4 rounded-2xl border flex items-center justify-between transition cursor-pointer ${
+                                    selectedRoomId === r.id
+                                      ? "selection-glow bg-indigo-950/60 border-indigo-500 shadow-glow"
+                                      : r.hasAvailability
+                                      ? "bg-slate-900/60 border-slate-800 hover:border-slate-700"
+                                      : "opacity-40 bg-slate-950 border-slate-900 cursor-not-allowed"
+                                  }`}
                                 >
-                                  {r.roomType.genderCategory}
-                                </Badge>
-                              </div>
-                              <span className="text-xs text-emerald-400 font-semibold block">
-                                {r.totalAvailableBeds} beds available for your dates
-                              </span>
-                            </div>
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-bold text-sm text-white">
+                                        Room {r.roomNumber}
+                                      </span>
+                                      <Badge
+                                        variant={r.isAC ? "cyan" : "coral"}
+                                        size="sm"
+                                      >
+                                        {r.isAC ? "🌬️ AC" : "⚡ Non-AC"}
+                                      </Badge>
+                                      <Badge
+                                        variant={
+                                          r.roomType.genderCategory === "FEMALE"
+                                            ? "coral"
+                                            : r.roomType.genderCategory === "PRIVATE"
+                                            ? "default"
+                                            : "default"
+                                        }
+                                        size="sm"
+                                      >
+                                        {r.roomType.genderCategory}
+                                      </Badge>
+                                    </div>
+                                    <span className="text-xs text-emerald-400 font-semibold block">
+                                      {r.totalAvailableBeds} beds available
+                                    </span>
+                                  </div>
 
-                            <div className="text-right">
-                              <span className="text-lg font-black text-white">
-                                ₹{r.roomType.basePrice}
-                              </span>
-                              <span className="text-xs text-slate-400 block">/ night</span>
+                                  <div className="text-right">
+                                    {(() => {
+                                      const { price, displayText, pricingInfo } = getDisplayPrice(r);
+                                      return (
+                                        <>
+                                          <span className="text-lg font-black text-white">
+                                            ₹{Math.round(price)}
+                                          </span>
+                                          <span className="text-xs text-slate-400 block">
+                                            {displayText}
+                                          </span>
+                                          {pricingInfo && (
+                                            <span className="text-[10px] text-amber-400 font-bold block mt-0.5">
+                                              {pricingInfo}
+                                            </span>
+                                          )}
+                                        </>
+                                      );
+                                    })()}
+                                  </div>
+                                </div>
+                              ))}
                             </div>
                           </div>
                         ))}

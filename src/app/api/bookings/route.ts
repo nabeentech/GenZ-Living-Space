@@ -128,9 +128,9 @@ export async function POST(req: Request) {
     const pricing = calculateBookingPrice({
       checkInDate: checkIn,
       checkOutDate: checkOut,
-      basePrice: room.roomType.basePrice,
+      basePrice: room.roomType.basePrice || 999,
       weeklyDiscountPct: room.roomType.weeklyDiscountPct,
-      monthlyPrice: room.roomType.monthlyPrice,
+      monthlyPrice: room.roomType.monthlyPrice || 21999,
       securityDeposit: room.roomType.securityDeposit,
       coupon: couponRecord,
     });

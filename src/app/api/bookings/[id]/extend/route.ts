@@ -61,9 +61,9 @@ export async function POST(
     const pricing = calculateBookingPrice({
       checkInDate: booking.checkInDate,
       checkOutDate: requestedCheckOut,
-      basePrice: booking.room.roomType.basePrice,
+      basePrice: booking.room.roomType.basePrice || 999,
       weeklyDiscountPct: booking.room.roomType.weeklyDiscountPct,
-      monthlyPrice: booking.room.roomType.monthlyPrice,
+      monthlyPrice: booking.room.roomType.monthlyPrice || 21999,
       securityDeposit: booking.room.roomType.securityDeposit,
     });
     const additionalAmount = Math.max(0, pricing.totalAmount - booking.totalAmount);
