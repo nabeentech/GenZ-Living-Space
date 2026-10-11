@@ -3,8 +3,13 @@ import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import prisma from "./prisma";
 
-const JWT_SECRET = process.env.JWT_SECRET || "genz_super_secret_jwt_key_2026";
 const COOKIE_NAME = "genz_auth_token";
+
+function jwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.length < 32) throw new Error("JWT_SECRET must be configured with at least 32 characters.");
+  return secret;
+}
 
 export async function hashPassword(password: string): Promise<string> {
   return await bcrypt.hash(password, 10);
@@ -20,7 +25,7 @@ export function signToken(payload: {
   role: string;
   name: string;
 }): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+  return jwt.sign(payload, jwtSecret(), { expiresIn: "7d" });
 }
 
 export function verifyToken(token: string): {
@@ -30,7 +35,7 @@ export function verifyToken(token: string): {
   name: string;
 } | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as {
+    return jwt.verify(token, jwtSecret()) as {
       userId: string;
       email: string;
       role: string;

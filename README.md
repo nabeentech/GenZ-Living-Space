@@ -1,152 +1,56 @@
-# GenZ Living Space — Hostel Booking & Operating System (PMS)
+# GenZ Hostel Manager — Phase 1
 
-A complete, production-grade proprietary hostel operating system and customer booking web platform built exclusively for **GenZ Colive & PG Guest Rooms** in Madhapur, Hyderabad.
+A staff-operated system for managing multiple hostels and their locations. Phase 1 covers resident registration, room and bed inventory, monthly fee tracking, and vacating residents. Customer self-booking and online payments are reserved for Phase 2.
 
----
+## Phase 1 workflow
 
-## 1. Project Overview
+1. Add each hostel with its location and contact details.
+2. Add rooms by floor and sharing capacity. The system creates the matching beds and tracks availability.
+3. Register a resident in person, capture their details and government ID, choose a vacant bed, and enter the monthly fee.
+4. Mark the first month as collected when applicable. Each stay keeps its joining-date billing cycle.
+5. Record each offline fee collection. The dashboard shows fees due today, overdue, and due in the next seven days.
+6. Vacate a resident when they leave. Their stay and fee history remain available, and the bed becomes vacant.
 
-GenZ Colive & PG Guest Rooms is **NOT an aggregator or marketplace** like Airbnb or Booking.com. It is a purpose-built, dedicated hospitality operating system for premium coliving and guest room management featuring tech-enabled amenities, creator pods, and vibrant community living
+Fee collection is a staff record only. The app does not initiate or verify cash, UPI, card, bank, or online payments.
 
-### Key System Capabilities
-* **End-to-End Booking Engine**: Real-time bed availability matrix, 15-minute temporary reservation hold lock, double-booking prevention via atomic transactional queries, and automated GST/discount price breakdown.
-* **Razorpay Payment Gateway Architecture**: Server-side order creation, HMAC-SHA256 signature verification, and instant sandbox simulator for test workflows.
-* **Reception QR Check-In & Check-Out**: Fast QR code verification, 1-click check-in, keycard assignment, additional charge recording (laundry, keycard replacement, damages), and automatic bed release to Housekeeping.
-* **Walk-in Booking Desk**: Counter reservation tool for on-spot arrivals supporting Cash, UPI, and Card.
-* **Visual Bed Allocation Matrix**: Dynamic floor-by-floor, room-by-room grid showing status (`AVAILABLE`, `OCCUPIED`, `RESERVED`, `CLEANING`, `MAINTENANCE`) with 1-click status override.
-* **Housekeeping Kanban Queue**: Real-time cleaning workflow (`DIRTY` -> `CLEANING` -> `CLEAN` -> `INSPECTED`).
-* **Resident Support & Complaints**: Ticket center with categorized complaints (Wi-Fi, Noise, Cleaning, Room) and staff response desk.
-* **Financial Ledger & Invoices**: Captured transactions ledger, policy-based refund approval/rejection queue, and printable official GST Tax Invoices.
-* **Coupons & Promotions**: Promo code engine supporting percentage and flat discounts, minimum spends, and caps.
-* **Website CMS**: Live editing of homepage headlines, subheadlines, taglines, and contact phone/email without touching code.
-* **Audit Trail**: Immutable system logs recording every critical action.
+## Main screens
 
----
+- **Overview** — active residents, vacant beds, fee reminders, and occupancy by hostel.
+- **Residents & fees** — registration, bed allocation, resident directory, offline fee receipts, and vacating.
+- **Hostels** — add locations, update property details, and activate or deactivate hostels.
+- **Rooms & beds** — filter inventory by hostel and floor, add rooms, and mark vacant beds unavailable or available.
 
-## 2. Technology Stack
+Phase 2 routes and APIs remain in the source tree but are gated from the Phase 1 staff workflow.
 
-* **Framework**: [Next.js 14](https://nextjs.org/) (App Router, Server Components & Route Handlers)
-* **Language**: TypeScript
-* **Styling**: Tailwind CSS with custom Gen-Z color system (Electric Indigo, Neon Coral, Cyber Cyan, Midnight Dark Surfaces)
-* **Database & ORM**: Prisma ORM with SQLite (PostgreSQL compatible)
-* **Authentication**: HTTP-only JWT session cookies with bcrypt password hashing & Role-Based Access Control (RBAC)
-* **QR Codes**: `qrcode` library
-* **Icons**: `lucide-react`
-* **Animations**: `canvas-confetti` celebration & smooth CSS micro-interactions
+## Technology
 
----
+- Next.js 14 App Router and TypeScript
+- Prisma ORM with SQLite for local development
+- HTTP-only JWT session cookie and bcrypt password hashes
+- Tailwind CSS and Lucide icons
 
-## 3. Pre-Seeded Demo Accounts
+## Run locally
 
-The database comes pre-seeded with accounts for all roles:
+Requirements: Node.js 18 or newer and npm.
 
-| Role | Email | Password | Scope |
-| :--- | :--- | :--- | :--- |
-| **Super Admin** | `admin@genzlivingspace.com` | `Admin@123` | Full unrestricted access to all properties & settings |
-| **Property Manager** | `manager@genzlivingspace.com` | `Manager@123` | Property operations, rooms, bookings |
-| **Receptionist** | `reception@genzlivingspace.com` | `Reception@123` | QR Check-in/out, walk-in desk, guest ledger |
-| **Finance Staff** | `finance@genzlivingspace.com` | `Finance@123` | Payments, invoices, refund queue, reports |
-| **Housekeeping** | `cleaning@genzlivingspace.com` | `Clean@123` | Cleaning board, room status inspection |
-| **Demo Resident** | `sameer@gmail.com` | `Customer@123` | Customer portal, bookings, support tickets |
+1. Install dependencies: `npm install`
+2. Copy `.env.example` to `.env` and set a private `JWT_SECRET` of at least 32 characters.
+3. Generate the Prisma client and sync the local database:
 
-> *Quick Login:* The `/auth/login` page includes **1-click demo buttons** to fill these credentials automatically.
-
----
-
-## 4. Setup & Running Locally
-
-### Prerequisites
-* Node.js v18+ or v20+
-* npm
-
-### Steps
-
-1. **Install Dependencies**:
-   ```bash
-   npm install
-   ```
-
-2. **Environment Variables**:
-   Copy `.env.example` to `.env`:
-   ```bash
-   cp .env.example .env
-   ```
-
-3. **Initialize Database & Seed 2 Madhapur Hostels**:
    ```bash
    npx prisma generate
    npx prisma db push
-   npx tsx prisma/seed.ts
    ```
 
-4. **Start Development Server**:
-   ```bash
-   npm run dev
-   ```
-   Open [http://localhost:3000](http://localhost:3000) in your browser.
+4. Start the app: `npm run dev`
+5. Open `http://localhost:3000` and sign in at the staff login screen.
 
----
+The seed script clears and recreates the local database before adding demo data. Only run `npx tsx prisma/seed.ts` against a disposable development database.
 
-## 5. Booking & Pricing Engine Logic
+The seed creates a super-admin account: `admin@genzlivingspace.com` with password `Admin@123`. Change demo credentials and secrets before any production deployment.
 
-* **Short vs Long-Term Stays**:
-  * **Daily (< 7 nights)**: Base room rate $\times$ nights
-  * **Weekly (7 - 27 nights)**: Automatically applies weekly discount (10–15%)
-  * **Monthly ($\ge$ 28 nights)**: Prorated monthly membership rate + refundable security deposit (₹3,000)
-* **GST Calculation**: Standard 12% hospitality tier computed on taxable accommodation amount
-* **Temporary Hold Guarantee**: 15-minute countdown locks the selected bed in the database with `holdExpiresAt = now + 15m`. If payment is abandoned, the bed is automatically released.
-* **Double-Booking Prevention**: Prisma `$transaction` verifies that no overlapping reservation exists for that exact bed:
-  $$\text{checkIn} < \text{requestedCheckOut} \quad \text{AND} \quad \text{checkOut} > \text{requestedCheckIn}$$
-  with status `CONFIRMED`, `CHECKED_IN`, or active `PAYMENT_PENDING`.
+## Phase 1 data
 
----
+`ResidentStay` records the resident, hostel, room, bed, joining date, monthly fee, and next due date. Due dates stay aligned with the joining day; short months clamp to their final day and return to the joining day in later months. `FeeReceipt` records offline collections and the periods they cover. Vacating closes a stay without deleting its receipt history.
 
-## 6. Project Architecture
-
-```
-src/
-├── app/
-│   ├── (public)/                 # Customer-facing public layout
-│   │   ├── page.tsx              # Modern Gen-Z Homepage
-│   │   ├── hostels/              # Hostels Catalog & Detail
-│   │   │   ├── page.tsx
-│   │   │   └── [slug]/page.tsx
-│   │   ├── book/page.tsx         # Multi-step booking engine
-│   │   ├── confirmation/page.tsx # QR pass & printable invoice
-│   │   ├── auth/                 # Sign In & Sign Up
-│   │   └── dashboard/            # Resident Portal (bookings, refunds, tickets)
-│   ├── admin/                    # Administrative OS
-│   │   ├── layout.tsx            # Staff sidebar & RBAC guard
-│   │   ├── page.tsx              # Executive KPIs & Charts
-│   │   ├── beds/                 # Visual Bed Allocation Matrix
-│   │   ├── checkin/              # Reception QR Scanner Desk
-│   │   ├── walkin/               # Walk-In Reservation Desk
-│   │   ├── bookings/             # Reservations Ledger & Actions
-│   │   ├── housekeeping/         # Cleaning & Sanitation Kanban
-│   │   ├── complaints/           # Customer Support & Staff Replies
-│   │   ├── coupons/              # Promo code creator
-│   │   ├── payments/             # Payments, Invoices, Refund Approvals
-│   │   ├── reports/              # Analytics & CSV Data Exporter
-│   │   ├── cms/                  # Website copy editor
-│   │   └── audit-logs/           # System compliance trail
-│   └── api/                      # REST Endpoints
-│       ├── auth/                 # Login, Register, Logout, Me
-│       ├── hostels/              # Hostels discovery
-│       ├── availability/         # Real-time bed availability check
-│       ├── bookings/             # Booking create, hold, cancel, refund
-│       ├── payments/             # Order creation & signature verification
-│       ├── checkin/              # QR check-in & checkout actions
-│       └── admin/                # Beds, walk-in, complaints, CMS
-├── components/                   # UI Library (Button, Badge, Modal, Navbar, Footer)
-└── lib/                          # Core Services (Prisma, Auth, Pricing, Razorpay, QR, Invoices)
-```
-
----
-
-## 7. Production Deployment
-
-To run in production with PostgreSQL:
-1. Change `datasource db` in `prisma/schema.prisma` from `sqlite` to `postgresql`.
-2. Set `DATABASE_URL="postgresql://user:pass@host:5432/genz_db"` in `.env`.
-3. Run `npx prisma db push && npx tsx prisma/seed.ts`.
-4. Build bundle: `npm run build && npm run start`.
+The existing booking and customer website implementation is retained for later Phase 2 work; middleware currently redirects those pages and returns 404 for the associated customer booking and online payment APIs.

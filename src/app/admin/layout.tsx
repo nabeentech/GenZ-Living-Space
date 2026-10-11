@@ -23,16 +23,14 @@ export default async function AdminLayout({
     ROLES.PROPERTY_MANAGER,
     ROLES.RECEPTIONIST,
     ROLES.FINANCE,
-    ROLES.HOUSEKEEPING,
-    ROLES.SUPPORT_STAFF,
   ];
 
   if (!hasPermission(user.role, allowedRoles)) {
-    redirect("/dashboard");
+    redirect("/auth/login");
   }
 
   return (
-    <div className="min-h-screen bg-[#07090E] text-slate-100 flex flex-col md:flex-row antialiased">
+    <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col md:flex-row antialiased">
       {/* Sidebar Component */}
       <AdminSidebar user={user} />
 

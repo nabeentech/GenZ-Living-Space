@@ -1,382 +1,47 @@
-import React from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getSessionUser, ROLES } from "@/lib/auth";
+import { AlertCircle, ArrowRight, BedDouble, Building2, CalendarDays, CheckCircle2, LogOut, Plus, Users } from "lucide-react";
 import prisma from "@/lib/prisma";
-import Badge from "@/components/ui/Badge";
-import Button from "@/components/ui/Button";
-import {
-  Calendar,
-  Users,
-  CreditCard,
-  Bed as BedIcon,
-  Sparkles,
-  TrendingUp,
-  AlertCircle,
-  HelpCircle,
-  ArrowRight,
-  CheckCircle2,
-  Clock,
-  MapPin,
-} from "lucide-react";
+import { getSessionUser, ROLES } from "@/lib/auth";
+import { buildFeeCalendarEvents } from "@/lib/fee-calendar";
+import FeeCalendar, { type CalendarEvent } from "./calendar/FeeCalendar";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminDashboardPage() {
-  const sessionUser = await getSessionUser();
-  if (sessionUser?.role === ROLES.RECEPTIONIST) redirect("/admin/receptionist");
-  if (sessionUser?.role === ROLES.PROPERTY_MANAGER) redirect("/admin/manager");
+export default async function AdminDashboardPage({ searchParams }: { searchParams: { month?: string } }) {
+  const user = await getSessionUser();
+  if (!user) redirect("/auth/login");
+  if (user.role === ROLES.CUSTOMER) redirect("/dashboard");
+  const canRegister = [ROLES.SUPER_ADMIN, ROLES.PROPERTY_MANAGER, ROLES.RECEPTIONIST].includes(user.role as any);
+  const canManage = [ROLES.SUPER_ADMIN, ROLES.PROPERTY_MANAGER].includes(user.role as any);
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(searchParams.month || "") ? searchParams.month! : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const [calendarYear, calendarMonth] = month.split("-").map(Number);
+  const monthStart = new Date(Date.UTC(calendarYear, calendarMonth - 1, 1));
+  const monthEnd = new Date(Date.UTC(calendarYear, calendarMonth, 1));
+  const [totalBeds, occupiedBeds, vacantBeds, activeResidents, dueCount, overdueCount, hostels, calendarStays] = await Promise.all([
+    prisma.bed.count({ where: { active: true, hostel: { active: true }, room: { active: true } } }),
+    prisma.bed.count({ where: { active: true, status: "OCCUPIED", hostel: { active: true }, room: { active: true } } }),
+    prisma.bed.count({ where: { active: true, status: "AVAILABLE", hostel: { active: true }, room: { active: true } } }),
+    prisma.residentStay.count({ where: { status: "ACTIVE", hostel: { active: true } } }),
+    prisma.residentStay.count({ where: { status: "ACTIVE", nextDueAt: { gte: now, lt: monthEnd }, hostel: { active: true } } }),
+    prisma.residentStay.count({ where: { status: "ACTIVE", nextDueAt: { lt: now }, hostel: { active: true } } }),
+    prisma.hostel.findMany({ where: { active: true }, orderBy: [{ city: "asc" }, { name: "asc" }], include: { rooms: { where: { active: true }, orderBy: [{ floor: "asc" }, { roomNumber: "asc" }], include: { beds: { where: { active: true }, select: { id: true, status: true } } } } } }),
+    prisma.residentStay.findMany({ where: { status: "ACTIVE", hostel: { active: true } }, include: { resident: { select: { name: true } }, hostel: { select: { name: true } }, room: { select: { roomNumber: true } }, bed: { select: { bedNumber: true } }, feeReceipts: { where: { periodStart: { gte: monthStart, lt: monthEnd } }, select: { id: true, periodStart: true, amount: true } } } }),
+  ]);
+  const events = buildFeeCalendarEvents(calendarStays, calendarYear, calendarMonth, new Date()) as CalendarEvent[];
+  const upcoming = events.filter((event) => event.status !== "paid").slice(0, 4);
 
-  // Aggregate real-time statistics
-  const totalBookings = await prisma.booking.count();
-  const confirmedBookings = await prisma.booking.count({
-    where: { bookingStatus: { in: ["CONFIRMED", "CHECKED_IN"] } },
-  });
-
-  const allBeds = await prisma.bed.count({ where: { active: true } });
-  const occupiedBeds = await prisma.bed.count({
-    where: { status: "OCCUPIED" },
-  });
-  const cleaningBeds = await prisma.bed.count({
-    where: { status: "CLEANING" },
-  });
-  const availableBeds = await prisma.bed.count({
-    where: { status: "AVAILABLE" },
-  });
-
-  const occupancyRate = allBeds > 0 ? Math.round((occupiedBeds / allBeds) * 100) : 0;
-
-  // Payments & Revenue
-  const payments = await prisma.payment.findMany({
-    where: { status: "CAPTURED" },
-    select: { amount: true },
-  });
-  const totalRevenue = payments.reduce((acc, p) => acc + p.amount, 0);
-
-  // Complaints & Refunds
-  const openComplaints = await prisma.supportTicket.count({
-    where: { status: { in: ["OPEN", "IN_PROGRESS"] } },
-  });
-  const refundRequests = await prisma.refund.count({
-    where: { status: "REQUESTED" },
-  });
-
-  // Hostels Breakdown
-  const hostels = await prisma.hostel.findMany({
-    include: {
-      rooms: {
-        include: {
-          beds: true,
-        },
-      },
-      bookings: {
-        where: { bookingStatus: { in: ["CONFIRMED", "CHECKED_IN"] } },
-      },
-    },
-  });
-
-  // Recent 6 Bookings
-  const recentBookings = await prisma.booking.findMany({
-    take: 6,
-    orderBy: { createdAt: "desc" },
-    include: {
-      hostel: true,
-      room: true,
-      bed: true,
-    },
-  });
-
-  // Booking Extensions
-  const pendingExtensions = await prisma.bookingExtension.count({
-    where: { status: "REQUESTED" },
-  });
-  const pendingExtensionRevenue = await prisma.bookingExtension.aggregate({
-    where: { status: "REQUESTED", additionalAmount: { gt: 0 } },
-    _sum: { additionalAmount: true },
-  });
-
-  return (
-    <div className="space-y-8">
-      {/* Top Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <span className="text-xs uppercase font-extrabold tracking-widest text-indigo-400">
-            Operations Command Center
-          </span>
-          <h1 className="text-3xl font-black text-white">Platform Overview</h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Real-time metrics across both GenZ Living Space properties.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Link href="/admin/checkin">
-            <Button variant="glow" size="sm">
-              Reception QR Check-In
-            </Button>
-          </Link>
-          <Link href="/admin/walkin">
-            <Button variant="outline" size="sm">
-              + Walk-In Booking
-            </Button>
-          </Link>
-        </div>
-      </div>
-
-      {/* KPI Metric Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-        {/* Total Bookings */}
-        <div className="glass-panel p-5 rounded-2xl border border-slate-800 bg-[#101626]/80 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400">Total Bookings</span>
-            <Calendar className="w-4 h-4 text-white" />
-          </div>
-          <span className="text-2xl font-black text-white block">
-            {totalBookings}
-          </span>
-          <span className="text-[10px] text-emerald-400 font-semibold">
-            {confirmedBookings} active/confirmed
-          </span>
-        </div>
-
-        {/* Occupancy Rate */}
-        <div className="glass-panel p-5 rounded-2xl border border-slate-800 bg-[#101626]/80 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400">Occupancy</span>
-            <TrendingUp className="w-4 h-4 text-pink-400" />
-          </div>
-          <span className="text-2xl font-black text-white block">
-            {occupancyRate}%
-          </span>
-          <span className="text-[10px] text-slate-400">
-            {occupiedBeds} of {allBeds} beds occupied
-          </span>
-        </div>
-
-        {/* Available Beds */}
-        <div className="glass-panel p-5 rounded-2xl border border-slate-800 bg-[#101626]/80 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400">Available Beds</span>
-            <BedIcon className="w-4 h-4 text-emerald-400" />
-          </div>
-          <span className="text-2xl font-black text-emerald-400 block">
-            {availableBeds}
-          </span>
-          <span className="text-[10px] text-amber-400">
-            {cleaningBeds} in cleaning queue
-          </span>
-        </div>
-
-        {/* Total Revenue */}
-        <div className="glass-panel p-5 rounded-2xl border border-slate-800 bg-[#101626]/80 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400">Gross Revenue</span>
-            <CreditCard className="w-4 h-4 text-cyan-400" />
-          </div>
-          <span className="text-2xl font-black text-white block">
-            ₹{totalRevenue.toLocaleString()}
-          </span>
-          <span className="text-[10px] text-emerald-400">Server captured</span>
-        </div>
-
-        {/* Open Complaints */}
-        <div className="glass-panel p-5 rounded-2xl border border-slate-800 bg-[#101626]/80 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400">Open Tickets</span>
-            <HelpCircle className="w-4 h-4 text-amber-400" />
-          </div>
-          <span className="text-2xl font-black text-amber-400 block">
-            {openComplaints}
-          </span>
-          <span className="text-[10px] text-slate-400">Pending staff reply</span>
-        </div>
-
-        {/* Refund Requests */}
-        <div className="glass-panel p-5 rounded-2xl border border-slate-800 bg-[#101626]/80 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400">Refund Queue</span>
-            <AlertCircle className="w-4 h-4 text-rose-400" />
-          </div>
-          <span className="text-2xl font-black text-rose-400 block">
-            {refundRequests}
-          </span>
-          <span className="text-[10px] text-slate-400">Requires review</span>
-        </div>
-
-        {/* Pending Stay Extensions */}
-        <Link href="/admin/extensions">
-          <div className="glass-panel p-5 rounded-2xl border border-slate-800 bg-[#101626]/80 space-y-2 hover:border-indigo-500/50 transition cursor-pointer">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-400">Stay Extensions</span>
-              <MapPin className="w-4 h-4 text-indigo-400" />
-            </div>
-            <span className="text-2xl font-black text-indigo-400 block">
-              {pendingExtensions}
-            </span>
-            <span className="text-[10px] text-indigo-400">
-              ₹{(pendingExtensionRevenue._sum.additionalAmount || 0).toLocaleString()} pending
-            </span>
-          </div>
-        </Link>
-      </div>
-
-      {/* Hostel Performance Breakdown */}
-      <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800 bg-[#101626]/80 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-xl font-bold text-white">Property Performance</h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Real-time room occupancy, bed allocation, and live guest counts.
-            </p>
-          </div>
-          <Link href="/admin/beds">
-            <Button variant="outline" size="sm" rightIcon={<ArrowRight className="w-4 h-4" />}>
-              Open Bed Allocation Matrix
-            </Button>
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {hostels.map((h) => {
-            let totalHostelBeds = 0;
-            let occupiedHostelBeds = 0;
-            h.rooms.forEach((r) => {
-              r.beds.forEach((b) => {
-                totalHostelBeds++;
-                if (b.status === "OCCUPIED") occupiedHostelBeds++;
-              });
-            });
-
-            const pct =
-              totalHostelBeds > 0
-                ? Math.round((occupiedHostelBeds / totalHostelBeds) * 100)
-                : 0;
-
-            return (
-              <div
-                key={h.id}
-                className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-4"
-              >
-                <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-sm text-white">{h.name}</h4>
-                  <Badge variant="indigo" size="sm">
-                    {h.city}
-                  </Badge>
-                </div>
-
-                <div className="space-y-1">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-400">Occupancy</span>
-                    <span className="font-bold text-white">{pct}%</span>
-                  </div>
-                  {/* Progress Bar */}
-                  <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-indigo-500 to-pink-500 rounded-full"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-800">
-                  <div>
-                    <span className="text-slate-500 block">Total Beds</span>
-                    <span className="font-bold text-white">{totalHostelBeds}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block">Active Bookings</span>
-                    <span className="font-bold text-emerald-400">
-                      {h.bookings.length}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Recent Bookings Table */}
-      <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800 bg-[#111827]/80 space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xl font-bold text-white">Recent Activity</h3>
-          <Link href="/admin/bookings">
-            <Button variant="ghost" size="sm" rightIcon={<ArrowRight className="w-4 h-4" />}>
-              View All Bookings
-            </Button>
-          </Link>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-300">
-            <thead className="bg-slate-900/80 text-slate-400 uppercase tracking-wider font-semibold border-b border-slate-800">
-              <tr>
-                <th className="p-3.5">Ref #</th>
-                <th className="p-3.5">Resident</th>
-                <th className="p-3.5">Hostel & Room</th>
-                <th className="p-3.5">Bed</th>
-                <th className="p-3.5">Check-In</th>
-                <th className="p-3.5">Total</th>
-                <th className="p-3.5">Status</th>
-                <th className="p-3.5 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/80">
-              {recentBookings.map((b) => (
-                <tr key={b.id} className="hover:bg-slate-900/50 transition">
-                  <td className="p-3.5 font-mono font-bold text-white">
-                    {b.bookingReference}
-                  </td>
-                  <td className="p-3.5">
-                    <span className="font-bold text-white block">{b.guestName}</span>
-                    <span className="text-[11px] text-slate-400">{b.guestPhone}</span>
-                  </td>
-                  <td className="p-3.5">
-                    <span className="text-white block">{b.hostel.name}</span>
-                    <span className="text-[11px] text-slate-400">
-                      Room {b.room.roomNumber}
-                    </span>
-                  </td>
-                  <td className="p-3.5">
-                    <Badge variant="indigo" size="sm">
-                      {b.bed.bedNumber}
-                    </Badge>
-                  </td>
-                  <td className="p-3.5">
-                    {new Date(b.checkInDate).toLocaleDateString()}
-                  </td>
-                  <td className="p-3.5 font-black text-white">
-                    ₹{b.totalAmount.toLocaleString()}
-                  </td>
-                  <td className="p-3.5">
-                    <Badge
-                      variant={
-                        b.bookingStatus === "CONFIRMED"
-                          ? "available"
-                          : b.bookingStatus === "CHECKED_IN"
-                          ? "indigo"
-                          : b.bookingStatus === "CANCELLED"
-                          ? "danger"
-                          : "default"
-                      }
-                      size="sm"
-                    >
-                      {b.bookingStatus}
-                    </Badge>
-                  </td>
-                  <td className="p-3.5 text-right">
-                    <Link href={`/admin/bookings?search=${b.bookingReference}`}>
-                      <Button variant="outline" size="sm">
-                        Manage
-                      </Button>
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
+  return <div className="-m-4 min-h-full bg-[#f5f7fb] p-4 text-slate-900 sm:-m-6 sm:p-6 lg:-m-8 lg:p-7"><div className="mx-auto max-w-[1500px] space-y-5">
+    <header className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end"><div><p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">Hostel operations</p><h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-950">Good morning, {user.name.split(" ")[0]}</h1><p className="mt-1 text-sm text-slate-600">Here’s what needs your attention today.</p></div><div className="text-sm text-slate-500">{new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</div></header>
+    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"><Metric icon={<BedDouble/>} label="Total beds" value={totalBeds} tone="blue"/><Metric icon={<Users/>} label="Occupied beds" value={occupiedBeds} tone="red"/><Metric icon={<BedDouble/>} label="Vacant beds" value={vacantBeds} tone="green"/><Metric icon={<CalendarDays/>} label="Fees due this month" value={dueCount} tone="amber"/><Metric icon={<AlertCircle/>} label="Overdue fees" value={overdueCount} tone="red"/></section>
+    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"><QuickLink href={canRegister ? "/admin/residents?new=1" : "/admin/residents"} icon={<Plus/>} title="Register resident" detail="Add details and assign a bed" tone="green"/><QuickLink href="/admin/beds" icon={<BedDouble/>} title="View vacant beds" detail={`${vacantBeds} beds ready to assign`} tone="blue"/><QuickLink href={`/admin/calendar?month=${month}`} icon={<CalendarDays/>} title="Fee calendar" detail="Review due dates & mark collected" tone="amber"/><QuickLink href="/admin/residents" icon={<Users/>} title="View residents" detail={`${activeResidents} current residents`} tone="violet"/><QuickLink href="/admin/residents?status=ACTIVE" icon={<LogOut/>} title="Vacate resident" detail="Close a resident’s stay" tone="red"/></section>
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.9fr)]"><section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5"><div className="flex items-center justify-between"><div><h2 className="text-lg font-bold text-slate-950">Rooms overview</h2><p className="mt-1 text-xs text-slate-500">Open a floor to see rooms and bed availability</p></div>{canManage && <Link href="/admin/hostels" className="text-xs font-semibold text-blue-700">Manage floors <ArrowRight className="ml-1 inline" size={14}/></Link>}</div>
+      {hostels.length ? <div className="mt-4 space-y-5">{hostels.map((hostel)=><div key={hostel.id}><div className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-900"><Building2 size={16} className="text-emerald-700"/>{hostel.name}<span className="text-xs font-normal text-slate-500">· {hostel.city}</span></div><div className="space-y-2">{Array.from(new Set(hostel.rooms.map((room)=>room.floor))).sort((a,b)=>a-b).map((floor)=>{const rooms=hostel.rooms.filter((room)=>room.floor===floor);const beds=rooms.flatMap((room)=>room.beds);const occupied=beds.filter((bed)=>bed.status==="OCCUPIED").length;const vacant=beds.filter((bed)=>bed.status==="AVAILABLE").length;return <details key={floor} className="group rounded-xl border border-slate-200 bg-white"><summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 p-3 sm:p-4"><span className="flex items-center gap-2 font-semibold text-slate-900"><span className="text-slate-500">›</span>{floorName(floor)}</span><span className="flex flex-wrap items-center gap-2 text-[11px]"><span className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">{rooms.length} rooms</span><span className="rounded-full bg-rose-50 px-2.5 py-1 font-semibold text-rose-700">{occupied} occupied</span><span className="rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700">{vacant} vacant</span></span></summary><div className="border-t border-slate-100 px-3 py-3 sm:px-4"><div className="flex flex-wrap gap-2">{rooms.map((room)=><Link key={room.id} href={`/admin/beds?hostelId=${hostel.id}&floor=${floor}`} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:border-blue-300 hover:bg-blue-50">Room {room.roomNumber}<span className="ml-2 font-normal text-slate-500">{room.beds.filter((bed)=>bed.status==="AVAILABLE").length} free</span></Link>)}</div><Link href={`/admin/beds?hostelId=${hostel.id}&floor=${floor}`} className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-blue-700">Open this floor <ArrowRight size={13}/></Link></div></details>})}{!hostel.rooms.length&&<p className="rounded-lg border border-dashed border-slate-200 p-4 text-xs text-slate-500">No rooms added yet. Configure floors and room counts in Hostels.</p>}</div></div>)}</div> : <div className="py-12 text-center"><Building2 className="mx-auto text-slate-400"/><p className="mt-3 text-sm font-semibold text-slate-800">No hostels yet</p><p className="mt-1 text-xs text-slate-500">Add a hostel and configure its floors.</p>{canManage&&<Link href="/admin/hostels" className="mt-4 inline-flex rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white">Add hostel</Link>}</div>}</section>
+      <div className="space-y-4"><section className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4"><FeeCalendar month={month} events={events} compact/></section><section className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex items-center justify-between"><div><h2 className="font-bold text-slate-950">Upcoming fees</h2><p className="mt-1 text-xs text-slate-500">The next resident due dates</p></div><Link href={`/admin/calendar?month=${month}`} className="text-xs font-semibold text-blue-700">View calendar</Link></div>{upcoming.length?<div className="mt-3 divide-y divide-slate-100">{upcoming.map((event)=><div key={event.id} className="flex items-center justify-between gap-2 py-2.5"><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900">{event.resident}</p><p className="truncate text-xs text-slate-500">{event.room} · {event.bed}</p></div><div className="shrink-0 text-right"><p className="text-sm font-bold text-slate-900">₹{event.amount.toLocaleString("en-IN")}</p><p className="text-[10px] text-slate-500">{new Date(`${event.date}T00:00:00`).toLocaleDateString("en-IN",{day:"numeric",month:"short"})}</p></div></div>)}</div>:<div className="py-6 text-center"><CheckCircle2 className="mx-auto text-emerald-500"/><p className="mt-2 text-xs text-slate-500">No upcoming fee dates.</p></div>}</section></div></div>
+  </div></div>;
 }
+
+function Metric({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: number; tone: string }) { const colors: Record<string,string> = { blue:"bg-blue-50 text-blue-700", red:"bg-rose-50 text-rose-700", green:"bg-emerald-50 text-emerald-700", amber:"bg-amber-50 text-amber-700", violet:"bg-violet-50 text-violet-700" }; return <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4"><span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${colors[tone]}`}>{icon}</span><div><p className="text-xs text-slate-500">{label}</p><p className="mt-0.5 text-2xl font-bold text-slate-950">{value.toLocaleString("en-IN")}</p></div></div>; }
+function floorName(floor:number){if(floor===1)return "Ground floor";const n=floor-1;const suffix=n%10===1&&n%100!==11?"st":n%10===2&&n%100!==12?"nd":n%10===3&&n%100!==13?"rd":"th";return `${n}${suffix} floor`;}
+function QuickLink({ href, icon, title, detail, tone }: { href: string; icon: React.ReactNode; title: string; detail: string; tone: string }) { const colors: Record<string,string> = { blue:"bg-blue-50 text-blue-700", green:"bg-emerald-50 text-emerald-700", amber:"bg-amber-50 text-amber-700", violet:"bg-violet-50 text-violet-700", red:"bg-rose-50 text-rose-700" }; return <Link href={href} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-slate-300 hover:shadow-sm"><span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${colors[tone]}`}>{icon}</span><span><span className="block text-sm font-semibold text-slate-900">{title}</span><span className="mt-0.5 block text-xs text-slate-500">{detail}</span></span></Link>; }

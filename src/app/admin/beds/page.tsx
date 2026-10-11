@@ -1,43 +1,19 @@
-import React from "react";
+import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
-import BedMatrixClient from "./BedMatrixClient";
+import { getSessionUser, hasPermission, ROLES } from "@/lib/auth";
+import InventoryClient from "./InventoryClient";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminBedsPage() {
+export default async function BedsPage({ searchParams }: { searchParams: { hostelId?: string; floor?: string } }) {
+  const user = await getSessionUser();
+  if (!user) redirect("/auth/login");
+  if (!hasPermission(user.role, [ROLES.SUPER_ADMIN, ROLES.PROPERTY_MANAGER, ROLES.RECEPTIONIST])) redirect("/admin");
   const hostels = await prisma.hostel.findMany({
-    include: {
-      rooms: {
-        include: {
-          roomType: true,
-          beds: {
-            include: {
-              bookings: {
-                where: {
-                  bookingStatus: { in: ["CONFIRMED", "CHECKED_IN"] },
-                },
-                take: 1,
-              },
-            },
-          },
-        },
-      },
-    },
+    where: { active: true }, orderBy: [{ city: "asc" }, { name: "asc" }],
+    include: { rooms: { where: { active: true }, orderBy: [{ floor: "asc" }, { roomNumber: "asc" }], include: { roomType: { select: { name: true } }, beds: { where: { active: true }, orderBy: { bedNumber: "asc" }, select: { id: true, bedNumber: true, status: true, tier: true, currentOccupantId: true, residentStays: { where: { status: "ACTIVE" }, take: 1, select: { resident: { select: { name: true } } } } } } } } },
   });
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <span className="text-xs uppercase font-extrabold tracking-widest text-indigo-400">
-          Real-Time Inventory
-        </span>
-        <h1 className="text-3xl font-black text-white">Visual Bed Allocation Matrix</h1>
-        <p className="text-xs text-slate-400 mt-0.5">
-          Floor-by-floor, room-by-room bed allocation grid across both properties with 1-click status controls.
-        </p>
-      </div>
-
-      <BedMatrixClient hostels={hostels} />
-    </div>
-  );
+  const roomCategories = await prisma.$queryRaw<Array<{ id: string; rateCategory: string }>>`SELECT id, rateCategory FROM Room`;
+  const inventory = hostels.map((hostel) => ({ ...hostel, rooms: hostel.rooms.map((room) => ({ ...room, rateCategory: roomCategories.find((item) => item.id === room.id)?.rateCategory || "STANDARD", beds: room.beds.map((bed) => ({ ...bed, stay: bed.residentStays[0] || null })) })) }));
+  return <InventoryClient hostels={inventory} canManageRooms={user.role !== ROLES.RECEPTIONIST} initialHostelId={searchParams.hostelId || ""} initialFloor={searchParams.floor || "all"} />;
 }

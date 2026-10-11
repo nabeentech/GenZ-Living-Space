@@ -45,10 +45,13 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { hostelId, roomNumber, floor, genderCategory, capacity } = body;
+    const { hostelId, roomNumber, floor, genderCategory } = body;
+    const capacity = Number(body.capacity);
+    const floorNumber = Number(floor);
+    const isAC = body.isAC === true;
 
     // Validate inputs
-    if (!hostelId || !roomNumber || !floor || !genderCategory || !capacity) {
+    if (!hostelId || !roomNumber?.trim?.() || !Number.isInteger(floorNumber) || floorNumber < 1 || !genderCategory || !Number.isInteger(capacity)) {
       return NextResponse.json(
         { success: false, message: "Missing required fields" },
         { status: 400 }
@@ -84,67 +87,30 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get a default room type (4-bed dorm)
-    const defaultRoomType = await prisma.roomType.findFirst({
-      where: {
-        name: "4-Bed Creator Dorm",
-      },
-    });
+    const hostel = await prisma.hostel.findFirst({ where: { id: hostelId, active: true }, select: { id: true } });
+    if (!hostel) return NextResponse.json({ success: false, message: "Active hostel not found." }, { status: 404 });
 
-    if (!defaultRoomType) {
-      return NextResponse.json(
-        { success: false, message: "Default room type not found" },
-        { status: 400 }
-      );
+    let roomType = await prisma.roomType.findFirst({ where: { totalBeds: capacity, active: true }, orderBy: { name: "asc" } });
+    if (!roomType) {
+      const slug = `sharing-${capacity}`;
+      roomType = await prisma.roomType.findUnique({ where: { slug } });
+      if (!roomType) roomType = await prisma.roomType.create({ data: { name: `${capacity}-Share Room`, slug, description: `Room with ${capacity} resident bed${capacity === 1 ? "" : "s"}.`, totalBeds: capacity } });
     }
 
-    // Create room
-    const newRoom = await prisma.room.create({
-      data: {
-        hostelId,
-        roomTypeId: defaultRoomType.id,
-        roomNumber,
-        floor,
-        building: floor <= 3 ? "Main Wing" : "Sky Wing",
-        genderCategory,
-        capacity,
-        status: "ACTIVE",
-      },
-    });
-
-    // Create beds for the room
-    const bedLetters = ["A", "B", "C", "D", "E", "F", "G", "H"];
-    for (let i = 0; i < capacity; i++) {
-      let bedNumber: string;
-      let tier: string;
-
-      if (capacity === 1) {
-        bedNumber = "King Bed";
-        tier = "DOUBLE";
-      } else if (capacity === 2) {
-        bedNumber = i === 0 ? "Bed Left" : "Bed Right";
-        tier = "SINGLE";
-      } else if (capacity <= 4) {
-        bedNumber = `Bed ${bedLetters[i % 4]}`;
-        tier = i % 2 === 0 ? "LOWER_BUNK" : "UPPER_BUNK";
-      } else if (capacity <= 6) {
-        bedNumber = `Pod ${i + 1}`;
-        tier = i < 3 ? "LOWER_BUNK" : "UPPER_BUNK";
-      } else {
-        bedNumber = `Bed ${i + 1}`;
-        tier = i < Math.ceil(capacity / 2) ? "LOWER_BUNK" : "UPPER_BUNK";
-      }
-
-      await prisma.bed.create({
-        data: {
-          roomId: newRoom.id,
-          hostelId,
-          bedNumber,
-          tier,
-          status: "AVAILABLE",
-        },
+    const bedLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const newRoom = await prisma.$transaction(async (tx) => {
+      const room = await tx.room.create({
+        data: { hostelId, roomTypeId: roomType!.id, roomNumber: roomNumber.trim(), floor: floorNumber, building: floorNumber <= 3 ? "Main Wing" : "Sky Wing", genderCategory, capacity, isAC, status: "ACTIVE" },
       });
-    }
+      await tx.bed.createMany({ data: Array.from({ length: capacity }, (_, index) => ({
+        roomId: room.id,
+        hostelId,
+        bedNumber: capacity === 1 ? "Bed 1" : `Bed ${bedLetters[index % bedLetters.length]}`,
+        tier: capacity === 1 ? "SINGLE" : index % 2 === 0 ? "LOWER_BUNK" : "UPPER_BUNK",
+        status: "AVAILABLE",
+      })) });
+      return tx.room.findUnique({ where: { id: room.id }, include: { roomType: true, beds: true } });
+    });
 
     return NextResponse.json({
       success: true,

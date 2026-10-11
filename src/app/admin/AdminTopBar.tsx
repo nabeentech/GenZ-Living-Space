@@ -1,57 +1,8 @@
-"use client";
+import { Building2, Search } from "lucide-react";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Search, MapPin, Bell, Sparkles } from "lucide-react";
-
-interface AdminTopBarProps {
-  user: {
-    name: string;
-    role: string;
-  };
+export default function AdminTopBar({ user }: { user: { name: string; role: string } }) {
+  return <header className="hidden h-[66px] items-center justify-between border-b border-slate-200 bg-white px-7 md:flex">
+    <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2"><Building2 size={19} className="text-teal-600"/><div><p className="text-xs font-semibold text-slate-900">All hostel locations</p><p className="text-[11px] text-slate-500">Choose a hostel on each page</p></div></div>
+    <div className="flex items-center gap-5"><div className="relative w-72"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/><a href="/admin/residents" className="block rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-xs text-slate-500">Search residents, rooms or beds…</a></div><div className="flex items-center gap-2.5"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">{user.name.slice(0,1).toUpperCase()}</span><div><p className="text-xs font-semibold text-slate-900">{user.name}</p><p className="text-[11px] text-slate-500">{user.role.replaceAll("_", " ")}</p></div></div></div>
+  </header>;
 }
-
-export const AdminTopBar: React.FC<AdminTopBarProps> = ({ user }) => {
-  const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      router.push(`/admin/bookings?search=${encodeURIComponent(searchQuery.trim())}`);
-    }
-  };
-
-  return (
-    <header className="h-16 border-b border-slate-800/80 bg-[#0B0F19]/90 backdrop-blur-md px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
-      {/* Global Search Bar */}
-      <form onSubmit={handleSearch} className="max-w-md w-full relative">
-        <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-        <input
-          type="text"
-          placeholder="Search by Booking Ref, Guest Name, Bed, or Phone..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
-        />
-      </form>
-
-      {/* Right Stats & Status */}
-      <div className="flex items-center gap-4">
-        <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs font-semibold text-emerald-400">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>2 Properties Online</span>
-        </div>
-
-        <div className="text-right hidden sm:block">
-          <span className="text-xs font-bold text-white block">{user.name}</span>
-          <span className="text-[10px] text-indigo-400 font-mono">
-            {user.role.replace("_", " ")}
-          </span>
-        </div>
-      </div>
-    </header>
-  );
-};
-
-export default AdminTopBar;

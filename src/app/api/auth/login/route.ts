@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import prisma from "@/lib/prisma";
-import { verifyPassword, signToken, COOKIE_NAME } from "@/lib/auth";
+import { verifyPassword, signToken, COOKIE_NAME, ROLES } from "@/lib/auth";
 
 export async function POST(req: Request) {
   try {
@@ -30,6 +30,13 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { success: false, message: "Invalid credentials" },
         { status: 401 }
+      );
+    }
+
+    if (![ROLES.SUPER_ADMIN, ROLES.PROPERTY_MANAGER, ROLES.RECEPTIONIST, ROLES.FINANCE].includes(user.role as any)) {
+      return NextResponse.json(
+        { success: false, message: "This account does not have a Phase 1 hostel staff role." },
+        { status: 403 }
       );
     }
 

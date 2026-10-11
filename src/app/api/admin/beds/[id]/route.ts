@@ -18,7 +18,7 @@ export async function PATCH(
 
     const bed = await prisma.bed.findUnique({
       where: { id: bedId },
-      include: { room: true, hostel: true },
+      include: { room: true, hostel: true, residentStays: { where: { status: "ACTIVE" }, select: { id: true } }, bookings: { where: { bookingStatus: { in: ["CONFIRMED", "CHECKED_IN"] } }, select: { bookingStatus: true } } },
     });
 
     if (!bed) {
@@ -26,6 +26,23 @@ export async function PATCH(
     }
 
     const previousStatus = bed.status;
+    const allowedStatuses = ["AVAILABLE", "OCCUPIED", "RESERVED", "MAINTENANCE", "CLEANING", "BLOCKED"];
+    if (!allowedStatuses.includes(status)) return NextResponse.json({ success: false, message: "Invalid bed status." }, { status: 400 });
+    if (bed.residentStays.length > 0 && status !== "OCCUPIED") {
+      return NextResponse.json({ success: false, message: "This bed has an active resident allocation. Vacate the resident before changing its status." }, { status: 409 });
+    }
+    if (bed.currentOccupantId && status !== "OCCUPIED") {
+      return NextResponse.json({ success: false, message: "This bed has a recorded occupant. Complete their stay before changing its status." }, { status: 409 });
+    }
+    if (bed.bookings.some((booking) => booking.bookingStatus === "CHECKED_IN") && status !== "OCCUPIED") {
+      return NextResponse.json({ success: false, message: "This bed is assigned to a checked-in guest. Complete their stay first." }, { status: 409 });
+    }
+    if (bed.bookings.some((booking) => booking.bookingStatus === "CONFIRMED") && status !== "RESERVED") {
+      return NextResponse.json({ success: false, message: "This bed is reserved for a confirmed booking." }, { status: 409 });
+    }
+    if (status === "OCCUPIED" && !bed.currentOccupantId && bed.residentStays.length === 0) {
+      return NextResponse.json({ success: false, message: "Use resident registration to allocate an occupied bed." }, { status: 409 });
+    }
 
     const updated = await prisma.bed.update({
       where: { id: bedId },
