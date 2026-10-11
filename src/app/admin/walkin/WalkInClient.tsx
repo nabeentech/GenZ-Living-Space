@@ -3,6 +3,9 @@
 import React, { useState, useMemo } from "react";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
+import CustomSelect from "@/components/ui/CustomSelect";
+import DatePicker from "@/components/ui/DatePicker";
+import { calculateStayBaseAmount, getRoomTypePriceRates } from "@/lib/pricing";
 import {
   UserPlus,
   Calendar,
@@ -69,7 +72,8 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels }) => {
           (1000 * 60 * 60 * 24)
       )
     );
-    return activeRoom.roomType.basePrice * diffDays;
+    const rates = getRoomTypePriceRates(activeRoom.roomType, activeRoom.isAC);
+    return calculateStayBaseAmount(diffDays, rates);
   }, [activeRoom, checkIn, checkOut]);
 
   const finalAmount = priceOverride > 0 ? priceOverride : suggestedPrice;
@@ -158,66 +162,42 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels }) => {
             <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
               Hostel Property
             </label>
-            <select
+            <CustomSelect
               value={selectedHostelId}
-              onChange={(e) => {
-                setSelectedHostelId(e.target.value);
-                const h = hostels.find((item) => item.id === e.target.value);
+              onValueChange={(value) => {
+                setSelectedHostelId(value);
+                const h = hostels.find((item) => item.id === value);
                 if (h?.rooms?.[0]) {
                   setSelectedRoomId(h.rooms[0].id);
                   if (h.rooms[0].beds?.[0]) setSelectedBedId(h.rooms[0].beds[0].id);
                 }
               }}
-              className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none"
-            >
-              {hostels.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name} ({h.city})
-                </option>
-              ))}
-            </select>
+              options={hostels.map((h) => ({ value: h.id, label: `${h.name} (${h.city})` }))}
+              triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs"
+            />
           </div>
 
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
               Room Category
             </label>
-            <select
+            <CustomSelect
               value={selectedRoomId}
-              onChange={(e) => {
-                setSelectedRoomId(e.target.value);
-                const r = rooms.find((item: any) => item.id === e.target.value);
+              onValueChange={(value) => {
+                setSelectedRoomId(value);
+                const r = rooms.find((item: any) => item.id === value);
                 if (r?.beds?.[0]) setSelectedBedId(r.beds[0].id);
               }}
-              className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none"
-            >
-              {rooms.map((r: any) => (
-                <option key={r.id} value={r.id}>
-                  Room {r.roomNumber} ({r.roomType?.name})
-                </option>
-              ))}
-            </select>
+              options={rooms.map((r: any) => ({ value: r.id, label: `Room ${r.roomNumber} (${r.roomType?.name})` }))}
+              triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs"
+            />
           </div>
 
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
               Available Bed
             </label>
-            <select
-              value={selectedBedId}
-              onChange={(e) => setSelectedBedId(e.target.value)}
-              className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-bold text-emerald-400 focus:outline-none"
-            >
-              {availableBeds.length === 0 ? (
-                <option value="">No vacant beds in this room</option>
-              ) : (
-                availableBeds.map((b: any) => (
-                  <option key={b.id} value={b.id}>
-                    {b.bedNumber} ({b.tier?.replace("_", " ")})
-                  </option>
-                ))
-              )}
-            </select>
+            <CustomSelect value={selectedBedId} onValueChange={setSelectedBedId} options={availableBeds.length === 0 ? [{ value: "", label: "No vacant beds in this room", disabled: true }] : availableBeds.map((b: any) => ({ value: b.id, label: `${b.bedNumber} (${b.tier?.replace("_", " ")})` }))} triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-bold text-emerald-400" />
           </div>
         </div>
 
@@ -227,24 +207,14 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels }) => {
             <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
               Check-In Date
             </label>
-            <input
-              type="date"
-              value={checkIn}
-              onChange={(e) => setCheckIn(e.target.value)}
-              className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none"
-            />
+            <DatePicker value={checkIn} onChange={setCheckIn} min={todayStr} triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs" />
           </div>
 
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
               Check-Out Date
             </label>
-            <input
-              type="date"
-              value={checkOut}
-              onChange={(e) => setCheckOut(e.target.value)}
-              className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none"
-            />
+            <DatePicker value={checkOut} onChange={setCheckOut} min={checkIn} triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs" />
           </div>
         </div>
 
@@ -308,43 +278,21 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels }) => {
             <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
               Gender
             </label>
-            <select
-              value={guestGender}
-              onChange={(e) => setGuestGender(e.target.value)}
-              className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none"
-            >
-              <option value="MALE">Male</option>
-              <option value="FEMALE">Female</option>
-              <option value="OTHER">Other</option>
-            </select>
+            <CustomSelect value={guestGender} onValueChange={setGuestGender} options={[{ value: "MALE", label: "Male" }, { value: "FEMALE", label: "Female" }, { value: "OTHER", label: "Other" }]} triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs" />
           </div>
 
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
               Date of Birth (Optional)
             </label>
-            <input
-              type="date"
-              value={guestDateOfBirth}
-              onChange={(e) => setGuestDateOfBirth(e.target.value)}
-              className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none"
-            />
+            <DatePicker value={guestDateOfBirth} onChange={setGuestDateOfBirth} triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs" />
           </div>
 
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
               Payment Method
             </label>
-            <select
-              value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value)}
-              className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none font-semibold"
-            >
-              <option value="cash">Cash at Reception</option>
-              <option value="upi">UPI / QR Code</option>
-              <option value="card">Credit / Debit Card</option>
-              <option value="bank_transfer">Direct Bank Transfer</option>
-            </select>
+            <CustomSelect value={paymentMethod} onValueChange={setPaymentMethod} options={[{ value: "cash", label: "Cash at Reception" }, { value: "upi", label: "UPI / QR Code" }, { value: "card", label: "Credit / Debit Card" }, { value: "bank_transfer", label: "Direct Bank Transfer" }]} triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-semibold" />
           </div>
         </div>
 

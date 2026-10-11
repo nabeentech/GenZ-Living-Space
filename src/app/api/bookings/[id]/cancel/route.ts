@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getSessionUser } from "@/lib/auth";
+import { getSessionUser, hasPermission, ROLES } from "@/lib/auth";
 import { logAuditAction } from "@/lib/audit";
 import { isLongStay } from "@/lib/booking-policy";
 
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getSessionUser();
@@ -16,8 +16,11 @@ export async function POST(
         { status: 401 }
       );
     }
+    if (user.role !== ROLES.CUSTOMER && !hasPermission(user.role, [ROLES.SUPER_ADMIN, ROLES.PROPERTY_MANAGER, ROLES.RECEPTIONIST, ROLES.FINANCE])) {
+      return NextResponse.json({ success: false, message: "Forbidden" }, { status: 403 });
+    }
 
-    const bookingId = params.id;
+    const { id: bookingId } = await params;
     const { reason = "Customer requested cancellation" } = await req.json();
 
     const booking = await prisma.booking.findUnique({
@@ -41,7 +44,7 @@ export async function POST(
     }
 
     if (
-      user.role === "CUSTOMER" &&
+      user.role === "CUSTOMER" && !booking.isOpenEnded &&
       isLongStay(new Date(booking.checkInDate), new Date(booking.checkOutDate))
     ) {
       return NextResponse.json(

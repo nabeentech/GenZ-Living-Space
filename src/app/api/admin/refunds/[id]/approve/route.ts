@@ -5,7 +5,7 @@ import { logAuditAction } from "@/lib/audit";
 
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getSessionUser();
@@ -16,7 +16,7 @@ export async function POST(
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 403 });
     }
 
-    const refundId = params.id;
+    const { id: refundId } = await params;
     const { action = "APPROVE" } = await req.json(); // "APPROVE" or "REJECT"
 
     const refund = await prisma.refund.findUnique({

@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Button from "@/components/ui/Button";
+import CustomSelect from "@/components/ui/CustomSelect";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import { Tag, Plus, CheckCircle2, Calendar, Percent, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
@@ -249,14 +250,7 @@ export const CouponsClient: React.FC<CouponsClientProps> = ({
                 <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
                   Discount Type
                 </label>
-                <select
-                  value={discountType}
-                  onChange={(e) => setDiscountType(e.target.value)}
-                  className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm text-white"
-                >
-                  <option value="PERCENTAGE">Percentage (%)</option>
-                  <option value="FIXED">Fixed Amount (₹)</option>
-                </select>
+                <CustomSelect value={discountType} onValueChange={setDiscountType} options={[{ value: "PERCENTAGE", label: "Percentage (%)" }, { value: "FIXED", label: "Fixed Amount (₹)" }]} triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm" />
               </div>
 
               <div>

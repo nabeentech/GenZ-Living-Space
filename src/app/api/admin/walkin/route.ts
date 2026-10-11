@@ -48,27 +48,15 @@ export async function POST(req: Request) {
 
     const checkIn = new Date(checkInDate);
     const checkOut = new Date(checkOutDate);
-
-    // Auto find or create customer
-    const emailToUse = guestEmail?.trim()?.toLowerCase() || `walkin_${Date.now()}@genzlivingspace.local`;
-    let customer = await prisma.user.findUnique({
-      where: { email: emailToUse },
-    });
-
-    if (!customer) {
-      customer = await prisma.user.create({
-        data: {
-          name: guestName,
-          email: emailToUse,
-          phone: guestPhone,
-          gender: guestGender,
-          dateOfBirth: guestDateOfBirth ? new Date(guestDateOfBirth) : null,
-          govtIdNumber: guestGovtId,
-          passwordHash: "$2a$10$dummyWalkInPassGzHostel2026",
-          role: "CUSTOMER",
-        },
-      });
+    const amount = Number(totalAmount);
+    if (!Number.isFinite(checkIn.getTime()) || !Number.isFinite(checkOut.getTime()) || checkOut <= checkIn) {
+      return NextResponse.json({ success: false, message: "Enter a valid check-in and check-out date range." }, { status: 400 });
     }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return NextResponse.json({ success: false, message: "Booking amount must be greater than zero." }, { status: 400 });
+    }
+
+    const emailToUse = guestEmail?.trim()?.toLowerCase() || `walkin_${Date.now()}@genzlivingspace.local`;
 
     const bookingReference = `GZ-W${Math.floor(10000 + Math.random() * 90000)}`;
     const invoiceNumber = await generateUniqueInvoiceNumber();
@@ -78,6 +66,47 @@ export async function POST(req: Request) {
     const now = new Date();
 
     const result = await prisma.$transaction(async (tx) => {
+      const bed = await tx.bed.findFirst({
+        where: {
+          id: bedId,
+          roomId,
+          hostelId,
+          active: true,
+          status: "AVAILABLE",
+          room: { active: true, status: "ACTIVE", hostel: { active: true } },
+        },
+      });
+      if (!bed) throw new Error("The selected bed is no longer available.");
+
+      const conflictingBooking = await tx.booking.findFirst({
+        where: {
+          bedId,
+          checkInDate: { lt: checkOut },
+          checkOutDate: { gt: checkIn },
+          OR: [
+            { bookingStatus: { in: ["CONFIRMED", "CHECKED_IN"] } },
+            { bookingStatus: "PAYMENT_PENDING", holdExpiresAt: { gt: now } },
+          ],
+        },
+      });
+      if (conflictingBooking) throw new Error("The selected bed has already been reserved for those dates.");
+
+      let customer = await tx.user.findUnique({ where: { email: emailToUse } });
+      if (!customer) {
+        customer = await tx.user.create({
+          data: {
+            name: guestName,
+            email: emailToUse,
+            phone: guestPhone,
+            gender: guestGender,
+            dateOfBirth: guestDateOfBirth ? new Date(guestDateOfBirth) : null,
+            govtIdNumber: guestGovtId,
+            passwordHash: "$2a$10$dummyWalkInPassGzHostel2026",
+            role: "CUSTOMER",
+          },
+        });
+      }
+
       // 1. Create Booking
       const b = await tx.booking.create({
         data: {
@@ -90,12 +119,12 @@ export async function POST(req: Request) {
           checkOutDate: checkOut,
           stayType: "DAILY",
           guestsCount: 1,
-          baseAmount: Number(totalAmount),
-          taxAmount: Math.round(Number(totalAmount) * 0.12),
+          baseAmount: amount,
+          taxAmount: 0,
           serviceFee: 0,
           discountAmount: 0,
-          totalAmount: Number(totalAmount),
-          paidAmount: Number(totalAmount),
+          totalAmount: amount,
+          paidAmount: amount,
           balanceAmount: 0,
           bookingStatus,
           paymentStatus: "PAID",
@@ -130,7 +159,7 @@ export async function POST(req: Request) {
         data: {
           bookingId: b.id,
           customerId: customer.id,
-          amount: Number(totalAmount),
+          amount,
           currency: "INR",
           gateway: paymentMethod.toUpperCase(),
           gatewayPaymentId: `walkin_pay_${Date.now()}`,
@@ -148,10 +177,10 @@ export async function POST(req: Request) {
           hostelId,
           issueDate: now,
           dueDate: now,
-          baseAmount: Number(totalAmount),
-          taxAmount: Math.round(Number(totalAmount) * 0.12),
-          totalAmount: Number(totalAmount),
-          paidAmount: Number(totalAmount),
+          baseAmount: amount,
+          taxAmount: 0,
+          totalAmount: amount,
+          paidAmount: amount,
           status: "PAID",
         },
       });
@@ -180,9 +209,10 @@ export async function POST(req: Request) {
     });
   } catch (error: any) {
     console.error("Walk-in booking creation error:", error);
+    const status = error.message?.includes("selected bed") ? 409 : 500;
     return NextResponse.json(
       { success: false, message: error.message || "Failed to create walk-in booking" },
-      { status: 500 }
+      { status }
     );
   }
 }

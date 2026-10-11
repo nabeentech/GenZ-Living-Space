@@ -3,11 +3,11 @@ import prisma from "@/lib/prisma";
 
 export async function GET(
   req: Request,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
     const hostel = await prisma.hostel.findUnique({
-      where: { slug: params.slug },
+      where: { slug: (await params).slug },
       include: {
         amenities: { include: { amenity: true } },
         rooms: {

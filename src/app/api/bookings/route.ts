@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getSessionUser } from "@/lib/auth";
-import { calculateBookingPrice } from "@/lib/pricing";
+import { getSessionUser, hasPermission, ROLES } from "@/lib/auth";
+import { addUtcCalendarDays, calculateBookingPrice, getRoomTypePriceRates } from "@/lib/pricing";
 import { releaseExpiredBookingHolds } from "@/lib/booking-cleanup";
 import { isLongStay } from "@/lib/booking-policy";
+import { generateBookingQRCode } from "@/lib/qr";
+import { generateUniqueInvoiceNumber } from "@/lib/invoice";
 
 export const dynamic = "force-dynamic";
 
@@ -17,16 +19,18 @@ export async function POST(req: Request) {
       bedId,
       checkInDate,
       checkOutDate,
+      stayType: requestedStayType,
       guestName,
       guestEmail,
       guestPhone,
       guestGender,
       guestGovtId,
+      govtIdType,
       couponCode,
       specialRequests,
     } = body;
 
-    if (!hostelId || !roomId || !bedId || !checkInDate || !checkOutDate) {
+    if (!hostelId || !roomId || !bedId || !checkInDate || (requestedStayType !== "MONTHLY" && !checkOutDate) || !["DAILY", "MONTHLY"].includes(requestedStayType)) {
       return NextResponse.json(
         { success: false, message: "Missing required booking fields" },
         { status: 400 }
@@ -41,7 +45,8 @@ export async function POST(req: Request) {
     }
 
     const checkIn = new Date(checkInDate);
-    const checkOut = new Date(checkOutDate);
+    const openEndedMonthly = requestedStayType === "MONTHLY";
+    const checkOut = openEndedMonthly ? addUtcCalendarDays(checkIn, 30) : new Date(checkOutDate);
 
     if (isNaN(checkIn.getTime()) || isNaN(checkOut.getTime()) || checkOut <= checkIn) {
       return NextResponse.json(
@@ -50,31 +55,28 @@ export async function POST(req: Request) {
       );
     }
 
-    // Get current user or create guest user
-    let user = await getSessionUser();
-    let customerId = user?.id;
-
-    if (!customerId) {
-      const normalizedEmail = guestEmail.toLowerCase().trim();
-      let existingUser = await prisma.user.findUnique({
-        where: { email: normalizedEmail },
-      });
-
-      if (!existingUser) {
-        // Auto-provision customer account with default temporary pass
-        existingUser = await prisma.user.create({
-          data: {
-            email: normalizedEmail,
-            name: guestName,
-            phone: guestPhone,
-            gender: guestGender,
-            passwordHash: "$2a$10$dummyHashGzHostel2026AutoCreatedPass",
-            role: "CUSTOMER",
-          },
-        });
-      }
-      customerId = existingUser.id;
+    const user = await getSessionUser();
+    if (!user) {
+      return NextResponse.json(
+        { success: false, message: "Please sign in or create an account before booking." },
+        { status: 401 }
+      );
     }
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    if (checkIn < today) {
+      return NextResponse.json(
+        { success: false, message: "Check-in date cannot be in the past." },
+        { status: 400 }
+      );
+    }
+    if (user.role !== "CUSTOMER") {
+      return NextResponse.json(
+        { success: false, message: "A customer account is required to make a booking." },
+        { status: 403 }
+      );
+    }
+    const customerId = user.id;
 
     // Fetch Room and RoomType details for pricing
     const room = await prisma.room.findUnique({
@@ -82,10 +84,20 @@ export async function POST(req: Request) {
       include: { roomType: true, hostel: true },
     });
 
-    if (!room || !room.roomType) {
+    if (!room || !room.roomType || room.hostelId !== hostelId || !room.active || room.status !== "ACTIVE") {
       return NextResponse.json(
         { success: false, message: "Selected room not found" },
         { status: 404 }
+      );
+    }
+
+    const bed = await prisma.bed.findFirst({
+      where: { id: bedId, roomId, hostelId, active: true, status: { notIn: ["MAINTENANCE", "BLOCKED", "CLEANING"] } },
+    });
+    if (!bed) {
+      return NextResponse.json(
+        { success: false, message: "Selected bed is unavailable. Please choose another bed." },
+        { status: 400 }
       );
     }
 
@@ -99,6 +111,13 @@ export async function POST(req: Request) {
       if (!couponRecord || !couponRecord.active) {
         return NextResponse.json(
           { success: false, message: "Invalid or expired coupon code" },
+          { status: 400 }
+        );
+      }
+
+      if (couponRecord.startDate > new Date() || couponRecord.usedCount >= couponRecord.usageLimit) {
+        return NextResponse.json(
+          { success: false, message: "This coupon is not currently available." },
           { status: 400 }
         );
       }
@@ -125,20 +144,24 @@ export async function POST(req: Request) {
     }
 
     // Calculate Central Price
+    const rates = getRoomTypePriceRates(room.roomType, room.isAC);
     const pricing = calculateBookingPrice({
       checkInDate: checkIn,
       checkOutDate: checkOut,
-      basePrice: room.roomType.basePrice || 999,
+      basePrice: rates.daily,
+      rates,
+      stayType: requestedStayType,
       weeklyDiscountPct: room.roomType.weeklyDiscountPct,
-      monthlyPrice: room.roomType.monthlyPrice || 21999,
+      monthlyPrice: rates.days30,
       securityDeposit: room.roomType.securityDeposit,
       coupon: couponRecord,
     });
 
     const now = new Date();
-    // 15-minute temporary reservation hold lock
-    const holdExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    // Gateway is intentionally inactive until a Razorpay account is configured.
+    const holdExpiresAt = null;
     const bookingReference = `GZ-${Math.floor(100000 + Math.random() * 900000)}`;
+    const invoiceNumber = await generateUniqueInvoiceNumber();
 
     // Atomic Transaction: Ensure no double-booking race conditions!
     const result = await prisma.$transaction(async (tx) => {
@@ -146,14 +169,12 @@ export async function POST(req: Request) {
       const conflicting = await tx.booking.findFirst({
         where: {
           bedId,
-          checkInDate: { lt: checkOut },
-          checkOutDate: { gt: checkIn },
-          OR: [
-            { bookingStatus: { in: ["CONFIRMED", "CHECKED_IN"] } },
-            {
-              bookingStatus: "PAYMENT_PENDING",
-              holdExpiresAt: { gt: now },
-            },
+          AND: [
+            { OR: [{ isOpenEnded: true, checkInDate: { lt: checkOut } }, { isOpenEnded: false, checkInDate: { lt: checkOut }, checkOutDate: { gt: checkIn } }] },
+            { OR: [
+              { bookingStatus: { in: ["CONFIRMED", "CHECKED_IN"] } },
+              { bookingStatus: "PAYMENT_PENDING", holdExpiresAt: { gt: now } },
+            ] },
           ],
         },
       });
@@ -170,14 +191,14 @@ export async function POST(req: Request) {
             { bookingStatus: "PAYMENT_PENDING", holdExpiresAt: { gt: now } },
           ],
         },
-        select: { checkInDate: true, checkOutDate: true },
+        select: { checkInDate: true, checkOutDate: true, isOpenEnded: true },
       });
 
-      if (activeLongStay.some((stay) => isLongStay(stay.checkInDate, stay.checkOutDate))) {
+      if (activeLongStay.some((stay) => stay.isOpenEnded || isLongStay(stay.checkInDate, stay.checkOutDate))) {
         throw new Error("This bed is reserved for a long-term stay and cannot accept another booking until an admin releases it.");
       }
 
-      // 2. Create the Booking with PAYMENT_PENDING status & 15m hold
+      // Create a confirmed, unpaid reservation and allocate the selected bed.
       const booking = await tx.booking.create({
         data: {
           bookingReference,
@@ -188,6 +209,7 @@ export async function POST(req: Request) {
           checkInDate: checkIn,
           checkOutDate: checkOut,
           stayType: pricing.stayType,
+          isOpenEnded: openEndedMonthly,
           guestsCount: 1,
           baseAmount: pricing.baseAmount,
           taxAmount: pricing.taxAmount,
@@ -198,15 +220,15 @@ export async function POST(req: Request) {
           totalAmount: pricing.totalAmount,
           paidAmount: 0,
           balanceAmount: pricing.totalAmount,
-          bookingStatus: "PAYMENT_PENDING",
+          bookingStatus: "CONFIRMED",
           paymentStatus: "PENDING",
-          guestName,
-          guestEmail,
-          guestPhone,
-          guestGender,
+          guestName: user.name,
+          guestEmail: user.email,
+          guestPhone: user.phone || guestPhone,
+          guestGender: user.gender || guestGender,
           guestGovtId,
           specialRequests,
-          holdExpiresAt,
+          holdExpiresAt: null,
         },
         include: {
           hostel: true,
@@ -214,6 +236,28 @@ export async function POST(req: Request) {
           bed: true,
         },
       });
+
+      const qrCodeData = await generateBookingQRCode(bookingReference, booking.id);
+      await tx.booking.update({ where: { id: booking.id }, data: { qrCodeData } });
+
+      await tx.bed.update({ where: { id: bedId }, data: { status: "RESERVED", currentOccupantId: user.id } });
+
+      if (guestGovtId) {
+        await tx.user.update({
+          where: { id: user.id },
+          data: {
+            govtIdType: govtIdType || user.govtIdType || "AADHAAR",
+            govtIdNumber: guestGovtId,
+          },
+        });
+      }
+      await tx.invoice.create({ data: {
+        invoiceNumber, bookingId: booking.id, customerId: user.id, hostelId,
+        issueDate: now, dueDate: now, baseAmount: pricing.baseAmount, taxAmount: pricing.taxAmount,
+        serviceFee: pricing.serviceFee, securityDeposit: pricing.securityDeposit,
+        discountAmount: pricing.discountAmount, totalAmount: pricing.totalAmount,
+        paidAmount: 0, balanceDue: pricing.totalAmount, status: "DUE",
+      } });
 
       // Update coupon usage count if applied
       if (couponRecord) {
@@ -228,11 +272,11 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "Temporary reservation created. Please complete payment within 15 minutes.",
+      message: "Bed reserved. Payment is pending; payment gateway setup is not active yet.",
       data: {
         booking: result,
         pricing,
-        holdExpiresAt: holdExpiresAt.toISOString(),
+        holdExpiresAt: null,
       },
     });
   } catch (error: any) {
@@ -252,6 +296,9 @@ export async function GET(req: Request) {
         { success: false, message: "Unauthorized" },
         { status: 401 }
       );
+    }
+    if (user.role !== ROLES.CUSTOMER && !hasPermission(user.role, [ROLES.SUPER_ADMIN, ROLES.PROPERTY_MANAGER, ROLES.RECEPTIONIST, ROLES.FINANCE])) {
+      return NextResponse.json({ success: false, message: "Forbidden" }, { status: 403 });
     }
 
     const { searchParams } = new URL(req.url);

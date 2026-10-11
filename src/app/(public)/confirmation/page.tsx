@@ -6,6 +6,8 @@ import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import prisma from "@/lib/prisma";
 import { generateBookingQRCode } from "@/lib/qr";
+import { getSessionUser, hasPermission, ROLES } from "@/lib/auth";
+import { notFound, redirect } from "next/navigation";
 import {
   CheckCircle,
   MapPin,
@@ -23,16 +25,17 @@ import PrintButton from "./PrintButton";
 export const dynamic = "force-dynamic";
 
 interface ConfirmationPageProps {
-  searchParams: {
+  searchParams: Promise<{
     bookingRef?: string;
     bookingId?: string;
-  };
+  }>;
 }
 
 export default async function ConfirmationPage({
   searchParams,
 }: ConfirmationPageProps) {
-  const { bookingRef, bookingId } = searchParams;
+  const { bookingRef, bookingId } = await searchParams;
+  const user = await getSessionUser();
 
   const booking = await prisma.booking.findFirst({
     where: {
@@ -68,6 +71,14 @@ export default async function ConfirmationPage({
     );
   }
 
+  if (!user) {
+    const next = `/confirmation?${new URLSearchParams({ ...(bookingRef ? { bookingRef } : {}), ...(bookingId ? { bookingId } : {}) }).toString()}`;
+    redirect(`/auth/login?next=${encodeURIComponent(next)}`);
+  }
+  if (user.role === ROLES.CUSTOMER && booking.customerId !== user.id && !hasPermission(user.role, [ROLES.SUPER_ADMIN, ROLES.PROPERTY_MANAGER, ROLES.RECEPTIONIST, ROLES.FINANCE])) {
+    notFound();
+  }
+
   const invoice = booking.invoices[0];
   const qrCodeData = booking.qrCodeData?.startsWith("data:image/")
     ? booking.qrCodeData
@@ -87,10 +98,10 @@ export default async function ConfirmationPage({
 
             <div>
               <span className="text-xs uppercase font-extrabold tracking-widest text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-3.5 py-1 rounded-full">
-                Payment Received & Confirmed
+                {booking.paymentStatus === "PAID" ? "Payment Received & Confirmed" : "Reservation Confirmed · Payment Due"}
               </span>
               <h1 className="text-3xl sm:text-4xl font-black text-white mt-3">
-                Booking Confirmed! You're All Set.
+                {booking.paymentStatus === "PAID" ? "Booking Confirmed! You're All Set." : "Your bed is reserved and your QR pass is ready."}
               </h1>
               <p className="text-slate-300 text-sm mt-1">
                 Booking Reference:{" "}
@@ -105,6 +116,11 @@ export default async function ConfirmationPage({
               <Link href="/dashboard">
                 <Button variant="outline" size="sm">
                   View in My Dashboard
+                </Button>
+              </Link>
+              <Link href="/">
+                <Button variant="secondary" size="sm">
+                  Return to Home
                 </Button>
               </Link>
             </div>
@@ -163,8 +179,9 @@ export default async function ConfirmationPage({
                       After {booking.hostel.checkInTime}
                     </span>
                   </div>
+                  {booking.isOpenEnded && <div><span className="text-slate-400 block font-medium">Stay term</span><span className="font-bold text-white text-sm">Month-to-month · ongoing</span></div>}
 
-                  <div>
+                  {!booking.isOpenEnded && <div>
                     <span className="text-slate-400 block font-medium">Check-Out</span>
                     <span className="font-bold text-white text-sm">
                       {new Date(booking.checkOutDate).toLocaleDateString("en-IN", {
@@ -177,7 +194,7 @@ export default async function ConfirmationPage({
                     <span className="text-slate-500 block mt-0.5">
                       Before {booking.hostel.checkOutTime}
                     </span>
-                  </div>
+                  </div>}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 text-xs">
@@ -220,16 +237,18 @@ export default async function ConfirmationPage({
                       <span>-₹{booking.discountAmount.toLocaleString()}</span>
                     </div>
                   )}
+                  {booking.taxAmount > 0 && (
+                    <div className="flex justify-between">
+                      <span>Hospitality GST</span>
+                      <span className="font-semibold text-white">
+                        ₹{booking.taxAmount.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
-                    <span>Hospitality GST (12%)</span>
+                    <span>{booking.stayType === "MONTHLY" ? "Maintenance Fee" : "Service Fee"}</span>
                     <span className="font-semibold text-white">
-                      ₹{booking.taxAmount.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Service Fee</span>
-                    <span className="font-semibold text-white">
-                      ₹{booking.serviceFee}
+                      ₹{booking.serviceFee.toLocaleString()}
                     </span>
                   </div>
                   {booking.securityDeposit > 0 && (

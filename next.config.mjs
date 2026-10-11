@@ -12,13 +12,8 @@ const nextConfig = {
       }
     ],
   },
-  // Next.js 14 external packages for server components (pdfkit uses native/fs assets)
-  experimental: {
-    serverComponentsExternalPackages: ["pdfkit"],
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  // pdfkit uses native/fs assets and must stay outside the server bundle.
+  serverExternalPackages: ["pdfkit"],
 };
 
 export default nextConfig;

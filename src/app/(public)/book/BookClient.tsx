@@ -7,7 +7,8 @@ import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
-import Modal from "@/components/ui/Modal";
+import DatePicker from "@/components/ui/DatePicker";
+import CustomSelect from "@/components/ui/CustomSelect";
 import {
   Calendar,
   MapPin,
@@ -20,20 +21,165 @@ import {
   Tag,
   CheckCircle2,
   Lock,
-  Clock,
   CreditCard,
   QrCode,
   AlertCircle,
   Loader2,
+  Search,
+  RotateCcw,
 } from "lucide-react";
-import { calculateBookingPrice } from "@/lib/pricing";
+import { addUtcCalendarDays, calculateBookingPrice, calculateStayBaseAmount, getRoomTypePriceRates } from "@/lib/pricing";
+import BookingAuthModal from "@/components/public/BookingAuthModal";
+
+export const ID_OPTIONS = [
+  { value: "AADHAAR", label: "Aadhaar Card" },
+  { value: "PAN", label: "PAN Card" },
+  { value: "PASSPORT", label: "Passport" },
+  { value: "DRIVING_LICENSE", label: "Driving License" },
+  { value: "VOTER_ID", label: "Voter ID" },
+];
+
+export const ID_TYPE_CONFIG: Record<
+  string,
+  { label: string; placeholder: string; helper: string; maxLength: number }
+> = {
+  AADHAAR: {
+    label: "Aadhaar Number",
+    placeholder: "1234-5678-9012",
+    helper: "12 digits • Auto-hyphenated (XXXX-XXXX-XXXX)",
+    maxLength: 14,
+  },
+  PAN: {
+    label: "PAN Card Number",
+    placeholder: "ABCDE-1234-F",
+    helper: "10 characters • Auto-hyphenated (5 letters - 4 digits - 1 letter)",
+    maxLength: 12,
+  },
+  PASSPORT: {
+    label: "Passport Number",
+    placeholder: "A-1234567",
+    helper: "8 characters (1 letter + 7 digits)",
+    maxLength: 9,
+  },
+  DRIVING_LICENSE: {
+    label: "Driving License Number",
+    placeholder: "TS-09-2022-0001234",
+    helper: "State - RTO - Year - Number",
+    maxLength: 19,
+  },
+  VOTER_ID: {
+    label: "Voter ID (EPIC) Number",
+    placeholder: "ABC-1234567",
+    helper: "10 characters (3 letters + 7 digits)",
+    maxLength: 11,
+  },
+};
+
+export function formatGovtId(raw: string, idType: string, isDeleting: boolean = false): string {
+  const val = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  switch (idType) {
+    case "AADHAAR": {
+      const digits = val.replace(/\D/g, "").slice(0, 12);
+      if (digits.length <= 4) {
+        return digits.length === 4 && !isDeleting ? `${digits}-` : digits;
+      }
+      if (digits.length <= 8) {
+        const p1 = digits.slice(0, 4);
+        const p2 = digits.slice(4);
+        return digits.length === 8 && !isDeleting ? `${p1}-${p2}-` : `${p1}-${p2}`;
+      }
+      const p1 = digits.slice(0, 4);
+      const p2 = digits.slice(4, 8);
+      const p3 = digits.slice(8, 12);
+      return `${p1}-${p2}-${p3}`;
+    }
+    case "PAN": {
+      // Standard Indian PAN: 5 uppercase letters, 4 digits, 1 uppercase letter (e.g. ABCDE-1234-F)
+      let letters1 = "";
+      let numbers = "";
+      let letter2 = "";
+      let i = 0;
+      while (i < val.length && letters1.length < 5) {
+        if (/[A-Z]/.test(val[i])) letters1 += val[i];
+        i++;
+      }
+      while (i < val.length && numbers.length < 4) {
+        if (/[0-9]/.test(val[i])) numbers += val[i];
+        i++;
+      }
+      while (i < val.length && letter2.length < 1) {
+        if (/[A-Z]/.test(val[i])) letter2 += val[i];
+        i++;
+      }
+      if (letters1.length < 5) {
+        return letters1;
+      }
+      if (numbers.length === 0) {
+        return !isDeleting ? `${letters1}-` : letters1;
+      }
+      if (numbers.length < 4) {
+        return `${letters1}-${numbers}`;
+      }
+      if (letter2.length === 0) {
+        return !isDeleting ? `${letters1}-${numbers}-` : `${letters1}-${numbers}`;
+      }
+      return `${letters1}-${numbers}-${letter2}`;
+    }
+    case "PASSPORT": {
+      let letter = "";
+      let digits = "";
+      for (const char of val) {
+        if (!letter && /[A-Z]/.test(char)) letter = char;
+        else if (letter && /[0-9]/.test(char) && digits.length < 7) digits += char;
+      }
+      if (!letter) return "";
+      if (digits.length === 0) return !isDeleting ? `${letter}-` : letter;
+      return `${letter}-${digits}`;
+    }
+    case "DRIVING_LICENSE": {
+      let state = "";
+      let rto = "";
+      let year = "";
+      let num = "";
+      let i = 0;
+      while (i < val.length && state.length < 2) { if (/[A-Z]/.test(val[i])) state += val[i]; i++; }
+      while (i < val.length && rto.length < 2) { if (/[0-9]/.test(val[i])) rto += val[i]; i++; }
+      while (i < val.length && year.length < 4) { if (/[0-9]/.test(val[i])) year += val[i]; i++; }
+      while (i < val.length && num.length < 7) { if (/[0-9]/.test(val[i])) num += val[i]; i++; }
+
+      if (state.length < 2) return state;
+      if (rto.length === 0) return !isDeleting ? `${state}-` : state;
+      if (rto.length < 2) return `${state}-${rto}`;
+      if (year.length === 0) return !isDeleting ? `${state}-${rto}-` : `${state}-${rto}`;
+      if (year.length < 4) return `${state}-${rto}-${year}`;
+      if (num.length === 0) return !isDeleting ? `${state}-${rto}-${year}-` : `${state}-${rto}-${year}`;
+      return `${state}-${rto}-${year}-${num}`;
+    }
+    case "VOTER_ID": {
+      let letters = "";
+      let digits = "";
+      for (const char of val) {
+        if (letters.length < 3 && /[A-Z]/.test(char)) letters += char;
+        else if (letters.length === 3 && /[0-9]/.test(char) && digits.length < 7) digits += char;
+      }
+      if (letters.length < 3) return letters;
+      if (digits.length === 0) return !isDeleting ? `${letters}-` : letters;
+      return `${letters}-${digits}`;
+    }
+    default:
+      return val.slice(0, 20);
+  }
+}
 
 export const BookClient: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(searchParams.get("resume") === "1" ? 3 : 1);
   // 1: Stay & Room, 2: Bed Selection, 3: Guest Details & Coupons, 4: Payment Hold & Checkout
+
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   const [hostels, setHostels] = useState<any[]>([]);
   const [selectedHostelSlug, setSelectedHostelSlug] = useState(
@@ -48,30 +194,42 @@ export const BookClient: React.FC = () => {
   const [checkIn, setCheckIn] = useState(
     searchParams.get("checkIn") || todayStr
   );
+  const [stayType, setStayType] = useState(searchParams.get("stayType") === "MONTHLY" ? "MONTHLY" : "DAILY");
   const [checkOut, setCheckOut] = useState(
-    searchParams.get("checkOut") || defaultOutStr
+    searchParams.get("checkOut") || (searchParams.get("stayType") === "MONTHLY" ? (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().split("T")[0]; })() : defaultOutStr)
   );
-  const [guests, setGuests] = useState(
-    Number(searchParams.get("guests")) || 1
-  );
+  const guests = 1;
 
   // Selected Room & Bed
   const [roomsData, setRoomsData] = useState<any[]>([]);
-  const [selectedRoomId, setSelectedRoomId] = useState<string>("");
-  const [selectedBedId, setSelectedBedId] = useState<string>("");
+  const [selectedRoomId, setSelectedRoomId] = useState<string>(searchParams.get("roomId") || "");
+  const [selectedBedId, setSelectedBedId] = useState<string>(searchParams.get("bedId") || "");
   const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
 
-  // Room Filters
-  const [filterSharingType, setFilterSharingType] = useState<"1" | "2" | "3" | "all">("all");
+  // Room Filters & Search
+  const [filterFloor, setFilterFloor] = useState<number | "all">("all");
   const [filterAC, setFilterAC] = useState<"ac" | "non-ac" | "all">("all");
+  const [selectedCategoryTab, setSelectedCategoryTab] = useState<string>("all");
+  const [roomSearchQuery, setRoomSearchQuery] = useState<string>("");
 
   // Guest Details
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
   const [guestGender, setGuestGender] = useState("MALE");
+  const [govtIdType, setGovtIdType] = useState("AADHAAR");
   const [guestGovtId, setGuestGovtId] = useState("");
   const [specialRequests, setSpecialRequests] = useState("");
+
+  const handleGovtIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value;
+    const isDeleting = val.length < guestGovtId.length;
+    if (isDeleting && guestGovtId.endsWith("-")) {
+      val = val.slice(0, -1);
+    }
+    const formatted = formatGovtId(val, govtIdType, isDeleting);
+    setGuestGovtId(formatted);
+  };
 
   // Coupon
   const [couponInput, setCouponInput] = useState("");
@@ -80,11 +238,8 @@ export const BookClient: React.FC = () => {
 
   // Active Hold & Payment
   const [createdBooking, setCreatedBooking] = useState<any>(null);
-  const [holdSecondsLeft, setHoldSecondsLeft] = useState<number>(15 * 60);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState("");
-  const [showSimulatorModal, setShowSimulatorModal] = useState(false);
-  const [simulatedMethod, setSimulatedMethod] = useState("upi");
 
   // Load Hostels on mount
   useEffect(() => {
@@ -101,6 +256,37 @@ export const BookClient: React.FC = () => {
     }
     loadData();
   }, []);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (!json?.user) return;
+        setCurrentUser(json.user);
+        setGuestName(json.user.name || "");
+        setGuestEmail(json.user.email || "");
+        setGuestPhone(json.user.phone || "");
+        setGuestGender(json.user.gender || "MALE");
+        if (json.user.govtIdType) {
+          setGovtIdType(json.user.govtIdType);
+        }
+        if (json.user.govtIdNumber) {
+          setGuestGovtId(formatGovtId(json.user.govtIdNumber, json.user.govtIdType || "AADHAAR"));
+        }
+      })
+      .catch(() => undefined);
+  }, []);
+
+  const handleAuthSuccess = (user: any) => {
+    setCurrentUser(user);
+    if (user.name) setGuestName(user.name);
+    if (user.email) setGuestEmail(user.email);
+    if (user.phone) setGuestPhone(user.phone);
+    if (user.gender) setGuestGender(user.gender);
+    if (user.govtIdType) setGovtIdType(user.govtIdType);
+    if (user.govtIdNumber) setGuestGovtId(formatGovtId(user.govtIdNumber, user.govtIdType || "AADHAAR"));
+    setStep(3);
+  };
 
   const activeHostel = useMemo(
     () => hostels.find((h) => h.slug === selectedHostelSlug) || hostels[0],
@@ -147,6 +333,8 @@ export const BookClient: React.FC = () => {
   // Auto pick first available bed if room changes
   useEffect(() => {
     if (selectedRoom?.beds) {
+      const requestedBed = selectedRoom.beds.find((b: any) => b.id === selectedBedId && b.isAvailable);
+      if (requestedBed) return;
       const avail = selectedRoom.beds.find((b: any) => b.isAvailable);
       if (avail) {
         setSelectedBedId(avail.id);
@@ -154,171 +342,201 @@ export const BookClient: React.FC = () => {
         setSelectedBedId("");
       }
     }
-  }, [selectedRoom]);
+  }, [selectedRoom, selectedBedId]);
 
   const selectedBed = useMemo(
     () => selectedRoom?.beds?.find((b: any) => b.id === selectedBedId),
     [selectedRoom, selectedBedId]
   );
 
-  // Filter rooms based on sharing type and AC preference
-  const filteredAndGroupedRooms = useMemo(() => {
-    let filtered = roomsData;
+  const getSharingCategoryName = (room: any): string => {
+    if (room.capacity === 2 || /twin|double|2/i.test(room.roomType?.name || "")) return "Double share";
+    if (room.capacity === 3 || /triple|3/i.test(room.roomType?.name || "")) return "Triple share";
+    if (room.capacity === 1 || /single|studio|private|1/i.test(room.roomType?.name || "")) return "Single share";
+    return room.roomType?.name || "Standard";
+  };
 
-    // Filter by sharing type (capacity)
-    if (filterSharingType !== "all") {
-      const capacity = parseInt(filterSharingType);
-      filtered = filtered.filter((r) => r.capacity === capacity);
+  // Distinct category list and counts ordered: Double share, Triple share, Single share
+  const categoriesList = useMemo(() => {
+    const counts: Record<string, number> = {
+      "Double share": 0,
+      "Triple share": 0,
+      "Single share": 0,
+    };
+
+    roomsData.forEach((r) => {
+      const cat = getSharingCategoryName(r);
+      if (counts[cat] !== undefined) {
+        counts[cat] += 1;
+      } else {
+        counts[cat] = (counts[cat] || 0) + 1;
+      }
+    });
+
+    const orderedKeys = ["Double share", "Triple share", "Single share"];
+    const result: { name: string; count: number }[] = [];
+
+    orderedKeys.forEach((key) => {
+      if (counts[key] > 0) {
+        result.push({ name: key, count: counts[key] });
+      }
+    });
+
+    Object.keys(counts).forEach((key) => {
+      if (!orderedKeys.includes(key) && counts[key] > 0) {
+        result.push({ name: key, count: counts[key] });
+      }
+    });
+
+    return result;
+  }, [roomsData]);
+
+  // Dynamic Floor counts across loaded rooms
+  const floorCounts = useMemo(() => {
+    const map = new Map<number, number>();
+    roomsData.forEach((r) => {
+      const f = typeof r.floor === "number" ? r.floor : parseInt(r.floor) || 1;
+      map.set(f, (map.get(f) || 0) + 1);
+    });
+    const sortedFloors = Array.from(map.keys()).sort((a, b) => a - b);
+    return {
+      all: roomsData.length,
+      floors: sortedFloors.map((floor) => ({
+        floor,
+        count: map.get(floor) || 0,
+      })),
+    };
+  }, [roomsData]);
+
+  // Counts by AC preference
+  const acCounts = useMemo(() => {
+    return {
+      all: roomsData.length,
+      ac: roomsData.filter((r) => r.isAC === true).length,
+      "non-ac": roomsData.filter((r) => r.isAC === false).length,
+    };
+  }, [roomsData]);
+
+  // Filtered rooms list
+  const filteredRoomsList = useMemo(() => {
+    let list = roomsData;
+
+    // Filter by floor
+    if (filterFloor !== "all") {
+      list = list.filter((r) => r.floor === filterFloor);
     }
 
     // Filter by AC status
     if (filterAC !== "all") {
-      filtered = filtered.filter((r) => {
+      list = list.filter((r) => {
         if (filterAC === "ac") return r.isAC === true;
         if (filterAC === "non-ac") return r.isAC === false;
         return true;
       });
     }
 
-    // Group by room type
+    // Filter by Category tab ("Double share", "Triple share", "Single share")
+    if (selectedCategoryTab !== "all") {
+      list = list.filter((r) => getSharingCategoryName(r) === selectedCategoryTab);
+    }
+
+    // Filter by room search query
+    if (roomSearchQuery.trim()) {
+      const q = roomSearchQuery.trim().toLowerCase();
+      list = list.filter(
+        (r) =>
+          r.roomNumber?.toLowerCase().includes(q) ||
+          r.building?.toLowerCase().includes(q) ||
+          String(r.floor).includes(q) ||
+          r.roomType?.name?.toLowerCase().includes(q) ||
+          getSharingCategoryName(r).toLowerCase().includes(q)
+      );
+    }
+
+    return list;
+  }, [roomsData, filterFloor, filterAC, selectedCategoryTab, roomSearchQuery]);
+
+  // Total available beds in current filtered list
+  const filteredAvailableBedsCount = useMemo(() => {
+    return filteredRoomsList.reduce((acc, r) => acc + (r.totalAvailableBeds || 0), 0);
+  }, [filteredRoomsList]);
+
+  // Group filtered rooms by category in order: Double share, Triple share, Single share
+  const filteredAndGroupedRooms = useMemo(() => {
     const grouped: Record<string, any[]> = {};
-    filtered.forEach((room) => {
-      const key = room.roomType.name;
+    filteredRoomsList.forEach((room) => {
+      const key = getSharingCategoryName(room);
       if (!grouped[key]) grouped[key] = [];
       grouped[key].push(room);
     });
 
-    return grouped;
-  }, [roomsData, filterSharingType, filterAC]);
-
-  // Get display price for a room (handles tiered pricing based on duration)
-  const getDisplayPrice = (room: any): { price: number; displayText: string; pricingInfo: string } => {
-    const cIn = new Date(checkIn);
-    const cOut = new Date(checkOut);
-    
-    if (isNaN(cIn.getTime()) || isNaN(cOut.getTime()) || cOut <= cIn) {
-      const basePrice = room.isAC 
-        ? (room.roomType.pricePerDayAC || 999)
-        : (room.roomType.pricePerDayNonAC || 999);
-      return { 
-        price: basePrice, 
-        displayText: "/day", 
-        pricingInfo: "1-Day Rate"
-      };
-    }
-    
-    const daysDiff = Math.ceil((cOut.getTime() - cIn.getTime()) / (1000 * 60 * 60 * 24));
-    
-    // Get price based on AC status
-    const getPriceByTier = (tier: string): number => {
-      if (room.isAC) {
-        switch(tier) {
-          case 'day': return room.roomType.pricePerDayAC || 999;
-          case '7': return room.roomType.price7DaysAC || (room.roomType.pricePerDayAC || 999) * 7;
-          case '10': return room.roomType.price10DaysAC || (room.roomType.pricePerDayAC || 999) * 10;
-          case '15': return room.roomType.price15DaysAC || (room.roomType.pricePerDayAC || 999) * 15;
-          case '30': return room.roomType.price30DaysAC || 21999;
-          default: return room.roomType.pricePerDayAC || 999;
-        }
-      } else {
-        switch(tier) {
-          case 'day': return room.roomType.pricePerDayNonAC || 999;
-          case '7': return room.roomType.price7DaysNonAC || (room.roomType.pricePerDayNonAC || 999) * 7;
-          case '10': return room.roomType.price10DaysNonAC || (room.roomType.pricePerDayNonAC || 999) * 10;
-          case '15': return room.roomType.price15DaysNonAC || (room.roomType.pricePerDayNonAC || 999) * 15;
-          case '30': return room.roomType.price30DaysNonAC || 21999;
-          default: return room.roomType.pricePerDayNonAC || 999;
-        }
+    const ordered: Record<string, any[]> = {};
+    const order = ["Double share", "Triple share", "Single share"];
+    order.forEach((k) => {
+      if (grouped[k] && grouped[k].length > 0) {
+        ordered[k] = grouped[k];
       }
-    };
-    
-    // Determine pricing tier based on number of days
-    let price = getPriceByTier('day');
-    let displayText = "/day";
-    let pricingInfo = "";
-    
-    if (daysDiff === 1) {
-      price = getPriceByTier('day');
-      displayText = "/day";
-      pricingInfo = "1-DAY RATE";
-    } else if (daysDiff >= 2 && daysDiff <= 6) {
-      price = getPriceByTier('day');
-      displayText = `/day (${daysDiff} days)`;
-      pricingInfo = "DAILY RATE";
-    } else if (daysDiff === 7) {
-      price = getPriceByTier('7');
-      displayText = "/week";
-      pricingInfo = "7-DAY RATE";
-    } else if (daysDiff >= 8 && daysDiff <= 9) {
-      price = getPriceByTier('day');
-      displayText = `/day (${daysDiff} days)`;
-      pricingInfo = "DAILY RATE";
-    } else if (daysDiff === 10) {
-      price = getPriceByTier('10');
-      displayText = "/10 days";
-      pricingInfo = "10-DAY RATE";
-    } else if (daysDiff >= 11 && daysDiff <= 14) {
-      price = getPriceByTier('day');
-      displayText = `/day (${daysDiff} days)`;
-      pricingInfo = "DAILY RATE";
-    } else if (daysDiff === 15) {
-      price = getPriceByTier('15');
-      displayText = "/15 days";
-      pricingInfo = "15-DAY RATE";
-    } else if (daysDiff >= 16 && daysDiff <= 29) {
-      price = getPriceByTier('day');
-      displayText = `/day (${daysDiff} days)`;
-      pricingInfo = "DAILY RATE";
-    } else if (daysDiff >= 30) {
-      price = getPriceByTier('30');
-      displayText = `/month (${Math.floor(daysDiff / 30)} month${Math.floor(daysDiff / 30) > 1 ? 's' : ''})`;
-      pricingInfo = `${Math.floor(daysDiff / 30)}-MONTH RATE`;
-    }
-    
-    return { price, displayText, pricingInfo };
+    });
+    Object.keys(grouped).forEach((k) => {
+      if (!order.includes(k) && grouped[k].length > 0) {
+        ordered[k] = grouped[k];
+      }
+    });
+
+    return ordered;
+  }, [filteredRoomsList]);
+
+  const hasActiveFilters =
+    filterFloor !== "all" ||
+    filterAC !== "all" ||
+    selectedCategoryTab !== "all" ||
+    Boolean(roomSearchQuery.trim());
+
+  const handleResetFilters = () => {
+    setFilterFloor("all");
+    setFilterAC("all");
+    setSelectedCategoryTab("all");
+    setRoomSearchQuery("");
+  };
+
+  // Quote room cards from the same admin rate card used for checkout.
+  const getDisplayPrice = (room: any): { price: number; displayText: string; pricingInfo: string } => {
+    const rates = getRoomTypePriceRates(room.roomType, room.isAC);
+    if (stayType === "MONTHLY") return { price: rates.days30, displayText: "/month", pricingInfo: "ADMIN MONTHLY RATE" };
+    const cIn = new Date(checkIn);
+    const cOut = stayType === "MONTHLY"
+      ? addUtcCalendarDays(cIn, 30)
+      : new Date(checkOut);
+    const nights = !isNaN(cIn.getTime()) && !isNaN(cOut.getTime()) && cOut > cIn
+      ? Math.ceil((cOut.getTime() - cIn.getTime()) / 86400000)
+      : 1;
+    const price = calculateStayBaseAmount(nights, rates);
+    return { price, displayText: nights === 1 ? "/night" : `/stay (${nights} nights)`, pricingInfo: nights === 1 ? "ADMIN DAILY RATE" : "ADMIN DURATION RATES" };
   };
 
   // Price Calculation
   const pricing = useMemo(() => {
     if (!selectedRoom?.roomType) return null;
     const cIn = new Date(checkIn);
-    const cOut = new Date(checkOut);
+    const cOut = stayType === "MONTHLY"
+      ? addUtcCalendarDays(cIn, 30)
+      : new Date(checkOut);
     if (isNaN(cIn.getTime()) || isNaN(cOut.getTime()) || cOut <= cIn) return null;
 
-    const basePrice = selectedRoom.isAC
-      ? (selectedRoom.roomType.pricePerDayAC || 999)
-      : (selectedRoom.roomType.pricePerDayNonAC || 999);
-    
-    const monthlyPrice = selectedRoom.isAC
-      ? (selectedRoom.roomType.price30DaysAC || 21999)
-      : (selectedRoom.roomType.price30DaysNonAC || 21999);
+    const rates = getRoomTypePriceRates(selectedRoom.roomType, selectedRoom.isAC);
 
     return calculateBookingPrice({
       checkInDate: cIn,
       checkOutDate: cOut,
-      basePrice: basePrice,
+      basePrice: rates.daily,
+      rates,
+      stayType: stayType === "MONTHLY" ? "MONTHLY" : "DAILY",
       weeklyDiscountPct: selectedRoom.roomType.weeklyDiscountPct,
-      monthlyPrice: monthlyPrice,
+      monthlyPrice: rates.days30,
       securityDeposit: selectedRoom.roomType.securityDeposit,
       coupon: appliedCoupon,
     });
-  }, [selectedRoom, checkIn, checkOut, appliedCoupon]);
-
-  // Hold Countdown Timer
-  useEffect(() => {
-    if (step === 4 && holdSecondsLeft > 0) {
-      const interval = setInterval(() => {
-        setHoldSecondsLeft((prev) => {
-          if (prev <= 1) {
-            clearInterval(interval);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      return () => clearInterval(interval);
-    }
-  }, [step, holdSecondsLeft]);
+  }, [selectedRoom, checkIn, checkOut, stayType, appliedCoupon]);
 
   // Handle Coupon Apply
   const handleApplyCoupon = (codeToApply?: string) => {
@@ -356,8 +574,41 @@ export const BookClient: React.FC = () => {
 
   // Step 3 -> 4: Create Temporary Reservation Hold
   const handleInitiateHold = async () => {
+    let sessionRes: Response;
+    try {
+      sessionRes = await fetch("/api/auth/me");
+    } catch {
+      setPaymentError("We could not verify your account. Please check your connection and try again.");
+      return;
+    }
+    if (!sessionRes.ok) {
+      setIsAuthModalOpen(true);
+      return;
+    }
     if (!guestName || !guestEmail || !guestPhone) {
       alert("Please fill in your name, email, and mobile number.");
+      return;
+    }
+
+    if (!guestGovtId.trim()) {
+      setPaymentError(`Please enter your ${ID_TYPE_CONFIG[govtIdType]?.label || "Government ID"}.`);
+      return;
+    }
+    const cleanId = guestGovtId.replace(/-/g, "").trim();
+    if (govtIdType === "AADHAAR" && cleanId.length !== 12) {
+      setPaymentError("Aadhaar number must be exactly 12 digits (e.g. 1234-5678-9012).");
+      return;
+    }
+    if (govtIdType === "PAN" && cleanId.length !== 10) {
+      setPaymentError("PAN card number must be exactly 10 characters: 5 letters, 4 digits, 1 letter (e.g. ABCDE-1234-F).");
+      return;
+    }
+    if (govtIdType === "PASSPORT" && cleanId.length !== 8) {
+      setPaymentError("Passport number must be 8 characters: 1 letter + 7 digits (e.g. A-1234567).");
+      return;
+    }
+    if (govtIdType === "VOTER_ID" && cleanId.length !== 10) {
+      setPaymentError("Voter ID must be 10 characters: 3 letters + 7 digits (e.g. ABC-1234567).");
       return;
     }
 
@@ -371,11 +622,13 @@ export const BookClient: React.FC = () => {
         bedId: selectedBedId,
         checkInDate: checkIn,
         checkOutDate: checkOut,
+        stayType,
         guestName,
         guestEmail,
         guestPhone,
         guestGender,
         guestGovtId,
+        govtIdType,
         couponCode: appliedCoupon?.code,
         specialRequests,
       };
@@ -392,9 +645,7 @@ export const BookClient: React.FC = () => {
       }
 
       setCreatedBooking(json.data.booking);
-      setHoldSecondsLeft(15 * 60);
-      setStep(4);
-      setShowSimulatorModal(true);
+      router.replace(`/confirmation?bookingId=${encodeURIComponent(json.data.booking.id)}`);
     } catch (err: any) {
       setPaymentError(err.message || "Error holding bed. Please try again.");
     } finally {
@@ -402,48 +653,16 @@ export const BookClient: React.FC = () => {
     }
   };
 
-  // Complete Payment (Simulated Sandbox or Razorpay)
+  // Payment remains disabled until the Razorpay account is ready.
   const handleConfirmPayment = async () => {
-    if (!createdBooking) return;
-    setIsProcessingPayment(true);
-    setPaymentError("");
-
-    try {
-      const res = await fetch("/api/payments/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          bookingId: createdBooking.id,
-          razorpayOrderId: `order_gz_${Date.now()}`,
-          razorpayPaymentId: `pay_sim_${Math.random().toString(36).substring(2, 9)}`,
-          razorpaySignature: "sim_sig_valid_2026",
-          paymentMethod: simulatedMethod,
-        }),
-      });
-
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Payment confirmation failed");
-      }
-
-      router.push(
-        `/confirmation?bookingRef=${createdBooking.bookingReference}&bookingId=${createdBooking.id}`
-      );
-    } catch (err: any) {
-      setPaymentError(err.message || "Payment failed");
-      setIsProcessingPayment(false);
+    if (createdBooking) {
+      router.replace(`/confirmation?bookingRef=${encodeURIComponent(createdBooking.bookingReference)}&bookingId=${encodeURIComponent(createdBooking.id)}`);
     }
-  };
-
-  const formatTimer = (sec: number) => {
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return `${m}:${s < 10 ? "0" : ""}${s}`;
   };
 
   return (
     <div className="min-h-screen bg-[#0B0F19] text-slate-100 flex flex-col">
-      <Navbar />
+      <Navbar user={currentUser} />
 
       <main className="flex-1 py-10 lg:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -455,7 +674,7 @@ export const BookClient: React.FC = () => {
                 { stepNum: 1, label: "Stay & Room" },
                 { stepNum: 2, label: "Bed Allocation" },
                 { stepNum: 3, label: "Guest Details" },
-                { stepNum: 4, label: "Payment & Hold" },
+                { stepNum: 4, label: "Confirm" },
               ].map((s) => {
                 const isCompleted = step > s.stepNum;
                 const isCurrent = step === s.stepNum;
@@ -465,24 +684,22 @@ export const BookClient: React.FC = () => {
                     className="flex flex-col items-center gap-2 relative z-10"
                   >
                     <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all ${
-                        isCompleted
+                      className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all ${isCompleted
                           ? "bg-emerald-500 text-white shadow-glow"
                           : isCurrent
-                          ? "bg-indigo-600 text-white shadow-glow ring-4 ring-indigo-500/25"
-                          : "bg-slate-900 border border-slate-700 text-slate-500"
-                      }`}
+                            ? "bg-indigo-600 text-white shadow-glow ring-4 ring-indigo-500/25"
+                            : "bg-slate-900 border border-slate-700 text-slate-500"
+                        }`}
                     >
                       {isCompleted ? <CheckCircle2 className="w-5 h-5" /> : s.stepNum}
                     </div>
                     <span
-                      className={`text-xs font-semibold ${
-                        isCurrent
+                      className={`text-xs font-semibold ${isCurrent
                           ? "text-indigo-400 font-bold"
                           : isCompleted
-                          ? "text-slate-300"
-                          : "text-slate-500"
-                      }`}
+                            ? "text-slate-300"
+                            : "text-slate-500"
+                        }`}
                     >
                       {s.label}
                     </span>
@@ -517,11 +734,10 @@ export const BookClient: React.FC = () => {
                         <div
                           key={h.id}
                           onClick={() => setSelectedHostelSlug(h.slug)}
-                          className={`p-4 rounded-2xl border cursor-pointer transition ${
-                            selectedHostelSlug === h.slug
+                          className={`p-4 rounded-2xl border cursor-pointer transition ${selectedHostelSlug === h.slug
                               ? "selection-glow bg-indigo-950/60 border-indigo-500 shadow-glow"
                               : "bg-slate-900/60 border-slate-800 hover:border-slate-700"
-                          }`}
+                            }`}
                         >
                           <div className="flex items-center justify-between">
                             <h4 className="font-bold text-sm text-white">{h.name}</h4>
@@ -535,74 +751,102 @@ export const BookClient: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Dates & Guests */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
-                        Check-In Date
-                      </label>
-                      <input
-                        type="date"
-                        min={todayStr}
-                        value={checkIn}
-                        onChange={(e) => setCheckIn(e.target.value)}
-                        className="w-full p-3 rounded-xl bg-slate-900 border border-slate-700 text-sm font-semibold text-white focus:outline-none focus:border-indigo-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
-                        Check-Out Date
-                      </label>
-                      <input
-                        type="date"
-                        min={checkIn || todayStr}
-                        value={checkOut}
-                        onChange={(e) => setCheckOut(e.target.value)}
-                        className="w-full p-3 rounded-xl bg-slate-900 border border-slate-700 text-sm font-semibold text-white focus:outline-none focus:border-indigo-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
-                        Guests
-                      </label>
-                      <select
-                        value={guests}
-                        onChange={(e) => setGuests(Number(e.target.value))}
-                        className="w-full p-3 rounded-xl bg-slate-900 border border-slate-700 text-sm font-semibold text-white focus:outline-none focus:border-indigo-500"
-                      >
-                        {[1, 2, 3, 4].map((n) => (
-                          <option key={n} value={n}>
-                            {n} {n === 1 ? "Guest" : "Guests"}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                  {/* Dates */}
+                  <div className={`grid grid-cols-1 ${stayType === "MONTHLY" ? "sm:grid-cols-2" : "sm:grid-cols-3"} gap-4`}>
+                    <CustomSelect label="Stay Type" value={stayType} onValueChange={(value) => { setStayType(value); if (value === "MONTHLY") setCheckOut(addUtcCalendarDays(new Date(`${checkIn}T00:00:00.000Z`), 30).toISOString().slice(0, 10)); }} triggerClassName="rounded-xl border border-slate-700 bg-slate-900 p-3" options={[{ value: "DAILY", label: "Daily stay" }, { value: "MONTHLY", label: "Month-to-month tenant" }]} />
+                    <DatePicker label="Check-In Date" min={todayStr} value={checkIn} onChange={(value) => { setCheckIn(value); if (stayType === "MONTHLY") setCheckOut(addUtcCalendarDays(new Date(`${value}T00:00:00.000Z`), 30).toISOString().slice(0, 10)); }} triggerClassName="min-h-[3.25rem] rounded-xl border border-slate-700 bg-slate-900 p-3" />
+                    {stayType !== "MONTHLY" && <DatePicker label="Check-Out Date" min={checkIn || todayStr} value={checkOut} onChange={setCheckOut} triggerClassName="min-h-[3.25rem] rounded-xl border border-slate-700 bg-slate-900 p-3" />}
                   </div>
 
                   {/* Rooms Available */}
                   <div className="space-y-4 pt-4 border-t border-slate-800">
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-3">
-                        Available Room Categories
-                      </label>
+                    {/* Search & Category Pills */}
+                    <div className="space-y-3">
+                      {/* Search Bar */}
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                          <input
+                            type="text"
+                            placeholder="Search by room number, floor, or category (e.g. 101, Floor 2)..."
+                            value={roomSearchQuery}
+                            onChange={(e) => setRoomSearchQuery(e.target.value)}
+                            className="w-full pl-10 pr-12 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
+                          />
+                          {roomSearchQuery && (
+                            <button
+                              onClick={() => setRoomSearchQuery("")}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-white"
+                            >
+                              Clear
+                            </button>
+                          )}
+                        </div>
+                        {hasActiveFilters && (
+                          <button
+                            onClick={handleResetFilters}
+                            className="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition border border-slate-700 shrink-0"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
+                            Reset
+                          </button>
+                        )}
+                      </div>
 
-                      {/* Filter Options */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                        {/* Sharing Type Filter */}
-                        <div>
-                          <label className="block text-xs text-slate-300 mb-2">Room Type</label>
-                          <div className="flex gap-2">
-                            {["all", "1", "2", "3"].map((type) => (
-                              <button
-                                key={type}
-                                onClick={() => setFilterSharingType(type as any)}
-                                className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition ${
-                                  filterSharingType === type
-                                    ? "bg-indigo-600 text-white"
-                                    : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                      {/* Category Pills: Double share, Triple share, Single share */}
+                      {categoriesList.length > 0 && (
+                        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+                          <button
+                            onClick={() => setSelectedCategoryTab("all")}
+                            className={`px-3 py-1.5 rounded-lg font-semibold shrink-0 transition ${selectedCategoryTab === "all"
+                                ? "bg-indigo-600 text-white shadow-sm"
+                                : "bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800"
+                              }`}
+                          >
+                            All Categories ({roomsData.length})
+                          </button>
+                          {categoriesList.map((cat) => (
+                            <button
+                              key={cat.name}
+                              onClick={() => setSelectedCategoryTab(cat.name)}
+                              className={`px-3 py-1.5 rounded-lg font-semibold shrink-0 transition ${selectedCategoryTab === cat.name
+                                  ? "bg-indigo-600 text-white shadow-sm"
+                                  : "bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800"
                                 }`}
+                            >
+                              {cat.name} ({cat.count})
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Filter Options (Floor & AC) */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {/* Floor Filter */}
+                        <div>
+                          <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                            Floor
+                          </label>
+                          <div className="flex gap-1.5 overflow-x-auto pb-0.5 custom-scrollbar">
+                            <button
+                              onClick={() => setFilterFloor("all")}
+                              className={`flex-1 min-w-[42px] py-1.5 px-2 rounded-lg text-xs font-semibold text-center transition ${filterFloor === "all"
+                                  ? "bg-indigo-600 text-white"
+                                  : "bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800"
+                                }`}
+                            >
+                              All
+                            </button>
+                            {floorCounts.floors.map(({ floor }) => (
+                              <button
+                                key={floor}
+                                onClick={() => setFilterFloor(floor)}
+                                className={`flex-1 min-w-[36px] py-1.5 px-2 rounded-lg text-xs font-semibold text-center transition ${filterFloor === floor
+                                    ? "bg-indigo-600 text-white"
+                                    : "bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800"
+                                  }`}
                               >
-                                {type === "all" ? "All" : `${type}-Share`}
+                                {floor}
                               </button>
                             ))}
                           </div>
@@ -610,122 +854,173 @@ export const BookClient: React.FC = () => {
 
                         {/* AC Filter */}
                         <div>
-                          <label className="block text-xs text-slate-300 mb-2">AC Preference</label>
-                          <div className="flex gap-2">
-                            {["all", "ac", "non-ac"].map((ac) => (
-                              <button
-                                key={ac}
-                                onClick={() => setFilterAC(ac as any)}
-                                className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition ${
-                                  filterAC === ac
-                                    ? "bg-indigo-600 text-white"
-                                    : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                          <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                            AC Preference
+                          </label>
+                          <div className="flex gap-1.5">
+                            <button
+                              onClick={() => setFilterAC("all")}
+                              className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold transition ${filterAC === "all"
+                                  ? "bg-indigo-600 text-white"
+                                  : "bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800"
                                 }`}
-                              >
-                                {ac === "all" ? "All" : ac === "ac" ? "🌬️ AC" : "⚡ Non-AC"}
-                              </button>
-                            ))}
+                            >
+                              All ({acCounts.all})
+                            </button>
+                            <button
+                              onClick={() => setFilterAC("ac")}
+                              className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold transition ${filterAC === "ac"
+                                  ? "bg-indigo-600 text-white"
+                                  : "bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800"
+                                }`}
+                            >
+                              🌬️ AC ({acCounts.ac})
+                            </button>
+                            <button
+                              onClick={() => setFilterAC("non-ac")}
+                              className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold transition ${filterAC === "non-ac"
+                                  ? "bg-indigo-600 text-white"
+                                  : "bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800"
+                                }`}
+                            >
+                              ⚡ Non-AC ({acCounts["non-ac"]})
+                            </button>
                           </div>
                         </div>
                       </div>
                     </div>
 
+                    {/* Room Grid or States */}
                     {isLoadingAvailability ? (
                       <div className="p-8 text-center text-slate-400">
                         <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-400" />
                         <span>Checking real-time bed inventory...</span>
                       </div>
                     ) : Object.keys(filteredAndGroupedRooms).length === 0 ? (
-                      <div className="p-6 text-center text-slate-400 bg-slate-950 rounded-xl border border-slate-800">
-                        <AlertCircle className="w-6 h-6 mx-auto mb-2" />
-                        <p>No rooms available matching your preferences.</p>
+                      <div className="p-8 text-center text-slate-400 bg-slate-950 rounded-2xl border border-slate-800 space-y-3">
+                        <AlertCircle className="w-8 h-8 mx-auto text-amber-400" />
+                        <div>
+                          <p className="font-bold text-white text-sm">No rooms match your filter criteria.</p>
+                          <p className="text-xs text-slate-400 mt-1">Try switching sharing type or clearing search filters.</p>
+                        </div>
+                        {hasActiveFilters && (
+                          <Button variant="secondary" size="sm" onClick={handleResetFilters}>
+                            Clear All Filters
+                          </Button>
+                        )}
                       </div>
                     ) : (
-                      <div className="space-y-4">
-                        {Object.entries(filteredAndGroupedRooms).map(([categoryName, rooms]) => (
-                          <div key={categoryName} className="space-y-2">
-                            <h4 className="text-sm font-bold text-indigo-300 pl-2">{categoryName}</h4>
-                            <div className="space-y-2">
-                              {rooms.map((r) => (
-                                <div
-                                  key={r.id}
-                                  onClick={() => r.hasAvailability && setSelectedRoomId(r.id)}
-                                  className={`p-4 rounded-2xl border flex items-center justify-between transition cursor-pointer ${
-                                    selectedRoomId === r.id
-                                      ? "selection-glow bg-indigo-950/60 border-indigo-500 shadow-glow"
-                                      : r.hasAvailability
-                                      ? "bg-slate-900/60 border-slate-800 hover:border-slate-700"
-                                      : "opacity-40 bg-slate-950 border-slate-900 cursor-not-allowed"
-                                  }`}
-                                >
-                                  <div className="space-y-1">
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-bold text-sm text-white">
-                                        Room {r.roomNumber}
-                                      </span>
-                                      <Badge
-                                        variant={r.isAC ? "cyan" : "coral"}
-                                        size="sm"
-                                      >
-                                        {r.isAC ? "🌬️ AC" : "⚡ Non-AC"}
-                                      </Badge>
-                                      <Badge
-                                        variant={
-                                          r.roomType.genderCategory === "FEMALE"
-                                            ? "coral"
-                                            : r.roomType.genderCategory === "PRIVATE"
-                                            ? "default"
-                                            : "default"
-                                        }
-                                        size="sm"
-                                      >
-                                        {r.roomType.genderCategory}
-                                      </Badge>
-                                    </div>
-                                    <span className="text-xs text-emerald-400 font-semibold block">
-                                      {r.totalAvailableBeds} beds available
-                                    </span>
-                                  </div>
+                      /* Contained scrollable container with 2-column room cards */
+                      <div className="space-y-6 max-h-[520px] overflow-y-auto pr-1.5 custom-scrollbar">
+                        {Object.entries(filteredAndGroupedRooms).map(([categoryName, rooms]) => {
+                          const catBedsAvailable = rooms.reduce((sum, r) => sum + (r.totalAvailableBeds || 0), 0);
+                          return (
+                            <div key={categoryName} className="space-y-2.5">
+                              {/* Sticky Category Header */}
+                              <div className="sticky top-0 z-10 bg-[#111827]/95 backdrop-blur-md py-1.5 px-2.5 rounded-xl border border-slate-800 flex items-center justify-between">
+                                <h4 className="text-xs font-black uppercase tracking-wider text-indigo-300">
+                                  {categoryName}
+                                </h4>
+                                <span className="text-[11px] font-semibold text-slate-400">
+                                  {rooms.length} {rooms.length === 1 ? "room" : "rooms"} •{" "}
+                                  <span className="text-emerald-400">{catBedsAvailable} beds open</span>
+                                </span>
+                              </div>
 
-                                  <div className="text-right">
-                                    {(() => {
-                                      const { price, displayText, pricingInfo } = getDisplayPrice(r);
-                                      return (
-                                        <>
-                                          <span className="text-lg font-black text-white">
-                                            ₹{Math.round(price)}
-                                          </span>
-                                          <span className="text-xs text-slate-400 block">
-                                            {displayText}
-                                          </span>
-                                          {pricingInfo && (
-                                            <span className="text-[10px] text-amber-400 font-bold block mt-0.5">
-                                              {pricingInfo}
+                              {/* 2-Column Responsive Grid */}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {rooms.map((r) => {
+                                  const isSelected = selectedRoomId === r.id;
+                                  const { price, displayText } = getDisplayPrice(r);
+                                  return (
+                                    <div
+                                      key={r.id}
+                                      onClick={() => r.hasAvailability && setSelectedRoomId(r.id)}
+                                      className={`p-3.5 rounded-2xl border flex flex-col justify-between gap-3 transition cursor-pointer ${isSelected
+                                          ? "selection-glow bg-indigo-950/70 border-indigo-500 shadow-glow ring-2 ring-indigo-500/40"
+                                          : r.hasAvailability
+                                            ? "bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900/90"
+                                            : "opacity-40 bg-slate-950 border-slate-900 cursor-not-allowed"
+                                        }`}
+                                    >
+                                      <div>
+                                        <div className="flex items-start justify-between gap-2">
+                                          <div>
+                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                              <span className="font-extrabold text-sm text-white">
+                                                Room {r.roomNumber}
+                                              </span>
+                                              <Badge variant={r.isAC ? "cyan" : "coral"} size="sm">
+                                                {r.isAC ? "🌬️ AC" : "⚡ Non-AC"}
+                                              </Badge>
+                                            </div>
+                                            <span className="text-[11px] text-slate-400 font-medium block mt-0.5">
+                                              Floor {r.floor} • {r.building}
                                             </span>
+                                          </div>
+
+                                          <div className="text-right shrink-0">
+                                            <span className="text-base font-black text-white block">
+                                              ₹{Math.round(price)}
+                                            </span>
+                                            <span className="text-[10px] text-slate-400 block -mt-0.5">
+                                              {displayText}
+                                            </span>
+                                          </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                          <span
+                                            className={`text-[11px] font-semibold ${r.totalAvailableBeds > 0
+                                                ? "text-emerald-400"
+                                                : "text-slate-500"
+                                              }`}
+                                          >
+                                            ● {r.totalAvailableBeds > 0
+                                              ? `${r.totalAvailableBeds} beds available`
+                                              : "Fully Occupied"}
+                                          </span>
+                                          <span className="text-slate-600 text-xs">•</span>
+                                          <span className="text-[11px] text-slate-400">
+                                            {getSharingCategoryName(r)} ({r.roomType.genderCategory})
+                                          </span>
+                                        </div>
+                                      </div>
+
+                                      {/* Bottom row of card */}
+                                      <div className="flex items-center justify-between pt-2 border-t border-slate-800/60 text-xs">
+                                        <div>
+                                          {isSelected ? (
+                                            <span className="text-indigo-400 font-bold flex items-center gap-1 text-[11px]">
+                                              <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400" />
+                                              Selected
+                                            </span>
+                                          ) : (
+                                            <span className="text-slate-500 text-[11px]">Click to select</span>
                                           )}
-                                        </>
-                                      );
-                                    })()}
-                                  </div>
-                                </div>
-                              ))}
+                                        </div>
+
+                                        {isSelected && (
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setStep(2);
+                                            }}
+                                            className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[11px] flex items-center gap-1 transition shadow-sm"
+                                          >
+                                            Choose Bed →
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
-                  </div>
-
-                  <div className="pt-4 flex justify-end">
-                    <Button
-                      variant="glow"
-                      size="lg"
-                      onClick={() => setStep(2)}
-                      disabled={!selectedRoomId}
-                      rightIcon={<ArrowRight className="w-4 h-4" />}
-                    >
-                      Continue to Bed Selection
-                    </Button>
                   </div>
                 </div>
               )}
@@ -751,13 +1046,12 @@ export const BookClient: React.FC = () => {
                         <div
                           key={bed.id}
                           onClick={() => isAvail && setSelectedBedId(bed.id)}
-                          className={`p-5 rounded-2xl border flex flex-col items-center text-center gap-3 transition ${
-                            isSelected
+                          className={`p-5 rounded-2xl border flex flex-col items-center text-center gap-3 transition ${isSelected
                               ? "selection-glow bg-indigo-600 border-indigo-400 text-white shadow-glow"
                               : isAvail
-                              ? "bg-slate-900/80 border-slate-700/80 text-slate-200 hover:border-indigo-500 cursor-pointer"
-                              : "bg-slate-950/60 border-slate-900 opacity-40 cursor-not-allowed text-slate-500"
-                          }`}
+                                ? "bg-slate-900/80 border-slate-700/80 text-slate-200 hover:border-indigo-500 cursor-pointer"
+                                : "bg-slate-950/60 border-slate-900 opacity-40 cursor-not-allowed text-slate-500"
+                            }`}
                         >
                           <BedIcon className="w-8 h-8" />
                           <div>
@@ -774,8 +1068,8 @@ export const BookClient: React.FC = () => {
                               isSelected
                                 ? "indigo"
                                 : isAvail
-                                ? "available"
-                                : "occupied"
+                                  ? "available"
+                                  : "occupied"
                             }
                             size="sm"
                             className={isSelected ? "bg-white text-indigo-900 font-bold" : ""}
@@ -783,8 +1077,8 @@ export const BookClient: React.FC = () => {
                             {isSelected
                               ? "SELECTED"
                               : isAvail
-                              ? "AVAILABLE"
-                              : bed.status}
+                                ? "AVAILABLE"
+                                : bed.status}
                           </Badge>
                         </div>
                       );
@@ -810,7 +1104,14 @@ export const BookClient: React.FC = () => {
                     <Button
                       variant="glow"
                       size="lg"
-                      onClick={() => setStep(3)}
+                      onClick={() => {
+                        if (!selectedBedId) return;
+                        if (currentUser) {
+                          setStep(3);
+                        } else {
+                          setIsAuthModalOpen(true);
+                        }
+                      }}
                       disabled={!selectedBedId}
                       rightIcon={<ArrowRight className="w-4 h-4" />}
                     >
@@ -828,7 +1129,7 @@ export const BookClient: React.FC = () => {
                       Step 3: Resident Information
                     </h2>
                     <p className="text-xs text-slate-400 mt-1">
-                      Required for automated reception check-in and QR pass issuance.
+                      Your resident account details are used for check-in, official billing, and your instant QR pass.
                     </p>
                   </div>
 
@@ -879,27 +1180,40 @@ export const BookClient: React.FC = () => {
                       <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
                         Gender
                       </label>
-                      <select
-                        value={guestGender}
-                        onChange={(e) => setGuestGender(e.target.value)}
-                        className="w-full p-3 rounded-xl bg-slate-900 border border-slate-700 text-sm font-semibold text-white focus:outline-none focus:border-indigo-500"
-                      >
-                        <option value="MALE">Male</option>
-                        <option value="FEMALE">Female</option>
-                        <option value="OTHER">Other / Non-Binary</option>
-                      </select>
+                      <CustomSelect value={guestGender} onValueChange={setGuestGender} triggerClassName="rounded-xl border border-slate-700 bg-slate-900 p-3" options={[{ value: "MALE", label: "Male" }, { value: "FEMALE", label: "Female" }, { value: "OTHER", label: "Other / Non-Binary" }]} />
                     </div>
 
-                    <div className="sm:col-span-2">
+                    <div>
                       <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
-                        Government ID Number (Aadhaar / Passport / Driving License)
+                        Government ID Type *
                       </label>
+                      <CustomSelect
+                        value={govtIdType}
+                        onValueChange={(val) => {
+                          setGovtIdType(val);
+                          setGuestGovtId("");
+                        }}
+                        triggerClassName="rounded-xl border border-slate-700 bg-slate-900 p-3 text-sm font-semibold text-white"
+                        options={ID_OPTIONS}
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400">
+                          {ID_TYPE_CONFIG[govtIdType]?.label || "ID Number"} *
+                        </label>
+                        <span className="text-[10px] text-slate-400 font-medium">
+                          {ID_TYPE_CONFIG[govtIdType]?.helper}
+                        </span>
+                      </div>
                       <input
                         type="text"
-                        placeholder="XXXX-XXXX-XXXX (verified at reception desk)"
+                        placeholder={ID_TYPE_CONFIG[govtIdType]?.placeholder}
                         value={guestGovtId}
-                        onChange={(e) => setGuestGovtId(e.target.value)}
-                        className="w-full p-3 rounded-xl bg-slate-900 border border-slate-700 text-sm font-semibold text-white focus:outline-none focus:border-indigo-500"
+                        maxLength={ID_TYPE_CONFIG[govtIdType]?.maxLength}
+                        onChange={handleGovtIdChange}
+                        className="w-full p-3 rounded-xl bg-slate-900 border border-slate-700 text-sm font-mono font-semibold text-white focus:outline-none focus:border-indigo-500 tracking-wider placeholder:text-slate-600 uppercase"
                       />
                     </div>
 
@@ -1003,44 +1317,23 @@ export const BookClient: React.FC = () => {
                       onClick={handleInitiateHold}
                       rightIcon={<Lock className="w-4 h-4" />}
                     >
-                      Lock Bed & Proceed to Pay
+                      Reserve Bed & Generate QR
                     </Button>
                   </div>
                 </div>
               )}
 
-              {/* STEP 4: 15-Minute Temporary Hold Active */}
+              {/* STEP 4: Reservation summary */}
               {step === 4 && (
                 <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-indigo-500/50 bg-[#111827]/95 space-y-6 shadow-2xl">
-                  {/* Hold Banner */}
-                  <div className="p-4 rounded-2xl bg-indigo-950/80 border border-indigo-500/40 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-indigo-600/30 flex items-center justify-center">
-                        <Clock className="w-5 h-5 text-indigo-400 animate-pulse" />
-                      </div>
-                      <div>
-                        <span className="text-xs font-bold uppercase tracking-wider text-indigo-300">
-                          Temporary Bed Hold Active
-                        </span>
-                        <p className="text-xs text-slate-300">
-                          {selectedBed?.bedNumber} is temporarily locked for you.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="text-right">
-                      <span className="text-2xl font-black text-white font-mono">
-                        {formatTimer(holdSecondsLeft)}
-                      </span>
-                      <span className="text-[10px] text-slate-400 block uppercase">
-                        Time Remaining
-                      </span>
-                    </div>
+                  <div className="p-4 rounded-2xl bg-indigo-950/80 border border-indigo-500/40 flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                    <p className="text-sm text-slate-200">{selectedBed?.bedNumber} is reserved. Payment is due; the QR pass is ready.</p>
                   </div>
 
                   <div>
                     <h3 className="text-xl font-bold text-white">
-                      Complete Secure Payment
+                      Reservation confirmed
                     </h3>
                     <p className="text-xs text-slate-400 mt-1">
                       Booking Reference:{" "}
@@ -1051,30 +1344,7 @@ export const BookClient: React.FC = () => {
                   </div>
 
                   <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
-                    <h4 className="text-sm font-bold text-white">Select Payment Method:</h4>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {[
-                        { id: "upi", name: "UPI / QR", sub: "GPay, PhonePe" },
-                        { id: "card", name: "Debit / Credit", sub: "Visa, MC, RuPay" },
-                        { id: "netbanking", name: "NetBanking", sub: "All Indian Banks" },
-                        { id: "cash", name: "Pay at Desk", sub: "Reception Desk" },
-                      ].map((m) => (
-                        <div
-                          key={m.id}
-                          onClick={() => setSimulatedMethod(m.id)}
-                          className={`p-3 rounded-xl border cursor-pointer transition ${
-                            simulatedMethod === m.id
-                              ? "bg-indigo-950/70 border-indigo-500 shadow-glow"
-                              : "bg-slate-900 border-slate-800 hover:border-slate-700"
-                          }`}
-                        >
-                          <span className="text-xs font-bold text-white block">
-                            {m.name}
-                          </span>
-                          <span className="text-[10px] text-slate-400">{m.sub}</span>
-                        </div>
-                      ))}
-                    </div>
+                    <p className="text-sm text-slate-300">Payment is marked due. Your bed is assigned and the QR pass is available on the confirmation page.</p>
                   </div>
 
                   {paymentError && (
@@ -1098,7 +1368,7 @@ export const BookClient: React.FC = () => {
                       onClick={handleConfirmPayment}
                       rightIcon={<CreditCard className="w-4 h-4" />}
                     >
-                      Pay ₹{pricing?.totalAmount.toLocaleString()} & Confirm
+                      View Reservation & QR
                     </Button>
                   </div>
                 </div>
@@ -1126,10 +1396,8 @@ export const BookClient: React.FC = () => {
                     <span className="text-slate-400">Check-In</span>
                     <span className="font-semibold text-white">{checkIn}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Check-Out</span>
-                    <span className="font-semibold text-white">{checkOut}</span>
-                  </div>
+                  {stayType !== "MONTHLY" && <div className="flex justify-between"><span className="text-slate-400">Check-Out</span><span className="font-semibold text-white">{checkOut}</span></div>}
+                  {stayType === "MONTHLY" && <div className="flex justify-between"><span className="text-slate-400">Stay term</span><span className="font-semibold text-white">Month-to-month</span></div>}
                   <div className="flex justify-between">
                     <span className="text-slate-400">Room</span>
                     <span className="font-semibold text-white">
@@ -1148,10 +1416,7 @@ export const BookClient: React.FC = () => {
                 {pricing && (
                   <div className="space-y-2.5 text-xs text-slate-300">
                     <div className="flex justify-between">
-                      <span>
-                        Stay ({pricing.nights} {pricing.nights === 1 ? "night" : "nights"} •{" "}
-                        {pricing.stayType})
-                      </span>
+                      <span>{stayType === "MONTHLY" ? "First month rent" : `Daily stay (${pricing.nights} ${pricing.nights === 1 ? "night" : "nights"})`}</span>
                       <span className="font-semibold text-white">
                         ₹{pricing.baseAmount.toLocaleString()}
                       </span>
@@ -1171,23 +1436,17 @@ export const BookClient: React.FC = () => {
                       </div>
                     )}
 
-                    <div className="flex justify-between">
-                      <span>Hospitality GST (12%)</span>
-                      <span className="font-semibold text-white">
-                        ₹{pricing.taxAmount.toLocaleString()}
-                      </span>
-                    </div>
 
                     <div className="flex justify-between">
-                      <span>Service Fee</span>
+                      <span>{pricing.stayType === "MONTHLY" ? "Maintenance Fee" : "Service Fee"}</span>
                       <span className="font-semibold text-white">
-                        ₹{pricing.serviceFee}
+                        ₹{pricing.serviceFee.toLocaleString()}
                       </span>
                     </div>
 
                     {pricing.securityDeposit > 0 && (
                       <div className="flex justify-between text-amber-300">
-                        <span>Refundable Deposit</span>
+                        <span>Refundable Security Deposit</span>
                         <span>₹{pricing.securityDeposit.toLocaleString()}</span>
                       </div>
                     )}
@@ -1208,13 +1467,60 @@ export const BookClient: React.FC = () => {
                   </div>
                   <p>Includes high-speed fiber, cafe access, and biometric pass.</p>
                 </div>
+
+                {/* Step 1 Quick Continue CTA in Sticky Sidebar */}
+                {step === 1 && (
+                  <Button
+                    variant="glow"
+                    size="lg"
+                    className="w-full"
+                    disabled={!selectedRoomId}
+                    onClick={() => setStep(2)}
+                    rightIcon={<ArrowRight className="w-4 h-4" />}
+                  >
+                    {selectedRoom
+                      ? `Continue to Beds (Room ${selectedRoom.roomNumber}) →`
+                      : "Choose a Room to Continue"}
+                  </Button>
+                )}
               </div>
             </div>
           </div>
         </div>
       </main>
 
+      {/* Mobile Floating Action Bar for Step 1 */}
+      {step === 1 && selectedRoom && (
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 p-3 bg-[#0F172A]/95 border-t border-indigo-500/40 backdrop-blur-xl z-40 flex items-center justify-between gap-3 shadow-2xl">
+          <div>
+            <span className="font-black text-sm text-white block">
+              Room {selectedRoom.roomNumber} Selected
+            </span>
+            <span className="text-[11px] text-emerald-400 font-semibold block">
+              {selectedRoom.totalAvailableBeds} beds available
+            </span>
+          </div>
+          <Button
+            variant="glow"
+            size="md"
+            onClick={() => setStep(2)}
+            rightIcon={<ArrowRight className="w-4 h-4" />}
+          >
+            Choose Bed
+          </Button>
+        </div>
+      )}
+
       <Footer />
+
+      <BookingAuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onSuccess={handleAuthSuccess}
+        hostelName={activeHostel?.name}
+        bedNumber={selectedBed?.bedNumber}
+        roomTypeName={selectedRoom?.roomType?.name}
+      />
     </div>
   );
 };

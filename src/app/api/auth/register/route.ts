@@ -50,7 +50,7 @@ export async function POST(req: Request) {
       name: user.name,
     });
 
-    cookies().set({
+    (await cookies()).set({
       name: COOKIE_NAME,
       value: token,
       httpOnly: true,

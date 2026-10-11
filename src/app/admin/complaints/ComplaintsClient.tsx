@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Button from "@/components/ui/Button";
+import CustomSelect from "@/components/ui/CustomSelect";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import { HelpCircle, CheckCircle2, MessageSquare, Clock, Send } from "lucide-react";
@@ -201,15 +202,7 @@ export const ComplaintsClient: React.FC<ComplaintsClientProps> = ({
               <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
                 Update Status
               </label>
-              <select
-                value={newStatus}
-                onChange={(e) => setNewStatus(e.target.value)}
-                className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm text-white focus:outline-none"
-              >
-                <option value="IN_PROGRESS">IN_PROGRESS (Investigating)</option>
-                <option value="RESOLVED">RESOLVED (Issue Fixed / Answered)</option>
-                <option value="CLOSED">CLOSED</option>
-              </select>
+              <CustomSelect value={newStatus} onValueChange={setNewStatus} options={[{ value: "IN_PROGRESS", label: "IN_PROGRESS (Investigating)" }, { value: "RESOLVED", label: "RESOLVED (Issue Fixed / Answered)" }, { value: "CLOSED", label: "CLOSED" }]} triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm" />
             </div>
 
             <div className="flex justify-end gap-3 pt-2">

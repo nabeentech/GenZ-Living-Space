@@ -1,9 +1,9 @@
 import React from "react";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
 import HeroSearch from "@/components/public/HeroSearch";
-import PropertyCard from "@/components/public/PropertyCard";
 import WhyUs from "@/components/public/WhyUs";
 import AmenitiesGrid from "@/components/public/AmenitiesGrid";
 import Testimonials from "@/components/public/Testimonials";
@@ -17,6 +17,7 @@ export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const user = await getSessionUser();
+  if (user && user.role !== "CUSTOMER") redirect("/admin");
 
   // Fetch CMS content for homepage
   const cmsContent = await prisma.websiteContent.findUnique({
@@ -36,77 +37,6 @@ export default async function HomePage() {
     } catch {
       // Use defaults if JSON parse fails
     }
-  }
-
-  // Fetch all active properties from database
-  let hostels: any[] = [];
-  try {
-    hostels = await prisma.hostel.findMany({
-      where: { active: true },
-      include: {
-        rooms: {
-          include: {
-            roomType: true,
-            beds: true,
-          },
-        },
-      },
-    });
-  } catch (error) {
-    console.error("Database fetch error, using fallback static data:", error);
-  }
-
-  // Fallback if database hasn't been seeded yet
-  if (!hostels || hostels.length === 0) {
-    hostels = [
-      {
-        slug: "madhapur-01-hyd",
-        name: "GenZ Colive & PG Guest Rooms",
-        tagline: "Premium Coliving & Guest Rooms",
-        city: "Madhapur - HYD",
-        address: "Hitech City Road, Madhapur",
-        rating: 4.9,
-        coverImage: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=1200&auto=format&fit=crop&q=80",
-        startingPrice: 599,
-        availableBeds: 50,
-      },
-    ];
-  } else {
-    // Transform from DB
-    hostels = hostels.map((h) => {
-      let minPrice = 599;
-      let totalAvail = 0;
-      
-      // Get minimum price from all room types (use Non-AC daily rate)
-      const seenRoomTypes = new Set<string>();
-      h.rooms?.forEach((r: any) => {
-        if (r.roomType && !seenRoomTypes.has(r.roomType.id)) {
-          seenRoomTypes.add(r.roomType.id);
-          // Use Non-AC daily rate, fall back to AC rate, then basePrice, then default
-          const roomPrice = r.roomType.pricePerDayNonAC || 
-                           r.roomType.pricePerDayAC || 
-                           r.roomType.basePrice || 
-                           599;
-          if (roomPrice < minPrice) {
-            minPrice = roomPrice;
-          }
-        }
-        r.beds?.forEach((b: any) => {
-          if (b.status === "AVAILABLE") totalAvail++;
-        });
-      });
-      return {
-        slug: h.slug,
-        name: h.name,
-        tagline: h.tagline,
-        city: h.city,
-        address: h.address,
-        rating: h.rating,
-        coverImage: h.coverImage,
-        startingPrice: minPrice,
-        availableBeds: totalAvail > 0 ? totalAvail : 12,
-      };
-    });
   }
 
   return (
@@ -162,49 +92,6 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {/* PROPERTY SECTION */}
-        <section id="hostels" className="py-24 bg-[#07090E] border-t border-slate-800/80">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6">
-              <div className="space-y-3">
-                <span className="text-xs uppercase font-extrabold tracking-widest text-indigo-400 bg-indigo-950/60 border border-indigo-500/30 px-3.5 py-1.5 rounded-full">
-                  Our Premium Property
-                </span>
-                <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight">
-                  GenZ <span className="gradient-text-primary">Colive & PG</span>
-                </h2>
-                <p className="text-slate-400 text-sm sm:text-base max-w-xl">
-                  Premium coliving experience with gigabit fiber, creator pods, and vibrant community living.
-                </p>
-              </div>
-
-              <Link href="/hostels">
-                <Button variant="outline" size="md" rightIcon={<ArrowRight className="w-4 h-4" />}>
-                  View All Rooms & Pricing
-                </Button>
-              </Link>
-            </div>
-
-            {/* Grid of the Property */}
-            <div className="grid grid-cols-1 gap-6">
-              {hostels.map((h) => (
-                <PropertyCard
-                  key={h.slug}
-                  slug={h.slug}
-                  name={h.name}
-                  tagline={h.tagline}
-                  city={h.city}
-                  address={h.address}
-                  rating={h.rating}
-                  coverImage={h.coverImage}
-                  startingPrice={h.startingPrice}
-                  availableBeds={h.availableBeds}
-                />
-              ))}
-            </div>
-          </div>
-        </section>
-
         {/* WHY GENZ SECTION */}
         <WhyUs />
 
@@ -234,7 +121,7 @@ export default async function HomePage() {
                   Lock your bed now. Receive your digital QR pass instantly and check in seamlessly at reception.
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
-                  <Link href="/hostels">
+                  <Link href="/hostels/madhapur-01-hyd">
                     <Button variant="glow" size="lg" rightIcon={<ArrowRight className="w-4 h-4" />}>
                       Explore Our Hostels
                     </Button>

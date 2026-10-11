@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import Button from "@/components/ui/Button";
+import CustomSelect from "@/components/ui/CustomSelect";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import {
@@ -107,31 +108,9 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
 
         {/* Filter Hostels & Status */}
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-          <select
-            value={selectedHostel}
-            onChange={(e) => setSelectedHostel(e.target.value)}
-            className="p-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none"
-          >
-            <option value="all">All 2 Properties</option>
-            {hostels.map((h) => (
-              <option key={h.id} value={h.id}>
-                {h.name}
-              </option>
-            ))}
-          </select>
+          <CustomSelect value={selectedHostel} onValueChange={setSelectedHostel} options={[{ value: "all", label: "All Properties" }, ...hostels.map((h) => ({ value: h.id, label: h.name }))]} triggerClassName="min-w-44 p-2 rounded-xl bg-slate-900 border border-slate-700 text-xs" />
 
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="p-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none"
-          >
-            <option value="all">All Statuses</option>
-            <option value="CONFIRMED">Confirmed</option>
-            <option value="CHECKED_IN">Checked In</option>
-            <option value="CHECKED_OUT">Checked Out</option>
-            <option value="CANCELLED">Cancelled</option>
-            <option value="PAYMENT_PENDING">Payment Pending</option>
-          </select>
+          <CustomSelect value={statusFilter} onValueChange={setStatusFilter} options={[{ value: "all", label: "All Statuses" }, { value: "CONFIRMED", label: "Confirmed" }, { value: "CHECKED_IN", label: "Checked In" }, { value: "CHECKED_OUT", label: "Checked Out" }, { value: "CANCELLED", label: "Cancelled" }, { value: "PAYMENT_PENDING", label: "Payment Pending" }]} triggerClassName="min-w-44 p-2 rounded-xl bg-slate-900 border border-slate-700 text-xs" />
         </div>
       </div>
 
@@ -311,16 +290,18 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
                   ₹{selectedBooking.baseAmount.toLocaleString()}
                 </span>
               </div>
+              {selectedBooking.taxAmount > 0 && (
+                <div className="flex justify-between">
+                  <span>GST:</span>
+                  <span className="font-semibold text-white">
+                    ₹{selectedBooking.taxAmount.toLocaleString()}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between">
-                <span>GST (12%):</span>
+                <span>{selectedBooking.stayType === "MONTHLY" ? "Maintenance Fee:" : "Service Fee:"}</span>
                 <span className="font-semibold text-white">
-                  ₹{selectedBooking.taxAmount.toLocaleString()}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span>Service Fee:</span>
-                <span className="font-semibold text-white">
-                  ₹{selectedBooking.serviceFee}
+                  ₹{selectedBooking.serviceFee.toLocaleString()}
                 </span>
               </div>
               {selectedBooking.discountAmount > 0 && (

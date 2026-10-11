@@ -41,7 +41,7 @@ export async function POST(req: Request) {
     });
 
     // Set HTTP-only cookie
-    cookies().set({
+    (await cookies()).set({
       name: COOKIE_NAME,
       value: token,
       httpOnly: true,

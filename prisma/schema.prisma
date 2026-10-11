@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  engineType = "binary"
 }
 
 datasource db {
@@ -176,6 +177,7 @@ model Booking {
   checkInDate        DateTime
   checkOutDate       DateTime
   stayType           String    @default("DAILY") // DAILY, WEEKLY, MONTHLY
+  isOpenEnded        Boolean   @default(false)
   guestsCount        Int       @default(1)
   
   // Pricing breakdown

@@ -1,15 +1,21 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
 import Button from "@/components/ui/Button";
+import CustomSelect from "@/components/ui/CustomSelect";
 import { Sparkles, Lock, Mail, User, Phone, ArrowRight } from "lucide-react";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const [nextPath, setNextPath] = useState("");
+  useEffect(() => {
+    const value = new URLSearchParams(window.location.search).get("next") || "";
+    if (value.startsWith("/") && !value.startsWith("//")) setNextPath(value);
+  }, []);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -35,7 +41,7 @@ export default function RegisterPage() {
         throw new Error(json.message || "Registration failed");
       }
 
-      router.push("/dashboard");
+      router.push(nextPath || "/dashboard");
     } catch (err: any) {
       setError(err.message || "Something went wrong");
     } finally {
@@ -141,15 +147,7 @@ export default function RegisterPage() {
                 <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
                   Gender
                 </label>
-                <select
-                  value={gender}
-                  onChange={(e) => setGender(e.target.value)}
-                  className="w-full p-3 rounded-xl bg-slate-900 border border-slate-700 text-sm font-semibold text-white focus:outline-none focus:border-indigo-500"
-                >
-                  <option value="MALE">Male</option>
-                  <option value="FEMALE">Female</option>
-                  <option value="OTHER">Other</option>
-                </select>
+                <CustomSelect value={gender} onValueChange={setGender} options={[{ value: "MALE", label: "Male" }, { value: "FEMALE", label: "Female" }, { value: "OTHER", label: "Other" }]} triggerClassName="p-3 rounded-xl bg-slate-900 border border-slate-700 text-sm focus:border-indigo-500" />
               </div>
 
               <Button
@@ -167,7 +165,7 @@ export default function RegisterPage() {
             <div className="text-center text-xs text-slate-400">
               Already have an account?{" "}
               <Link
-                href="/auth/login"
+                href={nextPath ? `/auth/login?next=${encodeURIComponent(nextPath)}` : "/auth/login"}
                 className="text-indigo-400 font-bold hover:underline"
               >
                 Sign In

@@ -4,7 +4,7 @@ import { getSessionUser, hasPermission, ROLES } from "@/lib/auth";
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getSessionUser();
@@ -19,7 +19,7 @@ export async function PATCH(
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 403 });
     }
 
-    const taskId = params.id;
+    const { id: taskId } = await params;
     const { status, notes } = await req.json();
 
     const task = await prisma.housekeepingTask.findUnique({

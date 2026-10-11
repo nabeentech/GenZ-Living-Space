@@ -67,23 +67,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       success: true,
-      data: {
-        id: booking.id,
-        bookingReference: booking.bookingReference,
-        guestName: booking.guestName,
-        guestEmail: booking.guestEmail,
-        guestPhone: booking.guestPhone,
-        guestGender: booking.guestGender,
-        guestGovtId: booking.guestGovtId,
-        checkInDate: booking.checkInDate,
-        checkOutDate: booking.checkOutDate,
-        bookingStatus: booking.bookingStatus,
-        hostelName: booking.hostel.name,
-        roomNumber: booking.room.roomNumber,
-        bedNumber: booking.bed.bedNumber,
-        totalAmount: booking.totalAmount,
-        paidAmount: booking.paidAmount,
-      },
+      data: booking,
     });
   } catch (error: any) {
     console.error("Booking lookup error:", error);

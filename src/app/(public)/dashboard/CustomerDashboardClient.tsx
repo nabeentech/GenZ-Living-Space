@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
+import DatePicker from "@/components/ui/DatePicker";
+import CustomSelect from "@/components/ui/CustomSelect";
 import {
   Calendar,
   MapPin,
@@ -37,7 +39,7 @@ function isLongStayBooking(booking: any) {
     (new Date(booking.checkOutDate).getTime() - new Date(booking.checkInDate).getTime()) /
       (1000 * 60 * 60 * 24)
   );
-  return nights >= 28;
+  return !booking.isOpenEnded && nights >= 28;
 }
 
 export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = ({
@@ -451,14 +453,14 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
                       Invoice
                     </Button>
                   </Link>
-                  <Button
+                  {!activeBooking.isOpenEnded && <Button
                     variant="outline"
                     size="sm"
                     onClick={() => openExtendModal(activeBooking)}
                     leftIcon={<Calendar className="w-4 h-4" />}
                   >
                     Extend Stay
-                  </Button>
+                  </Button>}
                   {isLongStayBooking(activeBooking) ? (
                     <span className="text-[11px] text-amber-300 border border-amber-500/40 rounded-lg px-2.5 py-2">
                       1-month notice • Admin cancellation
@@ -488,13 +490,9 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Check-Out</span>
+                  <span className="text-slate-500 block">{activeBooking.isOpenEnded ? "Stay term" : "Check-Out"}</span>
                   <span className="font-bold text-white">
-                    {new Date(activeBooking.checkOutDate).toLocaleDateString("en-IN", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
+                    {activeBooking.isOpenEnded ? "Month-to-month · ongoing" : new Date(activeBooking.checkOutDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                   </span>
                 </div>
                 <div>
@@ -599,8 +597,7 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
                         {b.hostel.name} • Room {b.room.roomNumber} ({b.bed.bedNumber})
                       </h4>
                       <p className="text-xs text-slate-400">
-                        {new Date(b.checkInDate).toLocaleDateString()} to{" "}
-                        {new Date(b.checkOutDate).toLocaleDateString()}
+                        {new Date(b.checkInDate).toLocaleDateString()} {b.isOpenEnded ? "· Month-to-month ongoing" : `to ${new Date(b.checkOutDate).toLocaleDateString()}`}
                       </p>
                     </div>
 
@@ -784,16 +781,7 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
               <div>
                 <label className="block font-bold text-slate-400 mb-1">Gender</label>
                 {isEditingProfile ? (
-                  <select
-                    value={profileData.gender}
-                    onChange={(e) => setProfileData({ ...profileData, gender: e.target.value })}
-                    className="w-full p-3 rounded-xl bg-slate-800 border border-indigo-500/50 text-white font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="">Select Gender</option>
-                    <option value="MALE">Male</option>
-                    <option value="FEMALE">Female</option>
-                    <option value="OTHER">Other</option>
-                  </select>
+                  <CustomSelect value={profileData.gender} onValueChange={(value) => setProfileData({ ...profileData, gender: value })} options={[{ value: "", label: "Select Gender" }, { value: "MALE", label: "Male" }, { value: "FEMALE", label: "Female" }, { value: "OTHER", label: "Other" }]} triggerClassName="p-3 rounded-xl bg-slate-800 border border-indigo-500/50 focus:ring-2 focus:ring-indigo-500" />
                 ) : (
                   <input
                     type="text"
@@ -872,17 +860,7 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
             <div>
               <label className="block font-bold text-slate-400 mb-1">Government ID Type</label>
               {isEditingProfile ? (
-                <select
-                  value={profileData.govtIdType}
-                  onChange={(e) => setProfileData({ ...profileData, govtIdType: e.target.value })}
-                  className="w-full p-3 rounded-xl bg-slate-800 border border-indigo-500/50 text-white font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="">Select ID Type</option>
-                  <option value="AADHAAR">Aadhaar</option>
-                  <option value="PAN">PAN</option>
-                  <option value="PASSPORT">Passport</option>
-                  <option value="DRIVING_LICENSE">Driving License</option>
-                </select>
+                <CustomSelect value={profileData.govtIdType} onValueChange={(value) => setProfileData({ ...profileData, govtIdType: value })} options={[{ value: "", label: "Select ID Type" }, { value: "AADHAAR", label: "Aadhaar" }, { value: "PAN", label: "PAN" }, { value: "PASSPORT", label: "Passport" }, { value: "DRIVING_LICENSE", label: "Driving License" }]} triggerClassName="p-3 rounded-xl bg-slate-800 border border-indigo-500/50 focus:ring-2 focus:ring-indigo-500" />
               ) : (
                 <input
                   type="text"
@@ -1005,14 +983,7 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
               <label htmlFor="extend-checkout-date" className="block text-xs font-bold text-indigo-400 mb-1">
                 New checkout date
               </label>
-              <input
-                id="extend-checkout-date"
-                type="date"
-                min={new Date(new Date(extendModalBooking.checkOutDate).getTime() + 86400000).toISOString().slice(0, 10)}
-                value={extendDate}
-                onChange={(event) => setExtendDate(event.target.value)}
-                className="w-full p-3 rounded-xl bg-slate-900 border border-slate-700 text-sm font-semibold text-white focus:outline-none focus:border-indigo-500"
-              />
+              <DatePicker value={extendDate} min={new Date(new Date(extendModalBooking.checkOutDate).getTime() + 86400000).toISOString().slice(0, 10)} onChange={setExtendDate} triggerClassName="min-h-12 rounded-xl border border-slate-700 bg-slate-900 p-3" />
             </div>
 
             {extendMsg && (
@@ -1123,36 +1094,14 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
               <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
                 Hostel Property
               </label>
-              <select
-                value={ticketHostelId}
-                onChange={(e) => setTicketHostelId(e.target.value)}
-                className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm text-white focus:outline-none"
-              >
-                {hostels.map((h) => (
-                  <option key={h.id} value={h.id}>
-                    {h.name} ({h.city})
-                  </option>
-                ))}
-              </select>
+              <CustomSelect value={ticketHostelId} onValueChange={setTicketHostelId} options={hostels.map((h) => ({ value: h.id, label: `${h.name} (${h.city})` }))} triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm" />
             </div>
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
                 Category
               </label>
-              <select
-                value={ticketCategory}
-                onChange={(e) => setTicketCategory(e.target.value)}
-                className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm text-white focus:outline-none"
-              >
-                <option value="WIFI">Wi-Fi & Internet</option>
-                <option value="CLEANING">Housekeeping & Linen</option>
-                <option value="ROOM">Room / Bed Pod</option>
-                <option value="MAINTENANCE">Air Conditioning / Electric</option>
-                <option value="NOISE">Noise & Quiet Hours</option>
-                <option value="PAYMENT">Payment & Deposit</option>
-                <option value="OTHER">General Query</option>
-              </select>
+              <CustomSelect value={ticketCategory} onValueChange={setTicketCategory} options={[{ value: "WIFI", label: "Wi-Fi & Internet" }, { value: "CLEANING", label: "Housekeeping & Linen" }, { value: "ROOM", label: "Room / Bed Pod" }, { value: "MAINTENANCE", label: "Air Conditioning / Electric" }, { value: "NOISE", label: "Noise & Quiet Hours" }, { value: "PAYMENT", label: "Payment & Deposit" }, { value: "OTHER", label: "General Query" }]} triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm" />
             </div>
 
             <div>

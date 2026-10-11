@@ -39,14 +39,14 @@ export function createInvoicePdf({ booking, invoice }: { booking: any; invoice: 
   document.fontSize(10).fillColor("#475569").text(`Booking: ${booking.bookingReference}`);
   document.text(`Property: ${booking.hostel.name}, ${booking.hostel.city}`);
   document.text(`Room / Bed: ${booking.room.roomNumber} / ${booking.bed.bedNumber}`);
-  document.text(`Stay: ${formatDate(booking.checkInDate)} to ${formatDate(booking.checkOutDate)}`);
+  document.text(`Stay: ${formatDate(booking.checkInDate)} to ${booking.isOpenEnded ? "Month-to-month (ongoing)" : formatDate(booking.checkOutDate)}`);
   document.moveDown(1.2);
 
   const rows = [
     ["Accommodation", booking.baseAmount],
     ["GST", booking.taxAmount],
-    ["Service Fee", booking.serviceFee],
-    ["Security Deposit", booking.securityDeposit],
+    [booking.stayType === "MONTHLY" ? "Maintenance Fee" : "Service Fee", booking.serviceFee],
+    ["Security Deposit (Refundable)", booking.securityDeposit],
     ["Discount", -booking.discountAmount],
   ].filter(([, amount]) => amount !== 0);
 

@@ -92,8 +92,8 @@ The database comes pre-seeded with accounts for all roles:
 * **Short vs Long-Term Stays**:
   * **Daily (< 7 nights)**: Base room rate $\times$ nights
   * **Weekly (7 - 27 nights)**: Automatically applies weekly discount (10–15%)
-  * **Monthly ($\ge$ 28 nights)**: Prorated monthly membership rate + refundable security deposit (₹3,000)
-* **GST Calculation**: Standard 12% hospitality tier computed on taxable accommodation amount
+  * **Monthly ($\ge$ 28 nights)**: Prorated monthly membership rate + maintenance fee (₹2,000) + refundable security deposit (₹5,000)
+* **GST Calculation**: Zero GST (0% - no hospitality tax applied)
 * **Temporary Hold Guarantee**: 15-minute countdown locks the selected bed in the database with `holdExpiresAt = now + 15m`. If payment is abandoned, the bed is automatically released.
 * **Double-Booking Prevention**: Prisma `$transaction` verifies that no overlapping reservation exists for that exact bed:
   $$\text{checkIn} < \text{requestedCheckOut} \quad \text{AND} \quad \text{checkOut} > \text{requestedCheckIn}$$

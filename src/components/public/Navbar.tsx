@@ -14,9 +14,38 @@ interface NavbarProps {
   } | null;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ user }) => {
+export const Navbar: React.FC<NavbarProps> = ({ user: propUser }) => {
+  const [user, setUser] = useState<any>(propUser ?? null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname();
+
+  React.useEffect(() => {
+    if (propUser !== undefined) {
+      setUser(propUser);
+    }
+  }, [propUser]);
+
+  React.useEffect(() => {
+    const fetchUser = () => {
+      fetch("/api/auth/me")
+        .then((res) => (res.ok ? res.json() : null))
+        .then((json) => {
+          if (json?.user) {
+            setUser(json.user);
+          } else if (propUser === undefined) {
+            setUser(null);
+          }
+        })
+        .catch(() => undefined);
+    };
+
+    if (propUser === undefined) {
+      fetchUser();
+    }
+
+    window.addEventListener("auth-change", fetchUser);
+    return () => window.removeEventListener("auth-change", fetchUser);
+  }, [propUser]);
 
   const navLinks = [
     { label: "Why GenZ", href: "/#why-us" },
@@ -43,7 +72,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user }) => {
         </Link>
 
         {/* Desktop Navigation Links */}
-        <nav className="hidden md:flex items-center gap-8">
+        {!isAdmin && <nav className="hidden md:flex items-center gap-8">
           {navLinks.map((link) => {
             const isActive = pathname === link.href;
             return (
@@ -58,7 +87,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user }) => {
               </Link>
             );
           })}
-        </nav>
+        </nav>}
 
         {/* Right CTA & Account */}
         <div className="hidden md:flex items-center gap-3">
@@ -71,7 +100,9 @@ export const Navbar: React.FC<NavbarProps> = ({ user }) => {
             </Link>
           )}
 
-          {user ? (
+          {isAdmin ? (
+            <Link href="/admin"><Button variant="outline" size="sm">Admin Dashboard</Button></Link>
+          ) : user ? (
             <Link href="/dashboard">
               <span className="inline-flex items-center gap-2 text-sm font-medium px-3.5 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-white transition">
                 <User className="w-4 h-4 text-indigo-400" />
@@ -86,11 +117,11 @@ export const Navbar: React.FC<NavbarProps> = ({ user }) => {
             </Link>
           )}
 
-          <Link href="/hostels">
+          {!isAdmin && <Link href="/hostels/madhapur-01-hyd">
             <Button variant="glow" size="sm" rightIcon={<Compass className="w-4 h-4" />}>
               Find A Bed
             </Button>
-          </Link>
+          </Link>}
         </div>
 
         {/* Mobile Menu Button */}
@@ -109,7 +140,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user }) => {
       {isMobileMenuOpen && (
         <div className="md:hidden border-b border-slate-800 bg-[#0B0F19] px-6 py-6 space-y-4 animate-in slide-in-from-top-4 duration-200">
           <div className="flex flex-col space-y-3">
-            {navLinks.map((link) => (
+            {!isAdmin && navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
@@ -130,7 +161,9 @@ export const Navbar: React.FC<NavbarProps> = ({ user }) => {
               </Link>
             )}
 
-            {user ? (
+            {isAdmin ? (
+              <Link href="/admin" onClick={() => setIsMobileMenuOpen(false)}><Button variant="outline" size="md" className="w-full justify-center">Admin Dashboard</Button></Link>
+            ) : user ? (
               <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)}>
                 <Button variant="outline" size="md" className="w-full justify-center">
                   My Dashboard
@@ -144,11 +177,11 @@ export const Navbar: React.FC<NavbarProps> = ({ user }) => {
               </Link>
             )}
 
-            <Link href="/hostels" onClick={() => setIsMobileMenuOpen(false)}>
+            {!isAdmin && <Link href="/hostels/madhapur-01-hyd" onClick={() => setIsMobileMenuOpen(false)}>
               <Button variant="glow" size="md" className="w-full justify-center">
                 Explore Hostels & Book
               </Button>
-            </Link>
+            </Link>}
           </div>
         </div>
       )}

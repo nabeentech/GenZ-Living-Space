@@ -34,9 +34,10 @@ export default function PricingManagementClient() {
   };
 
   const handlePriceChange = (roomTypeId: string, field: string, value: string) => {
+    if (!/^\d*(\.\d*)?$/.test(value)) return;
     setRoomTypes((prev) =>
       prev.map((rt) =>
-        rt.id === roomTypeId ? { ...rt, [field]: parseFloat(value) || 0 } : rt
+        rt.id === roomTypeId ? { ...rt, [field]: value } : rt
       )
     );
   };
@@ -50,25 +51,28 @@ export default function PricingManagementClient() {
       const roomType = roomTypes.find((rt) => rt.id === roomTypeId);
       if (!roomType) return;
 
+      const pricingFields = [
+        "pricePerDayNonAC", "price7DaysNonAC", "price10DaysNonAC", "price15DaysNonAC", "price30DaysNonAC",
+        "pricePerDayAC", "price7DaysAC", "price10DaysAC", "price15DaysAC", "price30DaysAC",
+      ];
+      const prices: Record<string, number> = {};
+      for (const field of pricingFields) {
+        const value = roomType[field];
+        if (value === "" || !Number.isFinite(Number(value)) || Number(value) < 0) {
+          throw new Error("Enter a valid non-negative amount for every pricing tier.");
+        }
+        prices[field] = Number(value);
+      }
+
       const res = await fetch(`/api/admin/room-types/${roomTypeId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          pricePerDayNonAC: roomType.pricePerDayNonAC,
-          price7DaysNonAC: roomType.price7DaysNonAC,
-          price10DaysNonAC: roomType.price10DaysNonAC,
-          price15DaysNonAC: roomType.price15DaysNonAC,
-          price30DaysNonAC: roomType.price30DaysNonAC,
-          pricePerDayAC: roomType.pricePerDayAC,
-          price7DaysAC: roomType.price7DaysAC,
-          price10DaysAC: roomType.price10DaysAC,
-          price15DaysAC: roomType.price15DaysAC,
-          price30DaysAC: roomType.price30DaysAC,
-        }),
+        body: JSON.stringify(prices),
       });
 
       const json = await res.json();
       if (json.success) {
+        setRoomTypes((prev) => prev.map((rt) => rt.id === roomTypeId ? json.data : rt));
         setSuccess(`${roomType.name} pricing updated successfully!`);
         setTimeout(() => setSuccess(null), 3000);
       } else {
@@ -113,13 +117,15 @@ export default function PricingManagementClient() {
             <div className="flex items-center gap-1.5 bg-slate-900 rounded-lg border border-slate-700 px-2.5 py-2 focus-within:border-indigo-500 transition">
               <span className="text-slate-500 font-semibold text-sm">₹</span>
               <input
-                type="number"
-                value={roomType[tier.key] || ""}
+                type="text"
+                inputMode="decimal"
+                value={roomType[tier.key] ?? ""}
                 onChange={(e) =>
                   handlePriceChange(roomType.id, tier.key, e.target.value)
                 }
                 className="flex-1 bg-transparent text-white text-sm font-bold focus:outline-none placeholder:text-slate-600"
-                placeholder="0"
+                placeholder="0.00"
+                aria-label={`${roomType.name} ${tier.label} ${acType} price`}
               />
             </div>
           </div>

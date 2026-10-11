@@ -4,6 +4,7 @@ import React, { useState, useMemo } from "react";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
+import CustomSelect from "@/components/ui/CustomSelect";
 import { Bed as BedIcon, User, Sparkles, Filter, CheckCircle2, AlertTriangle, RefreshCw, ChevronRight, Edit2, Plus, Trash2 } from "lucide-react";
 
 interface BedMatrixClientProps {
@@ -627,18 +628,7 @@ export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels }) => 
               <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1.5">
                 Update Status Override
               </label>
-              <select
-                value={newBedStatus}
-                onChange={(e) => setNewBedStatus(e.target.value)}
-                className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm font-semibold text-white focus:outline-none"
-              >
-                <option value="AVAILABLE">AVAILABLE (Ready for new guest)</option>
-                <option value="OCCUPIED">OCCUPIED (Resident currently staying)</option>
-                <option value="RESERVED">RESERVED (Upcoming booking held)</option>
-                <option value="CLEANING">CLEANING (Housekeeping in progress)</option>
-                <option value="MAINTENANCE">MAINTENANCE (Repair / block)</option>
-                <option value="BLOCKED">BLOCKED (Admin override)</option>
-              </select>
+              <CustomSelect value={newBedStatus} onValueChange={setNewBedStatus} options={[{ value: "AVAILABLE", label: "AVAILABLE (Ready for new guest)" }, { value: "OCCUPIED", label: "OCCUPIED (Resident currently staying)" }, { value: "RESERVED", label: "RESERVED (Upcoming booking held)" }, { value: "CLEANING", label: "CLEANING (Housekeeping in progress)" }, { value: "MAINTENANCE", label: "MAINTENANCE (Repair / block)" }, { value: "BLOCKED", label: "BLOCKED (Admin override)" }]} triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm" />
             </div>
 
             {updateMsg && (
@@ -735,16 +725,7 @@ export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels }) => 
               <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1.5">
                 Gender Category
               </label>
-              <select
-                value={roomGender}
-                onChange={(e) => setRoomGender(e.target.value)}
-                className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm font-semibold text-white focus:outline-none"
-              >
-                <option value="MALE">Male Only</option>
-                <option value="FEMALE">Female Only</option>
-                <option value="MIXED">Mixed Gender</option>
-                <option value="PRIVATE">Private</option>
-              </select>
+              <CustomSelect value={roomGender} onValueChange={setRoomGender} options={[{ value: "MALE", label: "Male Only" }, { value: "FEMALE", label: "Female Only" }, { value: "MIXED", label: "Mixed Gender" }, { value: "PRIVATE", label: "Private" }]} triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm" />
             </div>
 
             {/* Room Status */}
@@ -752,15 +733,7 @@ export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels }) => 
               <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1.5">
                 Room Status
               </label>
-              <select
-                value={roomStatus}
-                onChange={(e) => setRoomStatus(e.target.value)}
-                className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm font-semibold text-white focus:outline-none"
-              >
-                <option value="ACTIVE">Active (Available for booking)</option>
-                <option value="MAINTENANCE">Maintenance (Under repair)</option>
-                <option value="BLOCKED">Blocked (Admin override)</option>
-              </select>
+              <CustomSelect value={roomStatus} onValueChange={setRoomStatus} options={[{ value: "ACTIVE", label: "Active (Available for booking)" }, { value: "MAINTENANCE", label: "Maintenance (Under repair)" }, { value: "BLOCKED", label: "Blocked (Admin override)" }]} triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm" />
             </div>
 
             {roomUpdateMsg && (
@@ -834,25 +807,7 @@ export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels }) => 
               <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1.5">
                 Floor Number
               </label>
-              <select
-                value={newRoomFloor}
-                onChange={(e) => setNewRoomFloor(Number(e.target.value))}
-                className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm font-semibold text-white focus:outline-none"
-              >
-                {floorsWithStats.map((floor) => (
-                  <option key={floor.floor} value={floor.floor}>
-                    Floor {floor.floor}
-                  </option>
-                ))}
-                {[...Array(3)].map((_, i) => {
-                  const newFloor = Math.max(...floorsWithStats.map((f) => f.floor)) + i + 1;
-                  return (
-                    <option key={newFloor} value={newFloor}>
-                      Floor {newFloor}
-                    </option>
-                  );
-                })}
-              </select>
+              <CustomSelect value={String(newRoomFloor)} onValueChange={(value) => setNewRoomFloor(Number(value))} options={[...floorsWithStats.map((floor) => ({ value: String(floor.floor), label: `Floor ${floor.floor}` })), ...[...Array(3)].map((_, i) => Math.max(...floorsWithStats.map((f) => f.floor)) + i + 1).map((floor) => ({ value: String(floor), label: `Floor ${floor}` }))]} triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm" />
             </div>
 
             {/* Gender Category */}
@@ -860,16 +815,7 @@ export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels }) => 
               <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1.5">
                 Gender Category
               </label>
-              <select
-                value={newRoomGender}
-                onChange={(e) => setNewRoomGender(e.target.value)}
-                className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm font-semibold text-white focus:outline-none"
-              >
-                <option value="MALE">Male Only</option>
-                <option value="FEMALE">Female Only</option>
-                <option value="MIXED">Mixed Gender</option>
-                <option value="PRIVATE">Private</option>
-              </select>
+              <CustomSelect value={newRoomGender} onValueChange={setNewRoomGender} options={[{ value: "MALE", label: "Male Only" }, { value: "FEMALE", label: "Female Only" }, { value: "MIXED", label: "Mixed Gender" }, { value: "PRIVATE", label: "Private" }]} triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm" />
             </div>
 
             {/* Bed Capacity */}

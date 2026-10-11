@@ -2,16 +2,13 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, MapPin, Users, Search, ArrowRight } from "lucide-react";
+import { Users, Search } from "lucide-react";
 import Button from "../ui/Button";
-
-const HOSTELS = [
-  { id: "madhapur-01-hyd", name: "GenZ Colive & PG Guest Rooms" },
-];
+import DatePicker from "../ui/DatePicker";
+import CustomSelect from "../ui/CustomSelect";
 
 export const HeroSearch: React.FC = () => {
   const router = useRouter();
-  const [selectedHostel, setSelectedHostel] = useState("madhapur-01-hyd");
 
   const todayStr = new Date().toISOString().split("T")[0];
   const tomorrow = new Date();
@@ -25,7 +22,7 @@ export const HeroSearch: React.FC = () => {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     router.push(
-      `/hostels/${selectedHostel}?checkIn=${checkIn}&checkOut=${checkOut}&guests=${guests}`
+      `/hostels/madhapur-01-hyd?checkIn=${checkIn}&checkOut=${checkOut}&guests=${guests}`
     );
   };
 
@@ -34,55 +31,12 @@ export const HeroSearch: React.FC = () => {
       onSubmit={handleSearch}
       className="w-full glass-panel bg-[#111827]/90 border border-slate-700/70 p-4 sm:p-5 rounded-3xl shadow-2xl backdrop-blur-xl"
     >
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 lg:gap-4">
-        {/* Hostel / Location Selector */}
-        <div className="flex flex-col p-3 rounded-2xl bg-slate-900/70 border border-slate-800/80 focus-within:border-indigo-500/80 transition">
-          <label className="text-[11px] font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5 mb-1">
-            <MapPin className="w-3.5 h-3.5 text-indigo-400" />
-            Select Hostel
-          </label>
-          <select
-            value={selectedHostel}
-            onChange={(e) => setSelectedHostel(e.target.value)}
-            className="bg-transparent text-sm font-semibold text-white focus:outline-none cursor-pointer truncate"
-          >
-            {HOSTELS.map((h) => (
-              <option key={h.id} value={h.id} className="bg-[#111827] text-white">
-                {h.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 lg:gap-4">
         {/* Check-In Date */}
-        <div className="flex flex-col p-3 rounded-2xl bg-slate-900/70 border border-slate-800/80 focus-within:border-indigo-500/80 transition">
-          <label className="text-[11px] font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5 mb-1">
-            <Calendar className="w-3.5 h-3.5 text-indigo-400" />
-            Check-In
-          </label>
-          <input
-            type="date"
-            min={todayStr}
-            value={checkIn}
-            onChange={(e) => setCheckIn(e.target.value)}
-            className="bg-transparent text-sm font-semibold text-white focus:outline-none cursor-pointer"
-          />
-        </div>
+        <DatePicker label="Check-In" min={todayStr} value={checkIn} onChange={setCheckIn} triggerClassName="min-h-[4.5rem] rounded-2xl border border-slate-800/80 bg-slate-900/70 p-3 transition hover:border-indigo-500/80" />
 
         {/* Check-Out Date */}
-        <div className="flex flex-col p-3 rounded-2xl bg-slate-900/70 border border-slate-800/80 focus-within:border-indigo-500/80 transition">
-          <label className="text-[11px] font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5 mb-1">
-            <Calendar className="w-3.5 h-3.5 text-indigo-400" />
-            Check-Out
-          </label>
-          <input
-            type="date"
-            min={checkIn || todayStr}
-            value={checkOut}
-            onChange={(e) => setCheckOut(e.target.value)}
-            className="bg-transparent text-sm font-semibold text-white focus:outline-none cursor-pointer"
-          />
-        </div>
+        <DatePicker label="Check-Out" min={checkIn || todayStr} value={checkOut} onChange={setCheckOut} triggerClassName="min-h-[4.5rem] rounded-2xl border border-slate-800/80 bg-slate-900/70 p-3 transition hover:border-indigo-500/80" />
 
         {/* Guests & Search Button */}
         <div className="flex gap-2 items-center">
@@ -91,17 +45,7 @@ export const HeroSearch: React.FC = () => {
               <Users className="w-3.5 h-3.5 text-indigo-400" />
               Guests
             </label>
-            <select
-              value={guests}
-              onChange={(e) => setGuests(Number(e.target.value))}
-              className="bg-transparent text-sm font-semibold text-white focus:outline-none cursor-pointer"
-            >
-              {[1, 2, 3, 4, 5, 6].map((num) => (
-                <option key={num} value={num} className="bg-[#111827] text-white">
-                  {num} {num === 1 ? "Guest" : "Guests"}
-                </option>
-              ))}
-            </select>
+            <CustomSelect value={String(guests)} options={[1, 2, 3, 4, 5, 6].map((num) => ({ value: String(num), label: `${num} ${num === 1 ? "Guest" : "Guests"}` }))} onValueChange={(value) => setGuests(Number(value))} triggerClassName="rounded-lg py-1 text-left" />
           </div>
 
           <Button

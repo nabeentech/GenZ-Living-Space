@@ -62,7 +62,7 @@ export async function PATCH(req: Request) {
       name: updatedUser.name,
     });
 
-    cookies().set({
+    (await cookies()).set({
       name: COOKIE_NAME,
       value: newToken,
       httpOnly: true,

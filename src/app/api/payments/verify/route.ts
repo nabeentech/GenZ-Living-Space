@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import prisma from "@/lib/prisma";
-import { verifyPaymentSignature } from "@/lib/razorpay";
+import { verifyPaymentSignature, verifyCapturedPayment } from "@/lib/razorpay";
 import { generateBookingQRCode } from "@/lib/qr";
 import { generateUniqueInvoiceNumber } from "@/lib/invoice";
 import { logAuditAction } from "@/lib/audit";
-import { signToken, COOKIE_NAME } from "@/lib/auth";
+import { getSessionUser } from "@/lib/auth";
 
 export async function POST(req: Request) {
   try {
+    const user = await getSessionUser();
+    if (!user || user.role !== "CUSTOMER") {
+      return NextResponse.json({ success: false, message: "Please sign in to complete payment." }, { status: 401 });
+    }
     const {
       bookingId,
       razorpayOrderId,
@@ -47,6 +50,27 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { success: false, message: "Booking not found" },
         { status: 404 }
+      );
+    }
+    if (booking.customerId !== user.id) {
+      return NextResponse.json({ success: false, message: "You cannot pay for this booking." }, { status: 403 });
+    }
+
+    const expectedAmount = booking.bookingStatus === "CONFIRMED"
+      ? booking.balanceAmount
+      : booking.totalAmount;
+    const isLocalSimulator = process.env.NODE_ENV !== "production" &&
+      razorpaySignature === "sim_sig_valid_2026" &&
+      razorpayOrderId.startsWith("order_gz_") &&
+      razorpayPaymentId.startsWith("pay_sim_");
+    if (!isLocalSimulator && !(await verifyCapturedPayment({
+      orderId: razorpayOrderId,
+      paymentId: razorpayPaymentId,
+      expectedAmount,
+    }))) {
+      return NextResponse.json(
+        { success: false, message: "Payment was not captured for the expected booking amount." },
+        { status: 400 }
       );
     }
 
@@ -252,30 +276,6 @@ export async function POST(req: Request) {
         gatewayPaymentId: razorpayPaymentId,
       },
     });
-
-    // Set auth cookie for guest user so they can access dashboard and download invoice
-    const user = await prisma.user.findUnique({
-      where: { id: booking.customerId },
-    });
-
-    if (user) {
-      const token = signToken({
-        userId: user.id,
-        email: user.email,
-        role: user.role,
-        name: user.name,
-      });
-
-      cookies().set({
-        name: COOKIE_NAME,
-        value: token,
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 7 * 24 * 60 * 60, // 7 days
-        path: "/",
-      });
-    }
 
     return NextResponse.json({
       success: true,

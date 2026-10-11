@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSessionUser, ROLES } from "@/lib/auth";
+import { getRoomTypeForCapacity } from "@/lib/room-types";
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const sessionUser = await getSessionUser();
 
     // Check authorization
@@ -27,8 +29,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
     // Get current room
     const currentRoom = await prisma.room.findUnique({
-      where: { id: params.id },
-      include: { beds: true },
+      where: { id },
+      include: { beds: { include: { bookings: { select: { id: true } } } } },
     });
 
     if (!currentRoom) {
@@ -38,7 +40,6 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       );
     }
 
-    // Update room
     const updateData: any = {};
     if (genderCategory) {
       if (!["MALE", "FEMALE", "MIXED", "PRIVATE"].includes(genderCategory)) {
@@ -78,63 +79,52 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         );
       }
       updateData.capacity = capacity;
-
-      // Handle bed additions/removals
-      const currentBedCount = currentRoom.beds.length;
-      
-      if (capacity > currentBedCount) {
-        // Add new beds
-        const bedsToAdd = capacity - currentBedCount;
-        const bedLetters = ["A", "B", "C", "D", "E", "F", "G", "H"];
-        
-        for (let i = 0; i < bedsToAdd; i++) {
-          const bedIndex = currentBedCount + i;
-          let bedNumber: string;
-          let tier: string;
-
-          if (capacity === 1) {
-            bedNumber = "King Bed";
-            tier = "DOUBLE";
-          } else if (capacity === 2) {
-            bedNumber = bedIndex === 0 ? "Bed Left" : "Bed Right";
-            tier = "SINGLE";
-          } else if (capacity <= 4) {
-            bedNumber = `Bed ${bedLetters[bedIndex % 4]}`;
-            tier = bedIndex % 2 === 0 ? "LOWER_BUNK" : "UPPER_BUNK";
-          } else if (capacity <= 6) {
-            bedNumber = `Pod ${bedIndex + 1}`;
-            tier = bedIndex < 3 ? "LOWER_BUNK" : "UPPER_BUNK";
-          } else {
-            bedNumber = `Bed ${bedIndex + 1}`;
-            tier = bedIndex < Math.ceil(capacity / 2) ? "LOWER_BUNK" : "UPPER_BUNK";
-          }
-
-          await prisma.bed.create({
-            data: {
-              roomId: params.id,
-              hostelId: currentRoom.hostelId,
-              bedNumber: bedNumber,
-              tier: tier,
-              status: "AVAILABLE",
-            },
-          });
-        }
-      } else if (capacity < currentBedCount) {
-        // Remove beds (from the end)
-        const bedsToRemove = currentBedCount - capacity;
-        const bedsToDelete = currentRoom.beds.slice(-bedsToRemove);
-        
-        for (const bed of bedsToDelete) {
-          await prisma.bed.delete({
-            where: { id: bed.id },
-          });
-        }
-      }
     }
 
-    const updatedRoom = await prisma.room.update({
-      where: { id: params.id },
-      data: updateData,
+    const updatedRoom = await prisma.$transaction(async (tx) => {
+      if (capacity !== undefined) {
+        const roomType = await getRoomTypeForCapacity(tx, capacity);
+        updateData.roomTypeId = roomType.id;
+        const currentBedCount = currentRoom.beds.length;
+
+        if (capacity > currentBedCount) {
+          const bedsToAdd = Array.from({ length: capacity - currentBedCount }, (_, offset) => {
+            const index = currentBedCount + offset;
+            let bedNumber: string;
+            let tier: string;
+            if (capacity === 1) {
+              bedNumber = "King Bed";
+              tier = "DOUBLE";
+            } else if (capacity === 2) {
+              bedNumber = index === 0 ? "Bed Left" : "Bed Right";
+              tier = "SINGLE";
+            } else if (capacity <= 4) {
+              bedNumber = `Bed ${"ABCDEFGH"[index]}`;
+              tier = index % 2 === 0 ? "LOWER_BUNK" : "UPPER_BUNK";
+            } else if (capacity <= 6) {
+              bedNumber = `Pod ${index + 1}`;
+              tier = index < 3 ? "LOWER_BUNK" : "UPPER_BUNK";
+            } else {
+              bedNumber = `Bed ${index + 1}`;
+              tier = index < Math.ceil(capacity / 2) ? "LOWER_BUNK" : "UPPER_BUNK";
+            }
+            return { roomId: id, hostelId: currentRoom.hostelId, bedNumber, tier, status: "AVAILABLE" };
+          });
+          await tx.bed.createMany({ data: bedsToAdd });
+        } else if (capacity < currentBedCount) {
+          const removeCount = currentBedCount - capacity;
+          const removable = currentRoom.beds.filter((bed) => bed.bookings.length === 0).slice(-removeCount);
+          if (removable.length < removeCount) {
+            throw new Error("Beds with booking history cannot be removed. Cancel or move their bookings first.");
+          }
+          await tx.bed.deleteMany({ where: { id: { in: removable.map((bed) => bed.id) } } });
+        }
+      }
+
+      return tx.room.update({
+        where: { id },
+        data: updateData,
+      });
     });
 
     return NextResponse.json({
@@ -151,8 +141,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const sessionUser = await getSessionUser();
 
     // Check authorization
@@ -165,7 +156,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
 
     // Get room with all related data
     const room = await prisma.room.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         beds: {
           include: {
@@ -199,12 +190,12 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
 
     // Delete all beds first
     await prisma.bed.deleteMany({
-      where: { roomId: params.id },
+      where: { roomId: id },
     });
 
     // Delete the room
     await prisma.room.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({

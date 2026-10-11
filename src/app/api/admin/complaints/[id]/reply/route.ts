@@ -4,7 +4,7 @@ import { getSessionUser, hasPermission, ROLES } from "@/lib/auth";
 
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getSessionUser();
@@ -20,7 +20,7 @@ export async function POST(
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 403 });
     }
 
-    const ticketId = params.id;
+    const { id: ticketId } = await params;
     const { staffReply, status = "RESOLVED" } = await req.json();
 
     const updated = await prisma.supportTicket.update({

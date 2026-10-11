@@ -16,6 +16,18 @@ export default async function DashboardPage() {
     redirect("/auth/login");
   }
 
+  if (user.role !== "CUSTOMER") {
+    const adminHome: Record<string, string> = {
+      SUPER_ADMIN: "/admin",
+      PROPERTY_MANAGER: "/admin/manager",
+      RECEPTIONIST: "/admin/receptionist",
+      FINANCE: "/admin",
+      HOUSEKEEPING: "/admin",
+      SUPPORT_STAFF: "/admin",
+    };
+    redirect(adminHome[user.role] || "/admin");
+  }
+
   // Fetch customer's bookings
   const bookings = await prisma.booking.findMany({
     where: { customerId: user.id },

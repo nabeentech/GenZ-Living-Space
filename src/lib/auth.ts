@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import prisma from "./prisma";
 
-const JWT_SECRET = process.env.JWT_SECRET || "genz_super_secret_jwt_key_2026";
+const JWT_SECRET = process.env.JWT_SECRET;
 const COOKIE_NAME = "genz_auth_token";
 
 export async function hashPassword(password: string): Promise<string> {
@@ -20,6 +20,9 @@ export function signToken(payload: {
   role: string;
   name: string;
 }): string {
+  if (!JWT_SECRET || JWT_SECRET.length < 32) {
+    throw new Error("JWT_SECRET must be configured with at least 32 characters");
+  }
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 }
 
@@ -30,6 +33,7 @@ export function verifyToken(token: string): {
   name: string;
 } | null {
   try {
+    if (!JWT_SECRET || JWT_SECRET.length < 32) return null;
     return jwt.verify(token, JWT_SECRET) as {
       userId: string;
       email: string;
@@ -43,7 +47,7 @@ export function verifyToken(token: string): {
 
 export async function getSessionUser() {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const token = cookieStore.get(COOKIE_NAME)?.value;
     if (!token) return null;
 

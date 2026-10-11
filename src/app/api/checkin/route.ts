@@ -13,7 +13,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { bookingReference, bookingId, guestGovtId, guestGovtIdVerified } = await req.json();
+    const { bookingReference, bookingId, guestGovtId, guestGovtIdVerified, settlePayment, paymentMethod } = await req.json();
 
     if (!bookingReference && !bookingId) {
       return NextResponse.json(
@@ -39,9 +39,16 @@ export async function POST(req: Request) {
       );
     }
 
-    if (booking.bookingStatus !== "CONFIRMED" || booking.paymentStatus !== "PAID") {
+    if (booking.bookingStatus !== "CONFIRMED") {
       return NextResponse.json(
-        { success: false, message: "Only confirmed and fully paid bookings can be checked in." },
+        { success: false, message: `Only confirmed bookings can be checked in. Current status: ${booking.bookingStatus}` },
+        { status: 400 }
+      );
+    }
+
+    if (booking.paymentStatus !== "PAID" && !settlePayment) {
+      return NextResponse.json(
+        { success: false, message: `Booking has a pending balance of ₹${(booking.balanceAmount || booking.totalAmount).toLocaleString()}. Please confirm payment collection at reception to proceed.` },
         { status: 400 }
       );
     }
@@ -63,16 +70,50 @@ export async function POST(req: Request) {
     const now = new Date();
 
     const updated = await prisma.$transaction(async (tx) => {
+      // If payment was pending and settled at reception, record it
+      if (booking.paymentStatus !== "PAID" && settlePayment) {
+        const settledAmount = booking.balanceAmount > 0 ? booking.balanceAmount : booking.totalAmount;
+        const methodToUse = paymentMethod || "CASH";
+
+        await tx.payment.create({
+          data: {
+            bookingId: booking.id,
+            customerId: booking.customerId,
+            amount: settledAmount,
+            currency: "INR",
+            gateway: String(methodToUse).toUpperCase(),
+            gatewayPaymentId: `reception_pay_${Date.now()}`,
+            status: "CAPTURED",
+            paymentMethod: methodToUse,
+          },
+        });
+
+        const inv = await tx.invoice.findFirst({ where: { bookingId: booking.id } });
+        if (inv) {
+          await tx.invoice.update({
+            where: { id: inv.id },
+            data: {
+              status: "PAID",
+              paidAmount: booking.totalAmount,
+              balanceDue: 0,
+            },
+          });
+        }
+      }
+
       // 1. Update Booking
       const b = await tx.booking.update({
         where: { id: booking.id },
         data: {
           bookingStatus: "CHECKED_IN",
+          paymentStatus: "PAID",
+          paidAmount: booking.totalAmount,
+          balanceAmount: 0,
           checkInTime: now,
           checkedInBy: user.name,
           guestGovtId: String(guestGovtId).trim(),
         },
-        include: { hostel: true, room: true, bed: true },
+        include: { hostel: true, room: { include: { roomType: true } }, bed: true },
       });
 
       // 2. Mark Bed as OCCUPIED

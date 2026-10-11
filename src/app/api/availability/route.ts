@@ -62,14 +62,18 @@ export async function GET(req: Request) {
     const conflictingBookings = await prisma.booking.findMany({
       where: {
         hostelId,
-        checkInDate: { lt: checkOut },
-        checkOutDate: { gt: checkIn },
-        OR: [
+        AND: [
+          { OR: [
+            { isOpenEnded: true, checkInDate: { lt: checkOut } },
+            { isOpenEnded: false, checkInDate: { lt: checkOut }, checkOutDate: { gt: checkIn } },
+          ] },
+          { OR: [
           { bookingStatus: { in: ["CONFIRMED", "CHECKED_IN"] } },
           {
             bookingStatus: "PAYMENT_PENDING",
             holdExpiresAt: { gt: now },
           },
+          ] },
         ],
       },
       select: {

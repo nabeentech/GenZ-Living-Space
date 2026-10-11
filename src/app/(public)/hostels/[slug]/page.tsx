@@ -7,6 +7,7 @@ import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { getSessionUser } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { getRoomTypePriceRates } from "@/lib/pricing";
 import {
   MapPin,
   Star,
@@ -26,24 +27,25 @@ import HostelBookingWidget from "./HostelBookingWidget";
 export const dynamic = "force-dynamic";
 
 interface PropertyPageProps {
-  params: {
+  params: Promise<{
     slug: string;
-  };
-  searchParams: {
+  }>;
+  searchParams: Promise<{
     checkIn?: string;
     checkOut?: string;
     guests?: string;
-  };
+  }>;
 }
 
 export default async function HostelDetailPage({
   params,
   searchParams,
 }: PropertyPageProps) {
+  const [{ slug }, query] = await Promise.all([params, searchParams]);
   const user = await getSessionUser();
 
   const hostel = await prisma.hostel.findUnique({
-    where: { slug: params.slug },
+    where: { slug },
     include: {
       amenities: {
         include: {
@@ -237,12 +239,12 @@ export default async function HostelDetailPage({
                       <div className="flex flex-col sm:items-end gap-2 w-full sm:w-auto">
                         <div>
                           <span className="text-2xl font-black text-white">
-                            ₹{(rt.pricePerDayNonAC || rt.pricePerDayAC || 999).toLocaleString()}
+                            ₹{getRoomTypePriceRates(rt, false).daily.toLocaleString()}
                           </span>
                           <span className="text-xs text-slate-400"> / night</span>
                         </div>
                         <span className="text-[11px] text-slate-400">
-                          Monthly: ₹{(rt.price30DaysNonAC || rt.price30DaysAC || 21999).toLocaleString()}
+                          Monthly: ₹{getRoomTypePriceRates(rt, false).days30.toLocaleString()}
                         </span>
                         <Link
                           href={`/book?hostel=${hostel.slug}&roomType=${rt.id}`}
@@ -349,9 +351,9 @@ export default async function HostelDetailPage({
                 <HostelBookingWidget
                   hostel={hostel}
                   roomTypes={availableRoomTypes}
-                  initialCheckIn={searchParams.checkIn}
-                  initialCheckOut={searchParams.checkOut}
-                  initialGuests={searchParams.guests}
+                  initialCheckIn={query.checkIn}
+                  initialCheckOut={query.checkOut}
+                  initialGuests={query.guests}
                 />
               </div>
             </div>

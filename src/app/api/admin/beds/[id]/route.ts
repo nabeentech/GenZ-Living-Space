@@ -5,7 +5,7 @@ import { logAuditAction } from "@/lib/audit";
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getSessionUser();
@@ -13,8 +13,11 @@ export async function PATCH(
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 403 });
     }
 
-    const bedId = params.id;
+    const { id: bedId } = await params;
     const { status, note } = await req.json();
+    if (!['AVAILABLE', 'RESERVED', 'OCCUPIED', 'MAINTENANCE', 'CLEANING', 'BLOCKED'].includes(status)) {
+      return NextResponse.json({ success: false, message: "Invalid bed status" }, { status: 400 });
+    }
 
     const bed = await prisma.bed.findUnique({
       where: { id: bedId },

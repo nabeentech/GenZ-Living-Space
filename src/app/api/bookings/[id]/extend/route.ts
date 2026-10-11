@@ -1,19 +1,22 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getSessionUser } from "@/lib/auth";
-import { calculateBookingPrice } from "@/lib/pricing";
+import { getSessionUser, hasPermission, ROLES } from "@/lib/auth";
+import { calculateBookingPrice, getRoomTypePriceRates } from "@/lib/pricing";
 import { logAuditAction } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getSessionUser();
     if (!user) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+    }
+    if (user.role !== ROLES.CUSTOMER && !hasPermission(user.role, [ROLES.SUPER_ADMIN, ROLES.PROPERTY_MANAGER, ROLES.RECEPTIONIST])) {
+      return NextResponse.json({ success: false, message: "Forbidden" }, { status: 403 });
     }
 
     const { checkOutDate } = await req.json();
@@ -23,7 +26,7 @@ export async function POST(
     }
 
     const booking = await prisma.booking.findUnique({
-      where: { id: params.id },
+      where: { id: (await params).id },
       include: { room: { include: { roomType: true } }, bed: true, hostel: true, invoices: true },
     });
 
@@ -58,12 +61,15 @@ export async function POST(
       return NextResponse.json({ success: false, message: "This bed is not available for the requested extension dates" }, { status: 409 });
     }
 
+    const rates = getRoomTypePriceRates(booking.room.roomType, booking.room.isAC);
     const pricing = calculateBookingPrice({
       checkInDate: booking.checkInDate,
       checkOutDate: requestedCheckOut,
-      basePrice: booking.room.roomType.basePrice || 999,
+      basePrice: rates.daily,
+      rates,
+      stayType: booking.stayType === "MONTHLY" ? "MONTHLY" : "DAILY",
       weeklyDiscountPct: booking.room.roomType.weeklyDiscountPct,
-      monthlyPrice: booking.room.roomType.monthlyPrice || 21999,
+      monthlyPrice: rates.days30,
       securityDeposit: booking.room.roomType.securityDeposit,
     });
     const additionalAmount = Math.max(0, pricing.totalAmount - booking.totalAmount);

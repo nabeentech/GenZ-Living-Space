@@ -2,10 +2,15 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { createPaymentOrder } from "@/lib/razorpay";
 import { releaseExpiredBookingHolds } from "@/lib/booking-cleanup";
+import { getSessionUser } from "@/lib/auth";
 
 export async function POST(req: Request) {
   try {
     await releaseExpiredBookingHolds();
+    const user = await getSessionUser();
+    if (!user || user.role !== "CUSTOMER") {
+      return NextResponse.json({ success: false, message: "Please sign in to continue payment." }, { status: 401 });
+    }
     const { bookingId, amount } = await req.json();
 
     if (!bookingId) {
@@ -27,8 +32,11 @@ export async function POST(req: Request) {
       );
     }
 
-    // Check if temporary hold has expired (only for pending bookings)
-    if (booking.bookingStatus === "PENDING" && booking.holdExpiresAt && booking.holdExpiresAt < new Date()) {
+    if (booking.customerId !== user.id) {
+      return NextResponse.json({ success: false, message: "You cannot pay for this booking." }, { status: 403 });
+    }
+
+    if (booking.bookingStatus === "PAYMENT_PENDING" && booking.holdExpiresAt && booking.holdExpiresAt <= new Date()) {
       return NextResponse.json(
         {
           success: false,
@@ -36,6 +44,10 @@ export async function POST(req: Request) {
         },
         { status: 410 }
       );
+    }
+
+    if (booking.bookingStatus !== "PAYMENT_PENDING" && !(booking.bookingStatus === "CONFIRMED" && booking.balanceAmount > 0)) {
+      return NextResponse.json({ success: false, message: "This booking is not awaiting payment." }, { status: 409 });
     }
 
     if (booking.bookingStatus === "CONFIRMED" && !amount) {
@@ -46,7 +58,10 @@ export async function POST(req: Request) {
     }
 
     // Use provided amount or fall back to booking total
-    const paymentAmount = amount || booking.totalAmount;
+    const paymentAmount = booking.bookingStatus === "PAYMENT_PENDING" ? booking.totalAmount : booking.balanceAmount;
+    if (amount !== undefined && Number(amount) !== paymentAmount) {
+      return NextResponse.json({ success: false, message: "Payment amount does not match the booking balance." }, { status: 400 });
+    }
 
     // Create payment gateway order
     const order = await createPaymentOrder({

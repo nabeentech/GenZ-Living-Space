@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/public/Navbar";
@@ -21,6 +21,11 @@ const ROLE_REDIRECTS: Record<string, string> = {
 
 export default function LoginPage() {
   const router = useRouter();
+  const [nextPath, setNextPath] = useState("");
+  useEffect(() => {
+    const value = new URLSearchParams(window.location.search).get("next") || "";
+    if (value.startsWith("/") && !value.startsWith("//")) setNextPath(value);
+  }, []);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -44,7 +49,9 @@ export default function LoginPage() {
       }
 
       const role = json.data?.user?.role as string | undefined;
-      router.push((role && ROLE_REDIRECTS[role]) || "/dashboard");
+      // Staff accounts always enter their operations workspace, even when arriving
+      // through a customer booking link.
+      router.push((role && ROLE_REDIRECTS[role]) || nextPath || "/dashboard");
     } catch (err: any) {
       setError(err.message || "Login failed");
     } finally {
@@ -128,7 +135,7 @@ export default function LoginPage() {
             <div className="text-center text-xs text-slate-400">
               Don&apos;t have an account yet?{" "}
               <Link
-                href="/auth/register"
+                href={nextPath ? `/auth/register?next=${encodeURIComponent(nextPath)}` : "/auth/register"}
                 className="text-indigo-400 font-bold hover:underline"
               >
                 Create Account

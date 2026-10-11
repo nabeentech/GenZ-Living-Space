@@ -1,0 +1,1 @@
+ALTER TABLE "Booking" ADD COLUMN "isOpenEnded" BOOLEAN NOT NULL DEFAULT false;

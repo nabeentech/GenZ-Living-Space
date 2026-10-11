@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getSessionUser();
@@ -14,7 +14,7 @@ export async function PATCH(
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 403 });
     }
 
-    const couponId = params.id;
+    const { id: couponId } = await params;
     const { active } = await req.json();
 
     const coupon = await prisma.coupon.update({
@@ -38,7 +38,7 @@ export async function PATCH(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getSessionUser();
@@ -46,7 +46,7 @@ export async function DELETE(
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 403 });
     }
 
-    const couponId = params.id;
+    const { id: couponId } = await params;
 
     // Check if coupon has been used
     const coupon = await prisma.coupon.findUnique({

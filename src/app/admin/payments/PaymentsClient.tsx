@@ -234,7 +234,7 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
                   <th className="p-3.5">Hostel Property</th>
                   <th className="p-3.5">Issue Date</th>
                   <th className="p-3.5">Subtotal</th>
-                  <th className="p-3.5">GST (12%)</th>
+                  <th className="p-3.5">GST</th>
                   <th className="p-3.5">Total Amount</th>
                   <th className="p-3.5 text-right">View / Print</th>
                 </tr>

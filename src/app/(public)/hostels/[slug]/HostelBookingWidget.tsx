@@ -2,9 +2,11 @@
 
 import React, { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, Users, ShieldCheck, Sparkles, ArrowRight, Tag } from "lucide-react";
+import { Users, ShieldCheck, Sparkles, ArrowRight, Tag } from "lucide-react";
 import Button from "@/components/ui/Button";
-import { calculateBookingPrice } from "@/lib/pricing";
+import DatePicker from "@/components/ui/DatePicker";
+import CustomSelect from "@/components/ui/CustomSelect";
+import { addUtcCalendarDays, calculateBookingPrice, getRoomTypePriceRates } from "@/lib/pricing";
 
 interface HostelBookingWidgetProps {
   hostel: any;
@@ -12,6 +14,7 @@ interface HostelBookingWidgetProps {
   initialCheckIn?: string;
   initialCheckOut?: string;
   initialGuests?: string;
+  initialStayType?: string;
 }
 
 export const HostelBookingWidget: React.FC<HostelBookingWidgetProps> = ({
@@ -20,6 +23,7 @@ export const HostelBookingWidget: React.FC<HostelBookingWidgetProps> = ({
   initialCheckIn,
   initialCheckOut,
   initialGuests,
+  initialStayType,
 }) => {
   const router = useRouter();
 
@@ -30,7 +34,7 @@ export const HostelBookingWidget: React.FC<HostelBookingWidgetProps> = ({
 
   const [checkIn, setCheckIn] = useState(initialCheckIn || todayStr);
   const [checkOut, setCheckOut] = useState(initialCheckOut || defaultOutStr);
-  const [guests, setGuests] = useState(Number(initialGuests) || 1);
+  const [stayType, setStayType] = useState(initialStayType === "MONTHLY" ? "MONTHLY" : "DAILY");
   const [selectedRoomTypeId, setSelectedRoomTypeId] = useState(
     roomTypes[0]?.id || ""
   );
@@ -43,34 +47,34 @@ export const HostelBookingWidget: React.FC<HostelBookingWidgetProps> = ({
   // Get starting price - use Non-AC daily rate as default
   const startingPrice = useMemo(() => {
     if (!selectedRoomType) return 599;
-    // Prefer Non-AC daily rate, fallback to AC rate, then basePrice
-    return selectedRoomType.pricePerDayNonAC || 
-           selectedRoomType.pricePerDayAC || 
-           selectedRoomType.basePrice || 
-           999;
+    return getRoomTypePriceRates(selectedRoomType, false).daily;
   }, [selectedRoomType]);
 
   // Compute live price quote
   const pricingQuote = useMemo(() => {
     if (!selectedRoomType) return null;
     const cIn = new Date(checkIn);
-    const cOut = new Date(checkOut);
+    const monthlyEnd = addUtcCalendarDays(cIn, 30);
+    const cOut = stayType === "MONTHLY" ? monthlyEnd : new Date(checkOut);
     if (isNaN(cIn.getTime()) || isNaN(cOut.getTime()) || cOut <= cIn) return null;
 
+    const rates = getRoomTypePriceRates(selectedRoomType, false);
     return calculateBookingPrice({
       checkInDate: cIn,
       checkOutDate: cOut,
-      basePrice: selectedRoomType.basePrice || 999,
+      basePrice: rates.daily,
+      rates,
+      stayType: stayType === "MONTHLY" ? "MONTHLY" : "DAILY",
       weeklyDiscountPct: selectedRoomType.weeklyDiscountPct,
-      monthlyPrice: selectedRoomType.monthlyPrice || 21999,
+      monthlyPrice: rates.days30,
       securityDeposit: selectedRoomType.securityDeposit,
     });
-  }, [selectedRoomType, checkIn, checkOut]);
+  }, [selectedRoomType, checkIn, checkOut, stayType]);
 
   const handleProceed = (e: React.FormEvent) => {
     e.preventDefault();
     router.push(
-      `/book?hostel=${hostel.slug}&roomType=${selectedRoomTypeId}&checkIn=${checkIn}&checkOut=${checkOut}&guests=${guests}`
+      `/book?hostel=${hostel.slug}&roomType=${selectedRoomTypeId}&stayType=${stayType}&checkIn=${checkIn}&checkOut=${stayType === "MONTHLY" ? "" : checkOut}&guests=1`
     );
   };
 
@@ -86,67 +90,34 @@ export const HostelBookingWidget: React.FC<HostelBookingWidgetProps> = ({
           </span>
           <div className="flex items-baseline gap-1">
             <span className="text-2xl font-black text-white">
-              ₹{startingPrice}
+              ₹{(stayType === "MONTHLY" && selectedRoomType ? getRoomTypePriceRates(selectedRoomType, false).days30 : startingPrice).toLocaleString()}
             </span>
-            <span className="text-xs text-slate-400">/ night</span>
+            <span className="text-xs text-slate-400">/ {stayType === "MONTHLY" ? "month" : "night"}</span>
           </div>
         </div>
         <span className="text-xs font-bold text-pink-400 bg-pink-950/60 border border-pink-500/30 px-3 py-1 rounded-full">
-          Instant Hold
+          Reservation
         </span>
       </div>
 
       <div className="space-y-4">
+        <div>
+          <CustomSelect label="Stay type" value={stayType} onValueChange={setStayType} triggerClassName="rounded-xl border border-slate-700/80 bg-slate-900/80 p-3" options={[{ value: "DAILY", label: "Daily stay" }, { value: "MONTHLY", label: "Monthly tenant" }]} />
+          {stayType === "MONTHLY" && <p className="mt-1 text-xs text-slate-400">Month-to-month tenancy. Choose your move-in date; no checkout date is required.</p>}
+        </div>
         {/* Room Type Selector */}
         <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1.5">
-            Room / Dorm Type
-          </label>
-          <select
-            value={selectedRoomTypeId}
-            onChange={(e) => setSelectedRoomTypeId(e.target.value)}
-            className="w-full p-3 rounded-xl bg-slate-900/80 border border-slate-700/80 text-sm font-semibold text-white focus:outline-none focus:border-indigo-500"
-          >
-            {roomTypes.map((rt) => {
-              const price = rt.pricePerDayNonAC || rt.pricePerDayAC || rt.basePrice || 999;
-              return (
-                <option key={rt.id} value={rt.id} className="bg-[#111827]">
-                  {rt.name} ({rt.genderCategory}) — ₹{price}/night
-                </option>
-              );
-            })}
-          </select>
+          <CustomSelect label="Room / Dorm Type" value={selectedRoomTypeId} onValueChange={setSelectedRoomTypeId} triggerClassName="rounded-xl border border-slate-700/80 bg-slate-900/80 p-3" options={roomTypes.map((rt) => {
+            const rates = getRoomTypePriceRates(rt, false);
+            const price = stayType === "MONTHLY" ? rates.days30 : rates.daily;
+            return { value: rt.id, label: `${rt.name} (${rt.genderCategory}) — ₹${price}/${stayType === "MONTHLY" ? "month" : "day"}` };
+          })} />
         </div>
 
         {/* Date Inputs */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1.5 flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5" />
-              Check-In
-            </label>
-            <input
-              type="date"
-              min={todayStr}
-              value={checkIn}
-              onChange={(e) => setCheckIn(e.target.value)}
-              className="w-full p-2.5 rounded-xl bg-slate-900/80 border border-slate-700/80 text-xs font-semibold text-white focus:outline-none focus:border-indigo-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1.5 flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5" />
-              Check-Out
-            </label>
-            <input
-              type="date"
-              min={checkIn || todayStr}
-              value={checkOut}
-              onChange={(e) => setCheckOut(e.target.value)}
-              className="w-full p-2.5 rounded-xl bg-slate-900/80 border border-slate-700/80 text-xs font-semibold text-white focus:outline-none focus:border-indigo-500"
-            />
-          </div>
+        <div className={stayType === "MONTHLY" ? "grid grid-cols-1 gap-3" : "grid grid-cols-2 gap-3"}>
+          <DatePicker label="Check-In" min={todayStr} value={checkIn} onChange={setCheckIn} triggerClassName="min-h-12 rounded-xl border border-slate-700/80 bg-slate-900/80 p-2.5" />
+          {stayType !== "MONTHLY" && <DatePicker label="Check-Out" min={checkIn || todayStr} value={checkOut} onChange={setCheckOut} triggerClassName="min-h-12 rounded-xl border border-slate-700/80 bg-slate-900/80 p-2.5" />}
         </div>
 
         {/* Guests */}
@@ -155,17 +126,7 @@ export const HostelBookingWidget: React.FC<HostelBookingWidgetProps> = ({
             <Users className="w-3.5 h-3.5" />
             Number of Guests
           </label>
-          <select
-            value={guests}
-            onChange={(e) => setGuests(Number(e.target.value))}
-            className="w-full p-3 rounded-xl bg-slate-900/80 border border-slate-700/80 text-sm font-semibold text-white focus:outline-none focus:border-indigo-500"
-          >
-            {[1, 2, 3, 4].map((n) => (
-              <option key={n} value={n} className="bg-[#111827]">
-                {n} {n === 1 ? "Guest" : "Guests"}
-              </option>
-            ))}
-          </select>
+          <div className="w-full p-3 rounded-xl bg-slate-900/80 border border-slate-700/80 text-sm font-semibold text-white">1 resident per bed</div>
         </div>
       </div>
 
@@ -174,8 +135,7 @@ export const HostelBookingWidget: React.FC<HostelBookingWidgetProps> = ({
         <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 space-y-2.5 text-xs text-slate-300">
           <div className="flex justify-between">
             <span>
-              Stay Duration ({pricingQuote.nights}{" "}
-              {pricingQuote.nights === 1 ? "night" : "nights"} • {pricingQuote.stayType})
+              {stayType === "MONTHLY" ? "First month estimate" : `Stay Duration (${pricingQuote.nights} ${pricingQuote.nights === 1 ? "night" : "nights"})`}
             </span>
             <span className="font-semibold text-white">
               ₹{pricingQuote.baseAmount.toLocaleString()}
@@ -189,17 +149,15 @@ export const HostelBookingWidget: React.FC<HostelBookingWidgetProps> = ({
             </div>
           )}
 
-          <div className="flex justify-between">
-            <span>Hospitality GST (12%)</span>
-            <span className="font-semibold text-white">
-              ₹{pricingQuote.taxAmount.toLocaleString()}
-            </span>
-          </div>
 
           <div className="flex justify-between">
-            <span>Service & Maintenance Fee</span>
+            <span>
+              {pricingQuote.stayType === "MONTHLY"
+                ? "Maintenance Fee"
+                : "Service Fee"}
+            </span>
             <span className="font-semibold text-white">
-              ₹{pricingQuote.serviceFee}
+              ₹{pricingQuote.serviceFee.toLocaleString()}
             </span>
           </div>
 
@@ -231,7 +189,7 @@ export const HostelBookingWidget: React.FC<HostelBookingWidgetProps> = ({
 
       <div className="flex items-center justify-center gap-2 text-[11px] text-slate-400">
         <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-        <span>15-min price & bed hold guarantee at checkout</span>
+        <span>Reserve your bed now; payment setup will be available later.</span>
       </div>
     </form>
   );

@@ -5,15 +5,15 @@ import BookingsManagementClient from "./BookingsManagementClient";
 export const dynamic = "force-dynamic";
 
 interface BookingsPageProps {
-  searchParams: {
+  searchParams: Promise<{
     search?: string;
     hostelId?: string;
     status?: string;
-  };
+  }>;
 }
 
 export default async function AdminBookingsPage({ searchParams }: BookingsPageProps) {
-  const { search, hostelId, status } = searchParams;
+  const { search, hostelId, status } = await searchParams;
 
   const where: any = {};
   if (hostelId && hostelId !== "all") {
