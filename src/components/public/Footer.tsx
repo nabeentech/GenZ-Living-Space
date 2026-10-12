@@ -104,14 +104,14 @@ export const Footer: React.FC = () => {
         </div>
 
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <p>© {new Date().getFullYear()} GenZ Living Space Hospitality Pvt. Ltd. All rights reserved.</p>
+          <p>© 2026 GenZ Colive PG & Guest Rooms</p>
           <a 
             href="https://www.nabeenmultimedia.com" 
             target="_blank" 
             rel="noopener noreferrer" 
             className="text-slate-500 hover:text-slate-400 transition-colors"
           >
-            Designed and Developed by NabeenMultimedia
+            Designed and Developed by Nabeen Multimedia
           </a>
         </div>
       </div>
