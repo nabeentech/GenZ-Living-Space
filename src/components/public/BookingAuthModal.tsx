@@ -25,6 +25,7 @@ interface BookingAuthModalProps {
   hostelName?: string;
   bedNumber?: string;
   roomTypeName?: string;
+  nextPath?: string;
 }
 
 export const BookingAuthModal: React.FC<BookingAuthModalProps> = ({
@@ -34,6 +35,7 @@ export const BookingAuthModal: React.FC<BookingAuthModalProps> = ({
   hostelName,
   bedNumber,
   roomTypeName,
+  nextPath,
 }) => {
   const [mode, setMode] = useState<"login" | "register">("login");
 
@@ -127,11 +129,6 @@ export const BookingAuthModal: React.FC<BookingAuthModalProps> = ({
     }
   };
 
-  const handleDemoFill = () => {
-    setLoginEmail("sameer@gmail.com");
-    setLoginPassword("Customer@123");
-    setLoginError("");
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
@@ -207,7 +204,7 @@ export const BookingAuthModal: React.FC<BookingAuthModalProps> = ({
           <div className="space-y-3">
             <GoogleSignInButton
               label={mode === "login" ? "Continue with Google" : "Sign up with Google"}
-              nextPath={typeof window !== "undefined" ? window.location.pathname + window.location.search : "/book"}
+              nextPath={nextPath || (typeof window !== "undefined" ? window.location.pathname + window.location.search : "/book")}
             />
             <div className="relative flex items-center justify-center">
               <div className="border-t border-slate-800 w-full" />
@@ -260,19 +257,6 @@ export const BookingAuthModal: React.FC<BookingAuthModalProps> = ({
                 </div>
               </div>
 
-              {/* Quick Demo Credentials */}
-              <div className="p-3 rounded-xl bg-indigo-950/30 border border-indigo-500/20 flex items-center justify-between text-xs">
-                <span className="text-slate-400 text-[11px]">
-                  Testing demo account?
-                </span>
-                <button
-                  type="button"
-                  onClick={handleDemoFill}
-                  className="text-xs text-indigo-400 hover:text-indigo-300 font-bold underline cursor-pointer"
-                >
-                  Fill Demo: Sameer
-                </button>
-              </div>
 
               <div className="pt-2">
                 <Button

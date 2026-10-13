@@ -175,7 +175,9 @@ export const BookClient: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [step, setStep] = useState(searchParams.get("resume") === "1" ? 3 : 1);
+  const stepParam = searchParams.get("step");
+  const initialStep = stepParam ? parseInt(stepParam, 10) : searchParams.get("resume") === "1" ? 3 : 1;
+  const [step, setStep] = useState(initialStep);
   // 1: Stay & Room, 2: Bed Selection, 3: Guest Details & Coupons, 4: Payment Hold & Checkout
 
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -205,6 +207,58 @@ export const BookClient: React.FC = () => {
   const [selectedRoomId, setSelectedRoomId] = useState<string>(searchParams.get("roomId") || "");
   const [selectedBedId, setSelectedBedId] = useState<string>(searchParams.get("bedId") || "");
   const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
+
+  const authResumeUrl = useMemo(() => {
+    const params = new URLSearchParams();
+    if (selectedHostelSlug) params.set("hostel", selectedHostelSlug);
+    if (checkIn) params.set("checkIn", checkIn);
+    if (checkOut) params.set("checkOut", checkOut);
+    if (stayType) params.set("stayType", stayType);
+    if (selectedRoomId) params.set("roomId", selectedRoomId);
+    if (selectedBedId) params.set("bedId", selectedBedId);
+    params.set("step", "3");
+    return `/book?${params.toString()}`;
+  }, [selectedHostelSlug, checkIn, checkOut, stayType, selectedRoomId, selectedBedId]);
+
+  // Sync draft to sessionStorage
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      if (selectedRoomId || selectedBedId || step >= 2) {
+        sessionStorage.setItem(
+          "genz_booking_resume",
+          JSON.stringify({
+            hostelSlug: selectedHostelSlug,
+            checkIn,
+            checkOut,
+            stayType,
+            roomId: selectedRoomId,
+            bedId: selectedBedId,
+            step: Math.max(step, 3),
+          })
+        );
+      }
+    } catch {}
+  }, [selectedHostelSlug, checkIn, checkOut, stayType, selectedRoomId, selectedBedId, step]);
+
+  // Restore draft from sessionStorage if missing from query params
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const saved = sessionStorage.getItem("genz_booking_resume");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.roomId && !searchParams.get("roomId")) setSelectedRoomId(parsed.roomId);
+        if (parsed.bedId && !searchParams.get("bedId")) setSelectedBedId(parsed.bedId);
+        if (parsed.hostelSlug && !searchParams.get("hostel")) setSelectedHostelSlug(parsed.hostelSlug);
+        if (parsed.checkIn && !searchParams.get("checkIn")) setCheckIn(parsed.checkIn);
+        if (parsed.checkOut && !searchParams.get("checkOut")) setCheckOut(parsed.checkOut);
+        if (parsed.stayType && !searchParams.get("stayType")) setStayType(parsed.stayType);
+        if (parsed.step && !searchParams.get("step")) setStep(parsed.step);
+      }
+    } catch {}
+  }, [searchParams]);
+
 
   // Room Filters & Search
   const [filterFloor, setFilterFloor] = useState<number | "all">("all");
@@ -272,6 +326,9 @@ export const BookClient: React.FC = () => {
         }
         if (json.user.govtIdNumber) {
           setGuestGovtId(formatGovtId(json.user.govtIdNumber, json.user.govtIdType || "AADHAAR"));
+        }
+        if (searchParams.get("step") === "3" || searchParams.get("resume") === "1") {
+          setStep(3);
         }
       })
       .catch(() => undefined);
@@ -1519,6 +1576,7 @@ export const BookClient: React.FC = () => {
         hostelName={activeHostel?.name}
         bedNumber={selectedBed?.bedNumber}
         roomTypeName={selectedRoom?.roomType?.name}
+        nextPath={authResumeUrl}
       />
     </div>
   );
