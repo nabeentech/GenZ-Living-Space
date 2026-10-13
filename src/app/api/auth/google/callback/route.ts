@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import prisma from "@/lib/prisma";
 import { signToken, COOKIE_NAME } from "@/lib/auth";
+import { getAppOrigin } from "@/lib/url";
 
 export const dynamic = "force-dynamic";
 
@@ -21,8 +22,7 @@ export async function GET(req: Request) {
   const error = searchParams.get("error");
 
   // Determine application origin & redirect URI
-  const reqUrl = new URL(req.url);
-  const origin = process.env.NEXT_PUBLIC_APP_URL?.trim() || `${reqUrl.protocol}//${reqUrl.host}`;
+  const origin = getAppOrigin(req);
   const redirectUri = `${origin}/api/auth/google/callback`;
 
   // Parse state to retrieve original destination
@@ -49,7 +49,7 @@ export async function GET(req: Request) {
   // 1. Check if user cancelled or Google returned an error
   if (error) {
     return NextResponse.redirect(
-      new URL(`/auth/login?error=${encodeURIComponent(error)}&next=${encodeURIComponent(nextPath)}`, req.url)
+      new URL(`/auth/login?error=${encodeURIComponent(error)}&next=${encodeURIComponent(nextPath)}`, origin)
     );
   }
 
@@ -60,13 +60,13 @@ export async function GET(req: Request) {
 
   if (!stateCsrf || !savedCsrf || stateCsrf !== savedCsrf) {
     return NextResponse.redirect(
-      new URL(`/auth/login?error=invalid_oauth_state&next=${encodeURIComponent(nextPath)}`, req.url)
+      new URL(`/auth/login?error=invalid_oauth_state&next=${encodeURIComponent(nextPath)}`, origin)
     );
   }
 
   if (!code) {
     return NextResponse.redirect(
-      new URL(`/auth/login?error=missing_oauth_code&next=${encodeURIComponent(nextPath)}`, req.url)
+      new URL(`/auth/login?error=missing_oauth_code&next=${encodeURIComponent(nextPath)}`, origin)
     );
   }
 
@@ -75,7 +75,7 @@ export async function GET(req: Request) {
 
   if (!clientId || !clientSecret) {
     return NextResponse.redirect(
-      new URL(`/auth/login?error=google_not_configured&next=${encodeURIComponent(nextPath)}`, req.url)
+      new URL(`/auth/login?error=google_not_configured&next=${encodeURIComponent(nextPath)}`, origin)
     );
   }
 
@@ -97,7 +97,7 @@ export async function GET(req: Request) {
       const errText = await tokenResponse.text();
       console.error("Google Token Exchange Failed:", errText);
       return NextResponse.redirect(
-        new URL(`/auth/login?error=token_exchange_failed&next=${encodeURIComponent(nextPath)}`, req.url)
+        new URL(`/auth/login?error=token_exchange_failed&next=${encodeURIComponent(nextPath)}`, origin)
       );
     }
 
@@ -111,7 +111,7 @@ export async function GET(req: Request) {
 
     if (!userInfoResponse.ok) {
       return NextResponse.redirect(
-        new URL(`/auth/login?error=userinfo_fetch_failed&next=${encodeURIComponent(nextPath)}`, req.url)
+        new URL(`/auth/login?error=userinfo_fetch_failed&next=${encodeURIComponent(nextPath)}`, origin)
       );
     }
 
@@ -123,7 +123,7 @@ export async function GET(req: Request) {
 
     if (!email) {
       return NextResponse.redirect(
-        new URL(`/auth/login?error=email_not_provided&next=${encodeURIComponent(nextPath)}`, req.url)
+        new URL(`/auth/login?error=email_not_provided&next=${encodeURIComponent(nextPath)}`, origin)
       );
     }
 
@@ -179,11 +179,11 @@ export async function GET(req: Request) {
 
     // 8. Redirect to requested destination or role-based dashboard
     const destination = (user.role && ROLE_REDIRECTS[user.role]) || nextPath || "/dashboard";
-    return NextResponse.redirect(new URL(destination, req.url));
+    return NextResponse.redirect(new URL(destination, origin));
   } catch (err: any) {
     console.error("Google OAuth Callback Error:", err);
     return NextResponse.redirect(
-      new URL(`/auth/login?error=oauth_internal_error&next=${encodeURIComponent(nextPath)}`, req.url)
+      new URL(`/auth/login?error=oauth_internal_error&next=${encodeURIComponent(nextPath)}`, origin)
     );
   }
 }

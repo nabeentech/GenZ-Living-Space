@@ -2,9 +2,12 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import crypto from "crypto";
 
+import { getAppOrigin } from "@/lib/url";
+
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
+  const origin = getAppOrigin(req);
   const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
   const { searchParams } = new URL(req.url);
   const nextParam = searchParams.get("next") || "/dashboard";
@@ -16,13 +19,10 @@ export async function GET(req: Request) {
   // If Google OAuth credentials are not configured yet
   if (!clientId || clientId === "your-google-client-id.apps.googleusercontent.com") {
     return NextResponse.redirect(
-      new URL(`/auth/login?error=google_not_configured&next=${encodeURIComponent(safeNext)}`, req.url)
+      new URL(`/auth/login?error=google_not_configured&next=${encodeURIComponent(safeNext)}`, origin)
     );
   }
 
-  // Determine application origin
-  const reqUrl = new URL(req.url);
-  const origin = process.env.NEXT_PUBLIC_APP_URL?.trim() || `${reqUrl.protocol}//${reqUrl.host}`;
   const redirectUri = `${origin}/api/auth/google/callback`;
 
   // CSRF protection: generate unique state containing target redirect
