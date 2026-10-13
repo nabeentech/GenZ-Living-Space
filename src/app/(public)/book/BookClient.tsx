@@ -664,7 +664,7 @@ export const BookClient: React.FC = () => {
     <div className="min-h-screen bg-[#0B0F19] text-slate-100 flex flex-col">
       <Navbar user={currentUser} />
 
-      <main className="flex-1 py-10 lg:py-16">
+      <main className="flex-1 py-10 lg:py-16 pb-28 lg:pb-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Progress Indicator */}
           <div className="max-w-3xl mx-auto mb-12">
@@ -911,7 +911,7 @@ export const BookClient: React.FC = () => {
                       </div>
                     ) : (
                       /* Contained scrollable container with 2-column room cards */
-                      <div className="space-y-6 max-h-[520px] overflow-y-auto pr-1.5 custom-scrollbar">
+                      <div className="space-y-6 max-h-[520px] overflow-y-auto px-2 py-1 custom-scrollbar">
                         {Object.entries(filteredAndGroupedRooms).map(([categoryName, rooms]) => {
                           const catBedsAvailable = rooms.reduce((sum, r) => sum + (r.totalAvailableBeds || 0), 0);
                           return (
@@ -935,15 +935,23 @@ export const BookClient: React.FC = () => {
                                   return (
                                     <div
                                       key={r.id}
-                                      onClick={() => r.hasAvailability && setSelectedRoomId(r.id)}
-                                      className={`p-3.5 rounded-2xl border flex flex-col justify-between gap-3 transition cursor-pointer ${isSelected
+                                      onClick={() => {
+                                        if (!r.hasAvailability) return;
+                                        if (isSelected) {
+                                          setStep(2);
+                                        } else {
+                                          setSelectedRoomId(r.id);
+                                        }
+                                      }}
+                                      className={`p-3.5 rounded-2xl border flex flex-col justify-between transition-all duration-200 cursor-pointer select-none ${isSelected
                                           ? "selection-glow bg-indigo-950/70 border-indigo-500 shadow-glow ring-2 ring-indigo-500/40"
                                           : r.hasAvailability
                                             ? "bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900/90"
                                             : "opacity-40 bg-slate-950 border-slate-900 cursor-not-allowed"
                                         }`}
                                     >
-                                      <div>
+                                      <div className="space-y-2.5">
+                                        {/* Room Number, Badges & Price */}
                                         <div className="flex items-start justify-between gap-2">
                                           <div>
                                             <div className="flex items-center gap-1.5 flex-wrap">
@@ -953,6 +961,12 @@ export const BookClient: React.FC = () => {
                                               <Badge variant={r.isAC ? "cyan" : "coral"} size="sm">
                                                 {r.isAC ? "🌬️ AC" : "⚡ Non-AC"}
                                               </Badge>
+                                              {isSelected && (
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-300 bg-indigo-500/20 border border-indigo-500/40 px-2 py-0.5 rounded-full">
+                                                  <CheckCircle2 className="w-3 h-3 text-indigo-400" />
+                                                  Selected
+                                                </span>
+                                              )}
                                             </div>
                                             <span className="text-[11px] text-slate-400 font-medium block mt-0.5">
                                               Floor {r.floor} • {r.building}
@@ -969,48 +983,33 @@ export const BookClient: React.FC = () => {
                                           </div>
                                         </div>
 
-                                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                        {/* Clean Footer Row: Bed Count & Gender Tag */}
+                                        <div className="flex items-center justify-between text-[11px] pt-2 border-t border-slate-800/60">
                                           <span
-                                            className={`text-[11px] font-semibold ${r.totalAvailableBeds > 0
+                                            className={`font-semibold flex items-center gap-1.5 ${r.totalAvailableBeds > 0
                                                 ? "text-emerald-400"
                                                 : "text-slate-500"
                                               }`}
                                           >
-                                            ● {r.totalAvailableBeds > 0
+                                            <span
+                                              className={`w-1.5 h-1.5 rounded-full ${r.totalAvailableBeds > 0
+                                                  ? "bg-emerald-400"
+                                                  : "bg-slate-500"
+                                                }`}
+                                            />
+                                            {r.totalAvailableBeds > 0
                                               ? `${r.totalAvailableBeds} beds available`
                                               : "Fully Occupied"}
                                           </span>
-                                          <span className="text-slate-600 text-xs">•</span>
-                                          <span className="text-[11px] text-slate-400">
-                                            {getSharingCategoryName(r)} ({r.roomType.genderCategory})
+
+                                          <span className="text-[11px] font-medium text-slate-400">
+                                            {r.roomType.genderCategory === "MIXED"
+                                              ? "Mixed Co-ed"
+                                              : r.roomType.genderCategory === "FEMALE"
+                                                ? "Female Only"
+                                                : "Male Only"}
                                           </span>
                                         </div>
-                                      </div>
-
-                                      {/* Bottom row of card */}
-                                      <div className="flex items-center justify-between pt-2 border-t border-slate-800/60 text-xs">
-                                        <div>
-                                          {isSelected ? (
-                                            <span className="text-indigo-400 font-bold flex items-center gap-1 text-[11px]">
-                                              <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400" />
-                                              Selected
-                                            </span>
-                                          ) : (
-                                            <span className="text-slate-500 text-[11px]">Click to select</span>
-                                          )}
-                                        </div>
-
-                                        {isSelected && (
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              setStep(2);
-                                            }}
-                                            className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[11px] flex items-center gap-1 transition shadow-sm"
-                                          >
-                                            Choose Bed →
-                                          </button>
-                                        )}
                                       </div>
                                     </div>
                                   );

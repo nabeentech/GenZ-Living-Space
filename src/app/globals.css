@@ -137,9 +137,8 @@ html.light .theme-toggle:hover {
 .selection-glow {
   position: relative;
   z-index: 1;
-  transform: scale(1.025);
   animation: optionGlow 2.6s ease-in-out infinite;
-  will-change: transform, box-shadow, border-color;
+  will-change: box-shadow, border-color;
 }
 
 html.light .selection-glow {
