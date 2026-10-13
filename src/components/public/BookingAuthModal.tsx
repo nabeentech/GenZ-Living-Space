@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Button from "@/components/ui/Button";
 import CustomSelect from "@/components/ui/CustomSelect";
+import GoogleSignInButton from "@/components/public/GoogleSignInButton";
 import {
   X,
   Mail,
@@ -202,6 +203,20 @@ export const BookingAuthModal: React.FC<BookingAuthModalProps> = ({
 
         {/* Modal Body */}
         <div className="p-6 overflow-y-auto flex-1 space-y-4">
+          {/* Quick 1-Click Google Sign-In */}
+          <div className="space-y-3">
+            <GoogleSignInButton
+              label={mode === "login" ? "Continue with Google" : "Sign up with Google"}
+              nextPath={typeof window !== "undefined" ? window.location.pathname + window.location.search : "/book"}
+            />
+            <div className="relative flex items-center justify-center">
+              <div className="border-t border-slate-800 w-full" />
+              <span className="bg-[#0F172A] px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider relative shrink-0">
+                {mode === "login" ? "or sign in with password" : "or register with email"}
+              </span>
+            </div>
+          </div>
+
           {mode === "login" ? (
             <form onSubmit={handleLoginSubmit} className="space-y-4">
               {loginError && (

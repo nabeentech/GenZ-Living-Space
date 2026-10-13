@@ -104,8 +104,17 @@ export const Navbar: React.FC<NavbarProps> = ({ user: propUser }) => {
             <Link href="/admin"><Button variant="outline" size="sm">Admin Dashboard</Button></Link>
           ) : user ? (
             <Link href="/dashboard">
-              <span className="inline-flex items-center gap-2 text-sm font-medium px-3.5 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-white transition">
-                <User className="w-4 h-4 text-indigo-400" />
+              <span className="inline-flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-white transition">
+                {user.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={user.avatarUrl}
+                    alt={user.name}
+                    className="w-5 h-5 rounded-full object-cover border border-indigo-400/50"
+                  />
+                ) : (
+                  <User className="w-4 h-4 text-indigo-400" />
+                )}
                 <span>{user.name.split(" ")[0]}</span>
               </span>
             </Link>

@@ -7,15 +7,12 @@ import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
 import Button from "@/components/ui/Button";
 import CustomSelect from "@/components/ui/CustomSelect";
+import GoogleSignInButton from "@/components/public/GoogleSignInButton";
 import { Sparkles, Lock, Mail, User, Phone, ArrowRight } from "lucide-react";
 
 export default function RegisterPage() {
   const router = useRouter();
   const [nextPath, setNextPath] = useState("");
-  useEffect(() => {
-    const value = new URLSearchParams(window.location.search).get("next") || "";
-    if (value.startsWith("/") && !value.startsWith("//")) setNextPath(value);
-  }, []);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -23,6 +20,29 @@ export default function RegisterPage() {
   const [gender, setGender] = useState("MALE");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const value = params.get("next") || "";
+    if (value.startsWith("/") && !value.startsWith("//")) setNextPath(value);
+
+    const err = params.get("error");
+    if (err) {
+      if (err === "google_not_configured") {
+        setError("Google Sign-In is pending setup. Client ID & Secret must be added to .env.");
+      } else if (err === "access_denied") {
+        setError("Google sign-in was cancelled.");
+      } else if (err === "invalid_oauth_state") {
+        setError("Authentication session expired. Please try signing in with Google again.");
+      } else if (err === "token_exchange_failed" || err === "userinfo_fetch_failed") {
+        setError("Failed to verify Google account credentials. Please try again.");
+      } else if (err === "email_not_provided") {
+        setError("Your Google account did not share an email address.");
+      } else {
+        setError("Google sign-in could not be completed. Please try again or create an account below.");
+      }
+    }
+  }, []);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,6 +93,18 @@ export default function RegisterPage() {
                 {error}
               </div>
             )}
+
+            {/* Fast 1-Click Google Sign-Up */}
+            <div className="space-y-4">
+              <GoogleSignInButton label="Sign up with Google" nextPath={nextPath} />
+
+              <div className="relative flex items-center justify-center">
+                <div className="border-t border-slate-800 w-full" />
+                <span className="bg-[#111827] px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider relative shrink-0">
+                  or register with email
+                </span>
+              </div>
+            </div>
 
             <form onSubmit={handleRegister} className="space-y-4">
               <div>

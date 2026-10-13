@@ -41,6 +41,18 @@ function isLongStayBooking(booking: any) {
   );
   return !booking.isOpenEnded && nights >= 28;
 }
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function formatDateDisplay(val: string | Date | null | undefined): string {
+  if (!val) return "-";
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return "-";
+  const day = d.getDate();
+  const month = MONTH_NAMES[d.getMonth()];
+  const year = d.getFullYear();
+  return `${day} ${month} ${year}`;
+}
+
 
 export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = ({
   user,
@@ -351,16 +363,26 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
     <div className="space-y-8">
       {/* Welcome Banner */}
       <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800 bg-gradient-to-r from-indigo-950/40 via-purple-950/30 to-[#111827] flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-        <div className="space-y-1">
-          <span className="text-xs uppercase font-extrabold tracking-widest text-indigo-400">
-            Resident Portal
-          </span>
-          <h1 className="text-2xl sm:text-3xl font-black text-white">
-            Welcome back, {user.name.split(" ")[0]}! 👋
-          </h1>
-          <p className="text-xs text-slate-400">
-            Manage your hostel stays, check-in QR codes, tax invoices, and support requests.
-          </p>
+        <div className="flex items-center gap-4">
+          {user.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={user.avatarUrl}
+              alt={user.name}
+              className="w-14 h-14 rounded-2xl object-cover border-2 border-indigo-500/50 shadow-glow shrink-0"
+            />
+          ) : null}
+          <div className="space-y-1">
+            <span className="text-xs uppercase font-extrabold tracking-widest text-indigo-400">
+              Resident Portal
+            </span>
+            <h1 className="text-2xl sm:text-3xl font-black text-white">
+              Welcome back, {user.name.split(" ")[0]}! 👋
+            </h1>
+            <p className="text-xs text-slate-400">
+              Manage your hostel stays, check-in QR codes, tax invoices, and support requests.
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center gap-3">
@@ -482,17 +504,13 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
                 <div>
                   <span className="text-slate-500 block">Check-In</span>
                   <span className="font-bold text-white">
-                    {new Date(activeBooking.checkInDate).toLocaleDateString("en-IN", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
+                    {formatDateDisplay(activeBooking.checkInDate)}
                   </span>
                 </div>
                 <div>
                   <span className="text-slate-500 block">{activeBooking.isOpenEnded ? "Stay term" : "Check-Out"}</span>
                   <span className="font-bold text-white">
-                    {activeBooking.isOpenEnded ? "Month-to-month · ongoing" : new Date(activeBooking.checkOutDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                    {activeBooking.isOpenEnded ? "Month-to-month · ongoing" : formatDateDisplay(activeBooking.checkOutDate)}
                   </span>
                 </div>
                 <div>
@@ -597,7 +615,7 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
                         {b.hostel.name} • Room {b.room.roomNumber} ({b.bed.bedNumber})
                       </h4>
                       <p className="text-xs text-slate-400">
-                        {new Date(b.checkInDate).toLocaleDateString()} {b.isOpenEnded ? "· Month-to-month ongoing" : `to ${new Date(b.checkOutDate).toLocaleDateString()}`}
+                        {formatDateDisplay(b.checkInDate)} {b.isOpenEnded ? "· Month-to-month ongoing" : `to ${formatDateDisplay(b.checkOutDate)}`}
                       </p>
                     </div>
 
@@ -712,7 +730,7 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
                       </Badge>
                     </div>
                     <span className="text-[11px] text-slate-400">
-                      {new Date(t.createdAt).toLocaleDateString()}
+                      {formatDateDisplay(t.createdAt)}
                     </span>
                   </div>
 
@@ -796,7 +814,7 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
                 <input
                   type="text"
                   disabled
-                  value={user.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString("en-IN") : "Not specified"}
+                  value={user.dateOfBirth ? formatDateDisplay(user.dateOfBirth) : "Not specified"}
                   className="w-full p-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 font-semibold"
                 />
               </div>
@@ -971,7 +989,7 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
               <div className="flex justify-between gap-4">
                 <span className="text-slate-400">Current checkout:</span>
                 <span className="font-bold text-white">
-                  {new Date(extendModalBooking.checkOutDate).toLocaleDateString("en-IN")}
+                  {formatDateDisplay(extendModalBooking.checkOutDate)}
                 </span>
               </div>
               <p className="text-slate-300">

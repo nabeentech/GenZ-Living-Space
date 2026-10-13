@@ -25,6 +25,16 @@ export async function POST(req: Request) {
       );
     }
 
+    if (!user.passwordHash) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "This account was signed up using Google. Please click 'Continue with Google'.",
+        },
+        { status: 400 }
+      );
+    }
+
     const isValid = await verifyPassword(password, user.passwordHash);
     if (!isValid) {
       return NextResponse.json(
