@@ -50,7 +50,7 @@ export default function TermsPage() {
             </div>
             <div>
               <h2 className="text-xl font-bold text-white mb-2">8. Contact</h2>
-              <p>Questions about a reservation or these terms can be sent to hello@genzlivingspace.com or the Central Desk at +91 98765 43210.</p>
+              <p>Questions about a reservation or these terms can be sent to genzlivingspace@gmail.com or the Central Desk at +91 96520 37700 / +91 96520 37744.</p>
             </div>
           </section>
         </article>

@@ -51,7 +51,7 @@ export default function RefundPolicyPage() {
             </div>
             <div>
               <h2 className="text-xl font-bold text-white mb-2">7. Requesting help</h2>
-              <p>Contact hello@genzlivingspace.com or +91 98765 43210 with your booking reference, reason, and supporting information. Requests are reviewed against the booking record and this policy.</p>
+              <p>Contact genzlivingspace@gmail.com or +91 96520 37700 / +91 96520 37744 with your booking reference, reason, and supporting information. Requests are reviewed against the booking record and this policy.</p>
             </div>
           </section>
         </article>

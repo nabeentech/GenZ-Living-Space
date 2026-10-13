@@ -37,7 +37,7 @@ interface CustomerDashboardClientProps {
 function isLongStayBooking(booking: any) {
   const nights = Math.ceil(
     (new Date(booking.checkOutDate).getTime() - new Date(booking.checkInDate).getTime()) /
-      (1000 * 60 * 60 * 24)
+    (1000 * 60 * 60 * 24)
   );
   return !booking.isOpenEnded && nights >= 28;
 }
@@ -388,7 +388,7 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
         <div className="flex items-center gap-3">
           <Link href="/hostels">
             <Button variant="glow" size="sm" rightIcon={<ArrowRight className="w-4 h-4" />}>
-              Book Another Stay
+              Book a Stay
             </Button>
           </Link>
           <Button
@@ -406,31 +406,28 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
       <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
         <button
           onClick={() => setActiveTab("bookings")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
-            activeTab === "bookings"
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition ${activeTab === "bookings"
               ? "bg-indigo-600 text-white shadow-glow"
               : "text-slate-400 hover:text-white"
-          }`}
+            }`}
         >
           My Stays & Bookings ({bookings.length})
         </button>
         <button
           onClick={() => setActiveTab("support")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
-            activeTab === "support"
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition ${activeTab === "support"
               ? "bg-indigo-600 text-white shadow-glow"
               : "text-slate-400 hover:text-white"
-          }`}
+            }`}
         >
           Support & Complaints ({tickets.length})
         </button>
         <button
           onClick={() => setActiveTab("profile")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
-            activeTab === "profile"
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition ${activeTab === "profile"
               ? "bg-indigo-600 text-white shadow-glow"
               : "text-slate-400 hover:text-white"
-          }`}
+            }`}
         >
           Profile & ID
         </button>
@@ -528,18 +525,16 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
               </div>
 
               {/* Payment Status Card */}
-              <div className={`p-4 rounded-2xl border ${
-                activeBooking.balanceAmount > 0
+              <div className={`p-4 rounded-2xl border ${activeBooking.balanceAmount > 0
                   ? "bg-amber-950/40 border-amber-500/40"
                   : "bg-emerald-950/40 border-emerald-500/40"
-              }`}>
+                }`}>
                 <div className="flex items-center justify-between gap-4">
                   <div className="space-y-1">
-                    <p className={`text-xs font-bold uppercase tracking-wider ${
-                      activeBooking.balanceAmount > 0
+                    <p className={`text-xs font-bold uppercase tracking-wider ${activeBooking.balanceAmount > 0
                         ? "text-amber-400"
                         : "text-emerald-400"
-                    }`}>
+                      }`}>
                       {activeBooking.balanceAmount > 0 ? "⚠️ Payment Pending" : "✓ Payment Complete"}
                     </p>
                     <p className="text-sm">
@@ -601,10 +596,10 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
                             b.bookingStatus === "CONFIRMED"
                               ? "available"
                               : b.bookingStatus === "CHECKED_IN"
-                              ? "indigo"
-                              : b.bookingStatus === "CANCELLED"
-                              ? "danger"
-                              : "default"
+                                ? "indigo"
+                                : b.bookingStatus === "CANCELLED"
+                                  ? "danger"
+                                  : "default"
                           }
                           size="sm"
                         >
@@ -721,8 +716,8 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
                           t.status === "RESOLVED"
                             ? "available"
                             : t.status === "OPEN"
-                            ? "warning"
-                            : "indigo"
+                              ? "warning"
+                              : "indigo"
                         }
                         size="sm"
                       >
@@ -770,11 +765,10 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
           </div>
 
           {profileMsg && (
-            <div className={`p-3 rounded-lg text-sm font-semibold ${
-              profileMsg.includes("successfully") 
-                ? "bg-green-500/20 text-green-300 border border-green-500/30" 
+            <div className={`p-3 rounded-lg text-sm font-semibold ${profileMsg.includes("successfully")
+                ? "bg-green-500/20 text-green-300 border border-green-500/30"
                 : "bg-red-500/20 text-red-300 border border-red-500/30"
-            }`}>
+              }`}>
               {profileMsg}
             </div>
           )}
@@ -787,11 +781,10 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
                 disabled={!isEditingProfile}
                 value={profileData.name}
                 onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
-                className={`w-full p-3 rounded-xl border ${
-                  isEditingProfile
+                className={`w-full p-3 rounded-xl border ${isEditingProfile
                     ? "bg-slate-800 border-indigo-500/50 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     : "bg-slate-900 border-slate-800 text-slate-200"
-                } font-semibold`}
+                  } font-semibold`}
               />
             </div>
 
@@ -837,11 +830,10 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
                 disabled={!isEditingProfile}
                 value={profileData.phone}
                 onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
-                className={`w-full p-3 rounded-xl border ${
-                  isEditingProfile
+                className={`w-full p-3 rounded-xl border ${isEditingProfile
                     ? "bg-slate-800 border-indigo-500/50 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     : "bg-slate-900 border-slate-800 text-slate-200"
-                } font-semibold`}
+                  } font-semibold`}
               />
             </div>
 
@@ -851,11 +843,10 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
                 disabled={!isEditingProfile}
                 value={profileData.address}
                 onChange={(e) => setProfileData({ ...profileData, address: e.target.value })}
-                className={`w-full p-3 rounded-xl border min-h-20 resize-none ${
-                  isEditingProfile
+                className={`w-full p-3 rounded-xl border min-h-20 resize-none ${isEditingProfile
                     ? "bg-slate-800 border-indigo-500/50 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     : "bg-slate-900 border-slate-800 text-slate-200"
-                } font-semibold`}
+                  } font-semibold`}
               />
             </div>
 
@@ -867,11 +858,10 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
                 value={profileData.emergencyContact}
                 onChange={(e) => setProfileData({ ...profileData, emergencyContact: e.target.value })}
                 placeholder="Name and phone of emergency contact"
-                className={`w-full p-3 rounded-xl border ${
-                  isEditingProfile
+                className={`w-full p-3 rounded-xl border ${isEditingProfile
                     ? "bg-slate-800 border-indigo-500/50 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     : "bg-slate-900 border-slate-800 text-slate-200"
-                } font-semibold`}
+                  } font-semibold`}
               />
             </div>
 
@@ -897,11 +887,10 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
                 value={profileData.govtIdNumber}
                 onChange={(e) => setProfileData({ ...profileData, govtIdNumber: e.target.value })}
                 placeholder="Aadhaar, PAN, or Passport number"
-                className={`w-full p-3 rounded-xl border ${
-                  isEditingProfile
+                className={`w-full p-3 rounded-xl border ${isEditingProfile
                     ? "bg-slate-800 border-indigo-500/50 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     : "bg-slate-900 border-slate-800 text-slate-200"
-                } font-semibold`}
+                  } font-semibold`}
               />
             </div>
           </div>
@@ -1222,11 +1211,10 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
             </div>
 
             {paymentMsg && (
-              <div className={`p-3 rounded-xl text-xs ${
-                paymentMsg.includes("✓")
+              <div className={`p-3 rounded-xl text-xs ${paymentMsg.includes("✓")
                   ? "bg-emerald-950 border border-emerald-500 text-emerald-300"
                   : "bg-red-950 border border-red-500 text-red-300"
-              }`}>
+                }`}>
                 {paymentMsg}
               </div>
             )}

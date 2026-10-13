@@ -260,7 +260,7 @@ async function main() {
         "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800&auto=format&fit=crop&q=80",
         "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&auto=format&fit=crop&q=80"
       ]),
-      contactPhone: "+91 98765 11001",
+      contactPhone: "+91 96520 37700 / +91 96520 37744",
       contactEmail: "madhapur01@genzlivingspace.com",
       checkInTime: "13:00",
       checkOutTime: "11:00",

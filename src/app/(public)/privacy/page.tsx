@@ -42,7 +42,7 @@ export default function PrivacyPolicyPage() {
             </div>
             <div>
               <h2 className="text-xl font-bold text-white mb-2">6. Your choices</h2>
-              <p>You may request access to, correction of, or clarification about your personal information by contacting the Central Desk at hello@genzlivingspace.com. Some records may need to be retained where required by law or necessary to resolve a dispute.</p>
+              <p>You may request access to, correction of, or clarification about your personal information by contacting the Central Desk at genzlivingspace@gmail.com. Some records may need to be retained where required by law or necessary to resolve a dispute.</p>
             </div>
             <div>
               <h2 className="text-xl font-bold text-white mb-2">7. Updates</h2>

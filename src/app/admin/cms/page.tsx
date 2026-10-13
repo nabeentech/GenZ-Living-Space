@@ -14,8 +14,8 @@ export default async function AdminCmsPage() {
     headline: "Find Your Space. Live Your Way.",
     subheadline:
       "Premium coliving, ultra-fast fiber, creative workspaces, and vibrant community living across 2 hand-curated Madhapur properties.",
-    contactPhone: "+91 98765 43210",
-    contactEmail: "hello@genzlivingspace.com",
+    contactPhone: "+91 96520 37700 / +91 96520 37744",
+    contactEmail: "genzlivingspace@gmail.com",
   };
 
   if (content?.contentJson) {

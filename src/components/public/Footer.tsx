@@ -87,13 +87,20 @@ export const Footer: React.FC = () => {
               Central Desk
             </h4>
             <ul className="space-y-3 text-sm">
-              <li className="flex items-center gap-2 text-slate-300">
-                <Phone className="w-4 h-4 text-indigo-400 shrink-0" />
-                <span>+91 98765 43210</span>
+              <li className="flex items-start gap-2 text-slate-300">
+                <Phone className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+                <div className="flex flex-col gap-0.5">
+                  <a href="tel:+919652037700" className="hover:text-white transition">
+                    +91 96520 37700
+                  </a>
+                  <a href="tel:+919652037744" className="hover:text-white transition">
+                    +91 96520 37744
+                  </a>
+                </div>
               </li>
               <li className="flex items-center gap-2 text-slate-300">
                 <Mail className="w-4 h-4 text-indigo-400 shrink-0" />
-                <span>hello@genzlivingspace.com</span>
+                <span>genzlivingspace@gmail.com</span>
               </li>
               <li className="flex items-start gap-2 text-slate-400 text-xs">
                 <MapPin className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
@@ -105,10 +112,10 @@ export const Footer: React.FC = () => {
 
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <p>© 2026 GenZ Colive PG & Guest Rooms</p>
-          <a 
-            href="https://www.nabeenmultimedia.com" 
-            target="_blank" 
-            rel="noopener noreferrer" 
+          <a
+            href="https://www.nabeenmultimedia.com"
+            target="_blank"
+            rel="noopener noreferrer"
             className="text-slate-500 hover:text-slate-400 transition-colors"
           >
             Designed and Developed by Nabeen Multimedia
