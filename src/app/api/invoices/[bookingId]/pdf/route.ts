@@ -19,8 +19,13 @@ export async function GET(
       where: { id: (await params).bookingId },
       include: {
         hostel: true,
-        room: true,
+        room: {
+          include: {
+            roomType: true,
+          },
+        },
         bed: true,
+        payments: { orderBy: { createdAt: "desc" } },
         invoices: { orderBy: { issueDate: "desc" }, take: 1 },
       },
     });
