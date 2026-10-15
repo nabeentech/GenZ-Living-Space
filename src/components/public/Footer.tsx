@@ -17,9 +17,14 @@ export const Footer: React.FC = () => {
             <p className="text-sm text-slate-400 max-w-sm leading-relaxed">
               Find Your Space. Live Your Way. Designed specifically for builders, coders, artists, and creators looking for premium coliving, gigabit speeds, and vibrant community.
             </p>
-            <div className="flex items-center gap-2 text-xs text-emerald-400 font-medium">
-              <ShieldCheck className="w-4 h-4" />
-              <span>Biometric Security • 24/7 Wardens • Verified Community</span>
+            <div className="space-y-1.5 pt-1 text-xs">
+              <div className="flex items-center gap-2 text-emerald-400 font-medium">
+                <ShieldCheck className="w-4 h-4 shrink-0" />
+                <span>Biometric Security • 24/7 Wardens • Verified Community</span>
+              </div>
+              <p className="text-slate-400">
+                <span className="text-emerald-400/90 font-semibold">FSSAI Reg No:</span> 23626028006147
+              </p>
             </div>
           </div>
 
@@ -111,7 +116,7 @@ export const Footer: React.FC = () => {
         </div>
 
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <p>© 2026 GenZ Colive PG & Guest Rooms</p>
+          <p>© 2026 GenZ Colive PG &amp; Guest Rooms</p>
           <a
             href="https://www.nabeenmultimedia.com"
             target="_blank"
