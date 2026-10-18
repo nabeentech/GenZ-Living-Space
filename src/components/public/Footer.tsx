@@ -28,15 +28,15 @@ export const Footer: React.FC = () => {
             </div>
           </div>
 
-          {/* Properties */}
+          {/* Property */}
           <div>
             <h4 className="text-sm font-semibold uppercase tracking-wider text-white mb-4">
-              Our Hostels
+              Our Hostel
             </h4>
             <ul className="space-y-2.5 text-sm">
               <li>
                 <Link href="/hostels/madhapur-01-hyd" className="hover:text-indigo-400 transition">
-                  GenZ Colive & PG Guest Rooms
+                  GenZ Colive PG & Guest Rooms
                 </Link>
               </li>
             </ul>

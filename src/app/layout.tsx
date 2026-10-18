@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     siteName: "GenZ Living Space",
     images: [
       {
-        url: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=1200&auto=format&fit=crop&q=80",
+        url: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=1200&auto=format&fit=crop&q=80",
         width: 1200,
         height: 630,
         alt: "GenZ Living Space",

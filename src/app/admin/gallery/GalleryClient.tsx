@@ -98,7 +98,7 @@ export const GalleryClient: React.FC<GalleryClientProps> = ({
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [filePreviews, setFilePreviews] = useState<{ file: File; preview: string }[]>([]);
   const [uploadCategory, setUploadCategory] = useState("COMMON_AREA");
-  const [uploadHostelId, setUploadHostelId] = useState("all");
+  const [uploadHostelId, setUploadHostelId] = useState(hostels[0]?.id || "all");
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadFeatured, setUploadFeatured] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -506,11 +506,13 @@ export const GalleryClient: React.FC<GalleryClientProps> = ({
 
         <div className="glass-panel p-5 rounded-2xl border border-slate-800 bg-[#111827]/70 space-y-1">
           <div className="flex items-center justify-between text-slate-400 text-xs font-semibold">
-            <span>Hostel Properties</span>
+            <span>Property</span>
             <Building2 className="w-4 h-4 text-pink-400" />
           </div>
-          <p className="text-2xl sm:text-3xl font-black text-pink-400">{hostels.length}</p>
-          <span className="text-[11px] text-slate-400">Available locations</span>
+          <p className="text-sm sm:text-base font-black text-pink-400 truncate">
+            {hostels[0]?.name || "GenZ Colive PG & Guest Rooms"}
+          </p>
+          <span className="text-[11px] text-slate-400">Dedicated Facility</span>
         </div>
       </div>
 
@@ -618,20 +620,12 @@ export const GalleryClient: React.FC<GalleryClientProps> = ({
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1.5">
-                Assign to Hostel
+                Hostel Property
               </label>
-              <select
-                value={uploadHostelId}
-                onChange={(e) => setUploadHostelId(e.target.value)}
-                className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm text-white focus:outline-none focus:border-indigo-500 font-medium"
-              >
-                <option value="all">All Hostels / General Gallery</option>
-                {hostels.map((h) => (
-                  <option key={h.id} value={h.id}>
-                    {h.name} ({h.city})
-                  </option>
-                ))}
-              </select>
+              <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm text-slate-200 font-medium flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-pink-400 shrink-0" />
+                <span className="truncate">{hostels[0]?.name || "GenZ Colive PG & Guest Rooms"}</span>
+              </div>
             </div>
           </div>
 
@@ -707,24 +701,26 @@ export const GalleryClient: React.FC<GalleryClientProps> = ({
           />
         </div>
 
-        {/* Hostel Selector */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            <select
-              value={selectedHostelFilter}
-              onChange={(e) => setSelectedHostelFilter(e.target.value)}
-              className="p-2 rounded-xl bg-slate-900/80 border border-slate-700/80 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-medium"
-            >
-              <option value="all">All Hostels</option>
-              {hostels.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name}
-                </option>
-              ))}
-            </select>
+        {/* Hostel Selector (if multiple) */}
+        {hostels.length > 1 && (
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <select
+                value={selectedHostelFilter}
+                onChange={(e) => setSelectedHostelFilter(e.target.value)}
+                className="p-2 rounded-xl bg-slate-900/80 border border-slate-700/80 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-medium"
+              >
+                <option value="all">All Hostels</option>
+                {hostels.map((h) => (
+                  <option key={h.id} value={h.id}>
+                    {h.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Category Pills */}
@@ -861,7 +857,7 @@ export const GalleryClient: React.FC<GalleryClientProps> = ({
                   </h4>
                   <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-1">
                     <span className="truncate">
-                      {img.hostel ? img.hostel.name : "All Hostels"}
+                      {img.hostel ? img.hostel.name : (hostels[0]?.name || "GenZ Colive PG & Guest Rooms")}
                     </span>
                     <span>•</span>
                     <span className="font-mono">{formatBytes(img.fileSize || 0)}</span>

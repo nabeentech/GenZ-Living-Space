@@ -240,11 +240,11 @@ async function main() {
 
   console.log("Room Types created.");
 
-  // 4. The 2 Madhapur Properties
+  // 4. The Dedicated Hostel Property
   const hostelsData = [
     {
       slug: "madhapur-01-hyd",
-      name: "Madhapur - 01",
+      name: "GenZ Colive PG & Guest Rooms",
       tagline: "The Startup & Tech Creator Pad",
       city: "Madhapur - HYD",
       state: "Telangana",
@@ -253,13 +253,13 @@ async function main() {
       latitude: 17.4483,
       longitude: 78.3915,
       rating: 4.9,
-      description: "Located in Madhapur's technology district, Madhapur - 01 is designed for tech founders, coders, and digital creators. Featuring a panoramic rooftop co-working terrace with gigabit fiber, soundproof podcast booths, and weekly community mixers.",
-      coverImage: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=1200&auto=format&fit=crop&q=80",
+      description: "Located in Madhapur's technology district, GenZ Colive PG & Guest Rooms is designed for tech founders, coders, and digital creators. Featuring a panoramic rooftop co-working terrace with gigabit fiber, soundproof podcast booths, and weekly community mixers.",
+      coverImage: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=1200&auto=format&fit=crop&q=80",
       images: JSON.stringify([
-        "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&auto=format&fit=crop&q=80"
+        "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=800&auto=format&fit=crop&q=80"
       ]),
       contactPhone: "+91 96520 37700 / +91 96520 37744",
       contactEmail: "madhapur01@genzlivingspace.com",

@@ -112,8 +112,8 @@ export const GalleryBrowser: React.FC<GalleryBrowserProps> = ({
           })}
         </div>
 
-        {/* Hostel Dropdown Filter */}
-        {hostels.length > 0 && (
+        {/* Hostel Dropdown Filter (only if multiple properties) */}
+        {hostels.length > 1 && (
           <div className="flex items-center gap-2 shrink-0">
             <Filter className="w-3.5 h-3.5 text-slate-400" />
             <select

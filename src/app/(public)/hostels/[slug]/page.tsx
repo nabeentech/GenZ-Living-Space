@@ -23,6 +23,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import HostelBookingWidget from "./HostelBookingWidget";
+import HostelHeroGallery from "./HostelHeroGallery";
 
 export const dynamic = "force-dynamic";
 
@@ -62,18 +63,6 @@ export default async function HostelDetailPage({
         where: { status: "APPROVED" },
         include: { customer: true },
       },
-      galleryImages: {
-        select: {
-          id: true,
-          title: true,
-          category: true,
-        },
-        orderBy: [
-          { isFeatured: "desc" },
-          { sortOrder: "asc" },
-          { createdAt: "desc" },
-        ],
-      },
     },
   });
 
@@ -81,23 +70,32 @@ export default async function HostelDetailPage({
     notFound();
   }
 
-  // Parse images and rules
-  let galleryImages: string[] = [];
-  try {
-    galleryImages = JSON.parse(hostel.images || "[]");
-  } catch {
-    galleryImages = [hostel.coverImage];
-  }
+  // Load uploaded gallery images from the server database (no hardcoded static images)
+  const dbGalleryRecords = await prisma.galleryImage.findMany({
+    where: {
+      OR: [
+        { hostelId: hostel.id },
+        { hostelId: null },
+      ],
+    },
+    select: {
+      id: true,
+      title: true,
+      category: true,
+    },
+    orderBy: [
+      { isFeatured: "desc" },
+      { sortOrder: "asc" },
+      { createdAt: "desc" },
+    ],
+  });
 
-  // Prepend uploaded database gallery images
-  if (hostel.galleryImages && hostel.galleryImages.length > 0) {
-    const dbImages = hostel.galleryImages.map((g) => `/api/gallery/image/${g.id}`);
-    galleryImages = [...dbImages, ...galleryImages];
-  }
-
-  if (galleryImages.length === 0) {
-    galleryImages = [hostel.coverImage];
-  }
+  const galleryImages = dbGalleryRecords.map((g) => ({
+    id: g.id,
+    src: `/api/gallery/image/${g.id}`,
+    title: g.title,
+    category: g.category,
+  }));
 
   let houseRules: string[] = [];
   try {
@@ -142,34 +140,14 @@ export default async function HostelDetailPage({
             </Link>
             <span>/</span>
             <Link href="/hostels" className="hover:text-white">
-              Hostels
+              Hostel
             </Link>
             <span>/</span>
             <span className="text-indigo-400 font-semibold">{hostel.name}</span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 h-[420px] rounded-3xl overflow-hidden mb-10">
-            <div className="md:col-span-2 h-full relative group">
-              <img
-                src={galleryImages[0] || hostel.coverImage}
-                alt={hostel.name}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-            </div>
-            <div className="hidden md:grid col-span-2 grid-cols-2 gap-3 h-full">
-              {galleryImages.slice(1, 5).map((img, i) => (
-                <div key={i} className="h-full relative overflow-hidden group">
-                  <img
-                    src={img}
-                    alt={`${hostel.name} view ${i + 2}`}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                  <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition" />
-                </div>
-              ))}
-            </div>
-          </div>
+          {/* Interactive Hero Gallery Showcase (100% Database Uploaded Images) */}
+          <HostelHeroGallery images={galleryImages} hostelName={hostel.name} />
 
           {/* Main Content & Sticky Booking Widget */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">

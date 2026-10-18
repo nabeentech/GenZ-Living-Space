@@ -6,7 +6,7 @@ export const Testimonials: React.FC = () => {
     {
       name: "Tanmay Bhatia",
       role: "AI Engineer & Founder",
-      hostel: "Madhapur - 01",
+      hostel: "GenZ Colive PG & Guest Rooms",
       avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
       content:
         "Moved here for 2 months to launch our YC application. The rooftop Wi-Fi is insane (850+ Mbps), met 3 other founders in the cafe, and the quiet hours are strictly honored. 10/10 living space.",
@@ -16,7 +16,7 @@ export const Testimonials: React.FC = () => {
     {
       name: "Rishi Menon",
       role: "Full-Stack Nomad",
-      hostel: "Madhapur - 01",
+      hostel: "GenZ Colive PG & Guest Rooms",
       avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
       content:
         "Swimming pool breaks between pull requests and sunset acoustic jams by the pool deck. The community manager makes you feel at home on day one. Best workation experience in India.",
