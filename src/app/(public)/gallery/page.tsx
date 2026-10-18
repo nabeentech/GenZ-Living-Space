@@ -54,9 +54,28 @@ export default async function PublicGalleryPage() {
     }),
   ]);
 
+  const formattedHostels = hostels.map((h) => ({
+    ...h,
+    name:
+      !h.name || h.name === "Madhapur - 01" || h.name === "Madhapur 01"
+        ? "GenZ Colive PG & Guest Rooms"
+        : h.name,
+  }));
+
   const formattedImages = images.map((img) => ({
     ...img,
     src: `/api/gallery/image/${img.id}`,
+    hostel: img.hostel
+      ? {
+          ...img.hostel,
+          name:
+            !img.hostel.name ||
+            img.hostel.name === "Madhapur - 01" ||
+            img.hostel.name === "Madhapur 01"
+              ? "GenZ Colive PG & Guest Rooms"
+              : img.hostel.name,
+        }
+      : null,
   }));
 
   return (
@@ -86,7 +105,7 @@ export default async function PublicGalleryPage() {
 
         {/* Gallery Content */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
-          <GalleryBrowser initialImages={formattedImages} hostels={hostels} />
+          <GalleryBrowser initialImages={formattedImages} hostels={formattedHostels} />
         </div>
 
         {/* Bottom CTA Banner */}

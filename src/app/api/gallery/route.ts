@@ -62,6 +62,17 @@ export async function GET(req: NextRequest) {
 
     const formatted = images.map((img) => ({
       ...img,
+      hostel: img.hostel
+        ? {
+            ...img.hostel,
+            name:
+              !img.hostel.name ||
+              img.hostel.name === "Madhapur - 01" ||
+              img.hostel.name === "Madhapur 01"
+                ? "GenZ Colive PG & Guest Rooms"
+                : img.hostel.name,
+          }
+        : null,
       src: `/api/gallery/image/${img.id}`,
     }));
 

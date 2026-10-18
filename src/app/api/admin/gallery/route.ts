@@ -73,11 +73,19 @@ export async function GET(req: NextRequest) {
       src: `/api/gallery/image/${img.id}`,
     }));
 
+    const formattedHostels = hostels.map((h) => ({
+      ...h,
+      name:
+        !h.name || h.name === "Madhapur - 01" || h.name === "Madhapur 01"
+          ? "GenZ Colive PG & Guest Rooms"
+          : h.name,
+    }));
+
     return NextResponse.json({
       success: true,
       data: {
         images: formatted,
-        hostels,
+        hostels: formattedHostels,
         stats: {
           totalImages: totalCount,
           totalStorageBytes: totalBytesResult._sum.fileSize || 0,

@@ -70,6 +70,22 @@ export default async function HostelDetailPage({
     notFound();
   }
 
+  // Ensure dedicated hostel branding always displays "GenZ Colive PG & Guest Rooms"
+  if (
+    !hostel.name ||
+    hostel.name.trim() === "Madhapur - 01" ||
+    hostel.name.trim() === "Madhapur 01" ||
+    hostel.name.toLowerCase().includes("madhapur - 01")
+  ) {
+    hostel.name = "GenZ Colive PG & Guest Rooms";
+    prisma.hostel
+      .update({
+        where: { id: hostel.id },
+        data: { name: "GenZ Colive PG & Guest Rooms" },
+      })
+      .catch(() => undefined);
+  }
+
   // Load uploaded gallery images from the server database (no hardcoded static images)
   const dbGalleryRecords = await prisma.galleryImage.findMany({
     where: {

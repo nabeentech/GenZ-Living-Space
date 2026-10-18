@@ -183,12 +183,14 @@ export const HostelGallerySection: React.FC<HostelGallerySectionProps> = ({
                 <h4 className="text-sm font-bold text-white tracking-tight line-clamp-1 group-hover:text-indigo-300 transition-colors">
                   {img.title}
                 </h4>
-                {img.hostel && (
-                  <p className="text-[11px] text-slate-400 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-pink-400" />
-                    <span>{img.hostel.name} ({img.hostel.city})</span>
-                  </p>
-                )}
+                <p className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-pink-400" />
+                  <span>
+                    {!img.hostel?.name || img.hostel.name === "Madhapur - 01" || img.hostel.name === "Madhapur 01"
+                      ? "GenZ Colive PG & Guest Rooms"
+                      : img.hostel.name}
+                  </span>
+                </p>
               </div>
             </div>
           ))}
