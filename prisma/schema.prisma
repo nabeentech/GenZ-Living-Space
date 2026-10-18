@@ -24,6 +24,7 @@ model User {
   govtIdType       String?   // AADHAAR, PASSPORT, DRIVING_LICENSE, VOTER_ID
   govtIdNumber     String?
   active           Boolean   @default(true)
+  permissions      String?   @default("{}") // JSON string of granular access overrides
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 

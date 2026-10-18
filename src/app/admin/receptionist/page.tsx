@@ -2,7 +2,8 @@ import React from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowRight, BookOpen, LogIn, UserPlus } from "lucide-react";
-import { getSessionUser, ROLES } from "@/lib/auth";
+import { getSessionUser } from "@/lib/auth";
+import { canAccessModule } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function ReceptionistPanel() {
   const user = await getSessionUser();
   if (!user) redirect("/auth/login");
-  if (user.role !== ROLES.RECEPTIONIST && user.role !== ROLES.SUPER_ADMIN) {
+  if (!canAccessModule(user, "reception")) {
     redirect("/admin");
   }
 

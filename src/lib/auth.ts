@@ -66,6 +66,7 @@ export async function getSessionUser() {
         gender: true,
         govtIdType: true,
         govtIdNumber: true,
+        permissions: true,
       },
     });
 

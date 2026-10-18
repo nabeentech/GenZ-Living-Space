@@ -9,8 +9,6 @@ import {
   Camera,
   Grid,
 } from "lucide-react";
-import Badge from "@/components/ui/Badge";
-import Button from "@/components/ui/Button";
 
 export interface HeroGalleryImage {
   id: string;
@@ -82,25 +80,13 @@ export const HostelHeroGallery: React.FC<HostelHeroGalleryProps> = ({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={mainImage.src}
-              alt={mainImage.title || hostelName}
+              alt=""
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-80 group-hover:opacity-60 transition" />
-
-            <div className="absolute top-4 left-4">
-              {mainImage.category && (
-                <Badge variant="indigo" size="sm" className="backdrop-blur-md bg-indigo-950/80">
-                  {mainImage.category.replace("_", " ")}
-                </Badge>
-              )}
-            </div>
-
-            <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-white">
-              <span className="text-sm font-bold truncate drop-shadow-md">
-                {mainImage.title}
-              </span>
-              <span className="p-2 rounded-xl bg-black/60 backdrop-blur-md opacity-0 group-hover:opacity-100 transition">
-                <Maximize2 className="w-4 h-4" />
+            {/* Subtle hover overlay and zoom icon */}
+            <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+              <span className="p-3 rounded-2xl bg-black/60 backdrop-blur-md border border-white/20 text-white shadow-xl transform scale-90 group-hover:scale-100 transition-transform">
+                <Maximize2 className="w-5 h-5" />
               </span>
             </div>
           </div>
@@ -121,17 +107,12 @@ export const HostelHeroGallery: React.FC<HostelHeroGalleryProps> = ({
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={img.src}
-                    alt={img.title || `${hostelName} view ${i + 2}`}
+                    alt=""
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
-                  <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition" />
-
-                  <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between text-white opacity-0 group-hover:opacity-100 transition">
-                    <span className="text-xs font-semibold truncate drop-shadow">
-                      {img.title}
-                    </span>
-                    <span className="p-1.5 rounded-lg bg-black/70 backdrop-blur-sm">
-                      <Maximize2 className="w-3 h-3" />
+                  <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                    <span className="p-2 rounded-xl bg-black/60 backdrop-blur-md border border-white/20 text-white shadow-lg transform scale-90 group-hover:scale-100 transition-transform">
+                      <Maximize2 className="w-4 h-4" />
                     </span>
                   </div>
                 </div>
@@ -152,7 +133,7 @@ export const HostelHeroGallery: React.FC<HostelHeroGalleryProps> = ({
         )}
       </div>
 
-      {/* Fullscreen Lightbox Modal */}
+      {/* Fullscreen Lightbox Modal - Pure photo presentation */}
       {currentLightbox && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-2xl animate-in fade-in duration-200">
           <button
@@ -183,28 +164,13 @@ export const HostelHeroGallery: React.FC<HostelHeroGalleryProps> = ({
             </>
           )}
 
-          <div className="max-w-5xl max-h-[90vh] flex flex-col items-center">
+          <div className="max-w-6xl max-h-[92vh] flex items-center justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={currentLightbox.src}
-              alt={currentLightbox.title}
-              className="max-h-[75vh] w-auto object-contain rounded-2xl shadow-2xl"
+              alt=""
+              className="max-h-[88vh] w-auto max-w-full object-contain rounded-2xl shadow-2xl"
             />
-            <div className="mt-4 text-center space-y-1.5">
-              <h3 className="text-xl font-bold text-white">{currentLightbox.title}</h3>
-              <div className="flex items-center justify-center gap-3 text-xs text-slate-400">
-                {currentLightbox.category && (
-                  <Badge variant="indigo" size="sm">
-                    {currentLightbox.category.replace("_", " ")}
-                  </Badge>
-                )}
-                <span>
-                  Photo {lightboxIndex! + 1} of {images.length}
-                </span>
-                <span>•</span>
-                <span>{hostelName}</span>
-              </div>
-            </div>
           </div>
         </div>
       )}

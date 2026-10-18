@@ -13,7 +13,6 @@ import {
   Layers,
 } from "lucide-react";
 import Button from "@/components/ui/Button";
-import Badge from "@/components/ui/Badge";
 
 export interface PublicGalleryImage {
   id: string;
@@ -148,7 +147,7 @@ export const HostelGallerySection: React.FC<HostelGallerySectionProps> = ({
           })}
         </div>
 
-        {/* Image Grid Showcase */}
+        {/* Image Grid Showcase - Clean photos, no texts */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {displayImages.map((img, index) => (
             <div
@@ -160,37 +159,16 @@ export const HostelGallerySection: React.FC<HostelGallerySectionProps> = ({
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={img.src}
-                alt={img.title}
+                alt=""
                 loading="lazy"
                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
               />
 
-              {/* Gradient Dark Overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/30 group-hover:via-black/10 transition duration-300" />
-
-              {/* Top Tag */}
-              <div className="absolute top-4 left-4 right-4 flex items-center justify-between pointer-events-none">
-                <span className="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider backdrop-blur-md bg-black/60 border border-white/10 text-white">
-                  {img.category.replace("_", " ")}
+              {/* Subtle hover overlay with expand icon - no texts */}
+              <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                <span className="w-11 h-11 rounded-full bg-black/60 backdrop-blur-md border border-white/20 flex items-center justify-center text-white shadow-2xl transform scale-90 group-hover:scale-100 transition-transform">
+                  <Maximize2 className="w-4 h-4" />
                 </span>
-                <span className="w-8 h-8 rounded-full bg-black/60 backdrop-blur-md border border-white/15 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Maximize2 className="w-3.5 h-3.5" />
-                </span>
-              </div>
-
-              {/* Bottom Caption Pill */}
-              <div className="absolute bottom-4 left-4 right-4 space-y-1">
-                <h4 className="text-sm font-bold text-white tracking-tight line-clamp-1 group-hover:text-indigo-300 transition-colors">
-                  {img.title}
-                </h4>
-                <p className="text-[11px] text-slate-400 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-pink-400" />
-                  <span>
-                    {!img.hostel?.name || img.hostel.name === "Madhapur - 01" || img.hostel.name === "Madhapur 01"
-                      ? "GenZ Colive PG & Guest Rooms"
-                      : img.hostel.name}
-                  </span>
-                </p>
               </div>
             </div>
           ))}
@@ -212,7 +190,7 @@ export const HostelGallerySection: React.FC<HostelGallerySectionProps> = ({
         )}
       </div>
 
-      {/* Lightbox Modal */}
+      {/* Lightbox Modal - Pure photo presentation */}
       {currentLightboxItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-2xl animate-in fade-in duration-200">
           <button
@@ -239,24 +217,13 @@ export const HostelGallerySection: React.FC<HostelGallerySectionProps> = ({
             <ChevronRight className="w-6 h-6" />
           </button>
 
-          <div className="max-w-5xl max-h-[90vh] flex flex-col items-center">
+          <div className="max-w-6xl max-h-[92vh] flex items-center justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={currentLightboxItem.src}
-              alt={currentLightboxItem.title}
-              className="max-h-[75vh] w-auto object-contain rounded-2xl shadow-2xl"
+              alt=""
+              className="max-h-[88vh] w-auto max-w-full object-contain rounded-2xl shadow-2xl"
             />
-            <div className="mt-4 text-center space-y-1.5">
-              <h3 className="text-xl font-bold text-white">{currentLightboxItem.title}</h3>
-              <div className="flex items-center justify-center gap-3 text-xs text-slate-400">
-                <Badge variant="indigo" size="sm">
-                  {currentLightboxItem.category.replace("_", " ")}
-                </Badge>
-                {currentLightboxItem.hostel && (
-                  <span>{currentLightboxItem.hostel.name} • {currentLightboxItem.hostel.city}</span>
-                )}
-              </div>
-            </div>
           </div>
         </div>
       )}

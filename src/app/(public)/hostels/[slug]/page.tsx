@@ -140,7 +140,18 @@ export default async function HostelDetailPage({
     }
   });
 
-  const availableRoomTypes = Array.from(roomTypeMap.values());
+  const getRoomTypeSortRank = (rt: any): number => {
+    const beds = rt.totalBeds;
+    if (beds === 1 || /single|studio|private|1/i.test(rt.name)) return 1;
+    if (beds === 2 || /twin|double|2/i.test(rt.name)) return 2;
+    if (beds === 3 || /triple|3/i.test(rt.name)) return 3;
+    if (beds === 4 || /quad|four|4/i.test(rt.name)) return 4;
+    return beds || 99;
+  };
+
+  const availableRoomTypes = Array.from(roomTypeMap.values()).sort(
+    (a, b) => getRoomTypeSortRank(a) - getRoomTypeSortRank(b)
+  );
 
   return (
     <div className="min-h-screen bg-[#0B0F19] text-slate-100 flex flex-col">

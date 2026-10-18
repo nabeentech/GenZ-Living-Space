@@ -9,9 +9,10 @@ import { Bed as BedIcon, User, Sparkles, Filter, CheckCircle2, AlertTriangle, Re
 
 interface BedMatrixClientProps {
   hostels: any[];
+  canEdit?: boolean;
 }
 
-export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels }) => {
+export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels, canEdit = true }) => {
   const [selectedHostelId, setSelectedHostelId] = useState<string>(
     hostels[0]?.id || "all"
   );
@@ -349,24 +350,28 @@ export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels }) => 
                   View All Floors
                 </Button>
               )}
-              <Button
-                variant="glow"
-                size="sm"
-                onClick={() => setShowAddRoomModal(true)}
-                className="text-xs flex items-center gap-1"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Add Room
-              </Button>
-              <Button
-                variant="glow"
-                size="sm"
-                onClick={() => setShowAddFloorModal(true)}
-                className="text-xs flex items-center gap-1"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Add Floor
-              </Button>
+              {canEdit && (
+                <>
+                  <Button
+                    variant="glow"
+                    size="sm"
+                    onClick={() => setShowAddRoomModal(true)}
+                    className="text-xs flex items-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Add Room
+                  </Button>
+                  <Button
+                    variant="glow"
+                    size="sm"
+                    onClick={() => setShowAddFloorModal(true)}
+                    className="text-xs flex items-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Add Floor
+                  </Button>
+                </>
+              )}
             </div>
           </div>
           
@@ -505,15 +510,17 @@ export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels }) => 
                               {room.capacity}
                             </div>
                           </div>
-                          <Button
-                            variant="glow"
-                            size="sm"
-                            onClick={() => handleEditRoom(room)}
-                            className="text-xs flex items-center gap-1 h-fit"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                            Edit
-                          </Button>
+                          {canEdit && (
+                            <Button
+                              variant="glow"
+                              size="sm"
+                              onClick={() => handleEditRoom(room)}
+                              className="text-xs flex items-center gap-1 h-fit"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                              Edit
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -623,13 +630,20 @@ export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels }) => 
               )}
             </div>
 
-            {/* Change Status Form */}
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1.5">
-                Update Status Override
-              </label>
-              <CustomSelect value={newBedStatus} onValueChange={setNewBedStatus} options={[{ value: "AVAILABLE", label: "AVAILABLE (Ready for new guest)" }, { value: "OCCUPIED", label: "OCCUPIED (Resident currently staying)" }, { value: "RESERVED", label: "RESERVED (Upcoming booking held)" }, { value: "CLEANING", label: "CLEANING (Housekeeping in progress)" }, { value: "MAINTENANCE", label: "MAINTENANCE (Repair / block)" }, { value: "BLOCKED", label: "BLOCKED (Admin override)" }]} triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm" />
-            </div>
+            {/* Change Status Form or View Only Notice */}
+            {!canEdit ? (
+              <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-400 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <span>View-only credentials — Status updates restricted for your user role.</span>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1.5">
+                  Update Status Override
+                </label>
+                <CustomSelect value={newBedStatus} onValueChange={setNewBedStatus} options={[{ value: "AVAILABLE", label: "AVAILABLE (Ready for new guest)" }, { value: "OCCUPIED", label: "OCCUPIED (Resident currently staying)" }, { value: "RESERVED", label: "RESERVED (Upcoming booking held)" }, { value: "CLEANING", label: "CLEANING (Housekeeping in progress)" }, { value: "MAINTENANCE", label: "MAINTENANCE (Repair / block)" }, { value: "BLOCKED", label: "BLOCKED (Admin override)" }]} triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm" />
+              </div>
+            )}
 
             {updateMsg && (
               <div className="p-3 rounded-xl bg-indigo-950 border border-indigo-500 text-xs text-indigo-300">
@@ -644,16 +658,18 @@ export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels }) => 
                 onClick={() => setSelectedBed(null)}
                 disabled={isUpdatingBed}
               >
-                Cancel
+                {canEdit ? "Cancel" : "Close"}
               </Button>
-              <Button
-                variant="glow"
-                size="sm"
-                isLoading={isUpdatingBed}
-                onClick={handleUpdateStatus}
-              >
-                Save Changes
-              </Button>
+              {canEdit && (
+                <Button
+                  variant="glow"
+                  size="sm"
+                  isLoading={isUpdatingBed}
+                  onClick={handleUpdateStatus}
+                >
+                  Save Changes
+                </Button>
+              )}
             </div>
           </div>
         </Modal>

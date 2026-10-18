@@ -24,7 +24,11 @@ interface RoomResponse {
   beds?: any[];
 }
 
-export const RoomsManagementClient: React.FC = () => {
+interface RoomsManagementClientProps {
+  canEdit?: boolean;
+}
+
+export const RoomsManagementClient: React.FC<RoomsManagementClientProps> = ({ canEdit = true }) => {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [filteredRooms, setFilteredRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
@@ -240,39 +244,45 @@ export const RoomsManagementClient: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Toggle Button */}
-                    <button
-                      onClick={() => toggleAC(room.id, room.isAC)}
-                      disabled={updatingRoomId === room.id}
-                      className={`w-full py-2 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
-                        updatingRoomId === room.id
-                          ? "bg-slate-700 text-slate-400 cursor-not-allowed"
-                          : room.isAC
-                          ? "bg-orange-900/40 text-orange-300 hover:bg-orange-900/60 border border-orange-700"
-                          : "bg-blue-900/40 text-blue-300 hover:bg-blue-900/60 border border-blue-700"
-                      }`}
-                    >
-                      {updatingRoomId === room.id ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Updating...
-                        </>
-                      ) : (
-                        <>
-                          {room.isAC ? (
-                            <>
-                              <Zap className="w-4 h-4" />
-                              Switch to Non-AC
-                            </>
-                          ) : (
-                            <>
-                              <Wind className="w-4 h-4" />
-                              Switch to AC
-                            </>
-                          )}
-                        </>
-                      )}
-                    </button>
+                    {/* Toggle Button or View Only Indicator */}
+                    {!canEdit ? (
+                      <div className="w-full py-2 px-4 rounded-lg font-medium text-xs text-slate-500 bg-slate-900 border border-slate-800 text-center">
+                        Locked (View Only)
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => toggleAC(room.id, room.isAC)}
+                        disabled={updatingRoomId === room.id}
+                        className={`w-full py-2 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
+                          updatingRoomId === room.id
+                            ? "bg-slate-700 text-slate-400 cursor-not-allowed"
+                            : room.isAC
+                            ? "bg-orange-900/40 text-orange-300 hover:bg-orange-900/60 border border-orange-700"
+                            : "bg-blue-900/40 text-blue-300 hover:bg-blue-900/60 border border-blue-700"
+                        }`}
+                      >
+                        {updatingRoomId === room.id ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Updating...
+                          </>
+                        ) : (
+                          <>
+                            {room.isAC ? (
+                              <>
+                                <Zap className="w-4 h-4" />
+                                Switch to Non-AC
+                              </>
+                            ) : (
+                              <>
+                                <Wind className="w-4 h-4" />
+                                Switch to AC
+                              </>
+                            )}
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>

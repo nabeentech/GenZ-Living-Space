@@ -141,16 +141,11 @@ export async function POST(req: NextRequest) {
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
 
-      // Clean default title from file name
-      const defaultTitle = file.name
-        .replace(/\.[^/.]+$/, "")
-        .replace(/[-_]+/g, " ")
-        .replace(/\b\w/g, (c) => c.toUpperCase());
-
+      // Do not use file name as title. Only use custom title if explicitly provided, else leave empty.
       const itemTitle =
         allFiles.length === 1 && customTitle && customTitle.trim()
           ? customTitle.trim()
-          : defaultTitle || `Hostel Photo ${Date.now()}`;
+          : "";
 
       const created = await prisma.galleryImage.create({
         data: {

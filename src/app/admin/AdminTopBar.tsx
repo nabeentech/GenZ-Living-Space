@@ -40,7 +40,7 @@ export const AdminTopBar: React.FC<AdminTopBarProps> = ({ user }) => {
       <div className="flex items-center gap-4">
         <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs font-semibold text-emerald-400">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>2 Properties Online</span>
+          <span>GenZ Colive PG &amp; Guest Rooms Active</span>
         </div>
 
         <div className="text-right hidden sm:block">

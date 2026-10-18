@@ -1,6 +1,7 @@
 import React from "react";
 import { redirect } from "next/navigation";
-import { getSessionUser, ROLES } from "@/lib/auth";
+import { getSessionUser } from "@/lib/auth";
+import { canAccessModule, canUserEdit } from "@/lib/permissions";
 import { RoomsManagementClient } from "./RoomsManagementClient";
 
 export const dynamic = "force-dynamic";
@@ -8,17 +9,15 @@ export const dynamic = "force-dynamic";
 export default async function RoomsPage() {
   const sessionUser = await getSessionUser();
 
-  // Restrict access to admin, receptionist, and supervisor
-  if (
-    !sessionUser ||
-    ![ROLES.SUPER_ADMIN, ROLES.PROPERTY_MANAGER, ROLES.RECEPTIONIST].includes(sessionUser.role as any)
-  ) {
-    redirect("/auth/login");
+  if (!sessionUser || !canAccessModule(sessionUser, "rooms")) {
+    redirect("/admin");
   }
+
+  const canEdit = canUserEdit(sessionUser);
 
   return (
     <div className="space-y-6">
-      <RoomsManagementClient />
+      <RoomsManagementClient canEdit={canEdit} />
     </div>
   );
 }

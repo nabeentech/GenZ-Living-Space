@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { DollarSign, Save, AlertCircle, CheckCircle, Wind, Snowflake } from "lucide-react";
 import Button from "@/components/ui/Button";
 
-export default function PricingManagementClient() {
+export default function PricingManagementClient({ canEdit = true }: { canEdit?: boolean }) {
   const [roomTypes, setRoomTypes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
@@ -119,11 +119,12 @@ export default function PricingManagementClient() {
               <input
                 type="text"
                 inputMode="decimal"
+                disabled={!canEdit}
                 value={roomType[tier.key] ?? ""}
                 onChange={(e) =>
                   handlePriceChange(roomType.id, tier.key, e.target.value)
                 }
-                className="flex-1 bg-transparent text-white text-sm font-bold focus:outline-none placeholder:text-slate-600"
+                className="flex-1 bg-transparent text-white text-sm font-bold focus:outline-none placeholder:text-slate-600 disabled:opacity-60 disabled:cursor-not-allowed"
                 placeholder="0.00"
                 aria-label={`${roomType.name} ${tier.label} ${acType} price`}
               />
@@ -212,21 +213,27 @@ export default function PricingManagementClient() {
 
                 {/* Save Button */}
                 <div className="pt-6 border-t border-slate-700/50 flex justify-end">
-                  <Button
-                    variant="glow"
-                    size="lg"
-                    onClick={() => handleSave(roomType.id)}
-                    disabled={saving === roomType.id}
-                    leftIcon={
-                      saving === roomType.id ? (
-                        <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <Save className="w-4 h-4" />
-                      )
-                    }
-                  >
-                    {saving === roomType.id ? "Saving Changes..." : "Save Pricing"}
-                  </Button>
+                  {canEdit ? (
+                    <Button
+                      variant="glow"
+                      size="lg"
+                      onClick={() => handleSave(roomType.id)}
+                      disabled={saving === roomType.id}
+                      leftIcon={
+                        saving === roomType.id ? (
+                          <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Save className="w-4 h-4" />
+                        )
+                      }
+                    >
+                      {saving === roomType.id ? "Saving Changes..." : "Save Pricing"}
+                    </Button>
+                  ) : (
+                    <span className="text-xs text-slate-500 font-semibold px-4 py-2 rounded-xl bg-slate-900 border border-slate-800">
+                      View-Only Rate Card
+                    </span>
+                  )}
                 </div>
               </div>
             )}

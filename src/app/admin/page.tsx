@@ -2,6 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionUser, ROLES } from "@/lib/auth";
+import { isFinancialsHidden } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -26,6 +27,8 @@ export default async function AdminDashboardPage() {
   const sessionUser = await getSessionUser();
   if (sessionUser?.role === ROLES.RECEPTIONIST) redirect("/admin/receptionist");
   if (sessionUser?.role === ROLES.PROPERTY_MANAGER) redirect("/admin/manager");
+
+  const hideFinancials = isFinancialsHidden(sessionUser);
 
   // Aggregate real-time statistics
   const totalBookings = await prisma.booking.count();
@@ -105,7 +108,7 @@ export default async function AdminDashboardPage() {
           </span>
           <h1 className="text-3xl font-black text-white">Platform Overview</h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Real-time metrics across both GenZ Living Space properties.
+            Real-time metrics for GenZ Colive PG &amp; Guest Rooms.
           </p>
         </div>
 
@@ -174,9 +177,17 @@ export default async function AdminDashboardPage() {
             <CreditCard className="w-4 h-4 text-cyan-400" />
           </div>
           <span className="text-2xl font-black text-white block">
-            ₹{totalRevenue.toLocaleString()}
+            {hideFinancials ? (
+              <span className="font-mono text-slate-500 font-bold" title="Financial figures restricted for your role">
+                ••••••
+              </span>
+            ) : (
+              `₹${totalRevenue.toLocaleString()}`
+            )}
           </span>
-          <span className="text-[10px] text-emerald-400">Server captured</span>
+          <span className="text-[10px] text-emerald-400">
+            {hideFinancials ? "Financials Restricted" : "Server captured"}
+          </span>
         </div>
 
         {/* Open Complaints */}
@@ -214,7 +225,7 @@ export default async function AdminDashboardPage() {
               {pendingExtensions}
             </span>
             <span className="text-[10px] text-indigo-400">
-              ₹{(pendingExtensionRevenue._sum.additionalAmount || 0).toLocaleString()} pending
+              {hideFinancials ? "•••••• pending" : `₹${(pendingExtensionRevenue._sum.additionalAmount || 0).toLocaleString()} pending`}
             </span>
           </div>
         </Link>
@@ -346,7 +357,13 @@ export default async function AdminDashboardPage() {
                     {new Date(b.checkInDate).toLocaleDateString()}
                   </td>
                   <td className="p-3.5 font-black text-white">
-                    ₹{b.totalAmount.toLocaleString()}
+                    {hideFinancials ? (
+                      <span className="font-mono text-slate-500 font-bold text-xs" title="Financial figures restricted">
+                        ••••••
+                      </span>
+                    ) : (
+                      `₹${b.totalAmount.toLocaleString()}`
+                    )}
                   </td>
                   <td className="p-3.5">
                     <Badge

@@ -1,5 +1,7 @@
 import React from "react";
 import prisma from "@/lib/prisma";
+import { getSessionUser } from "@/lib/auth";
+import { canUserEdit, isFinancialsHidden } from "@/lib/permissions";
 import BookingsManagementClient from "./BookingsManagementClient";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +15,10 @@ interface BookingsPageProps {
 }
 
 export default async function AdminBookingsPage({ searchParams }: BookingsPageProps) {
+  const user = await getSessionUser();
+  const canEdit = canUserEdit(user);
+  const hideFinancials = isFinancialsHidden(user);
+
   const { search, hostelId, status } = await searchParams;
 
   const where: any = {};
@@ -65,6 +71,8 @@ export default async function AdminBookingsPage({ searchParams }: BookingsPagePr
         initialBookings={bookings}
         hostels={hostels}
         initialSearch={search}
+        canEdit={canEdit}
+        hideFinancials={hideFinancials}
       />
     </div>
   );

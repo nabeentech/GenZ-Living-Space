@@ -171,9 +171,19 @@ export function formatGovtId(raw: string, idType: string, isDeleting: boolean = 
   }
 }
 
+export const getSharingCategoryName = (room: any): string => {
+  if (!room) return "Standard";
+  if (room.capacity === 1 || /single|studio|private|1/i.test(room.roomType?.name || "")) return "Single share";
+  if (room.capacity === 2 || /twin|double|2/i.test(room.roomType?.name || "")) return "Double share";
+  if (room.capacity === 3 || /triple|3/i.test(room.roomType?.name || "")) return "Triple share";
+  if (room.capacity === 4 || /quad|four|4/i.test(room.roomType?.name || "")) return "Four share";
+  return room.roomType?.name || "Standard";
+};
+
 export const BookClient: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const initialRoomTypeParam = searchParams.get("roomType") || searchParams.get("roomTypeId") || "";
 
   const stepParam = searchParams.get("step");
   const initialStep = stepParam ? parseInt(stepParam, 10) : searchParams.get("resume") === "1" ? 3 : 1;
@@ -360,15 +370,52 @@ export const BookClient: React.FC = () => {
         const res = await fetch(url);
         const json = await res.json();
         if (json.success && json.data?.rooms) {
-          setRoomsData(json.data.rooms);
-          if (json.data.rooms.length > 0 && !selectedRoomId) {
-            const firstAvailable = json.data.rooms.find(
-              (r: any) => r.hasAvailability
-            );
-            if (firstAvailable) {
-              setSelectedRoomId(firstAvailable.id);
-            } else {
-              setSelectedRoomId(json.data.rooms[0].id);
+          const loadedRooms: any[] = json.data.rooms;
+          setRoomsData(loadedRooms);
+
+          if (loadedRooms.length > 0) {
+            let targetRoom: any = null;
+
+            // 1. If roomType query param was passed, prioritize room matching this roomType
+            if (initialRoomTypeParam) {
+              const match = loadedRooms.find(
+                (r: any) =>
+                  r.roomTypeId === initialRoomTypeParam ||
+                  r.roomType?.id === initialRoomTypeParam ||
+                  r.roomType?.slug === initialRoomTypeParam
+              );
+              if (match) {
+                const cat = getSharingCategoryName(match);
+                setSelectedCategoryTab(cat);
+                const categoryRooms = loadedRooms.filter((r: any) => getSharingCategoryName(r) === cat);
+                targetRoom = categoryRooms.find((r: any) => r.hasAvailability) || match;
+              }
+            }
+
+            // 2. If roomId query param was passed
+            if (!targetRoom && searchParams.get("roomId")) {
+              targetRoom = loadedRooms.find((r: any) => r.id === searchParams.get("roomId"));
+              if (targetRoom) {
+                setSelectedCategoryTab(getSharingCategoryName(targetRoom));
+              }
+            }
+
+            // 3. Fallback: preserve existing selectedRoom if valid, else pick first available
+            if (!targetRoom) {
+              if (selectedRoomId) {
+                targetRoom = loadedRooms.find((r: any) => r.id === selectedRoomId);
+              }
+              if (!targetRoom) {
+                targetRoom = loadedRooms.find((r: any) => r.hasAvailability) || loadedRooms[0];
+              }
+            }
+
+            if (targetRoom) {
+              setSelectedRoomId(targetRoom.id);
+              const avail = targetRoom.beds?.find((b: any) => b.isAvailable) || targetRoom.beds?.[0];
+              if (avail) {
+                setSelectedBedId(avail.id);
+              }
             }
           }
         }
@@ -379,7 +426,7 @@ export const BookClient: React.FC = () => {
       }
     }
     checkAvail();
-  }, [activeHostel, checkIn, checkOut]);
+  }, [activeHostel, checkIn, checkOut, initialRoomTypeParam]);
 
   // Selected Room Object
   const selectedRoom = useMemo(
@@ -406,19 +453,40 @@ export const BookClient: React.FC = () => {
     [selectedRoom, selectedBedId]
   );
 
-  const getSharingCategoryName = (room: any): string => {
-    if (room.capacity === 2 || /twin|double|2/i.test(room.roomType?.name || "")) return "Double share";
-    if (room.capacity === 3 || /triple|3/i.test(room.roomType?.name || "")) return "Triple share";
-    if (room.capacity === 1 || /single|studio|private|1/i.test(room.roomType?.name || "")) return "Single share";
-    return room.roomType?.name || "Standard";
+  // When user selects a category tab, also auto-select an available room in that category
+  const handleSelectCategoryTab = (catName: string) => {
+    setSelectedCategoryTab(catName);
+    if (catName === "all") return;
+
+    if (!selectedRoom || getSharingCategoryName(selectedRoom) !== catName) {
+      const candidateRooms = roomsData.filter((r) => getSharingCategoryName(r) === catName);
+      const chosen = candidateRooms.find((r) => r.hasAvailability) || candidateRooms[0];
+      if (chosen) {
+        setSelectedRoomId(chosen.id);
+        const availBed = chosen.beds?.find((b: any) => b.isAvailable) || chosen.beds?.[0];
+        if (availBed) {
+          setSelectedBedId(availBed.id);
+        } else {
+          setSelectedBedId("");
+        }
+      }
+    }
   };
 
-  // Distinct category list and counts ordered: Double share, Triple share, Single share
+  // Rooms of the same category for Step 2 switching
+  const roomsOfSameCategory = useMemo(() => {
+    if (!selectedRoom) return [];
+    const cat = getSharingCategoryName(selectedRoom);
+    return roomsData.filter((r) => getSharingCategoryName(r) === cat);
+  }, [roomsData, selectedRoom]);
+
+  // Distinct category list and counts ordered: Single share, Double share, Triple share, Four share
   const categoriesList = useMemo(() => {
     const counts: Record<string, number> = {
+      "Single share": 0,
       "Double share": 0,
       "Triple share": 0,
-      "Single share": 0,
+      "Four share": 0,
     };
 
     roomsData.forEach((r) => {
@@ -430,7 +498,7 @@ export const BookClient: React.FC = () => {
       }
     });
 
-    const orderedKeys = ["Double share", "Triple share", "Single share"];
+    const orderedKeys = ["Single share", "Double share", "Triple share", "Four share"];
     const result: { name: string; count: number }[] = [];
 
     orderedKeys.forEach((key) => {
@@ -518,7 +586,7 @@ export const BookClient: React.FC = () => {
     return filteredRoomsList.reduce((acc, r) => acc + (r.totalAvailableBeds || 0), 0);
   }, [filteredRoomsList]);
 
-  // Group filtered rooms by category in order: Double share, Triple share, Single share
+  // Group filtered rooms by category in order: Single share, Double share, Triple share, Four share
   const filteredAndGroupedRooms = useMemo(() => {
     const grouped: Record<string, any[]> = {};
     filteredRoomsList.forEach((room) => {
@@ -528,7 +596,7 @@ export const BookClient: React.FC = () => {
     });
 
     const ordered: Record<string, any[]> = {};
-    const order = ["Double share", "Triple share", "Single share"];
+    const order = ["Single share", "Double share", "Triple share", "Four share"];
     order.forEach((k) => {
       if (grouped[k] && grouped[k].length > 0) {
         ordered[k] = grouped[k];
@@ -850,11 +918,11 @@ export const BookClient: React.FC = () => {
                         )}
                       </div>
 
-                      {/* Category Pills: Double share, Triple share, Single share */}
+                      {/* Category Pills: Single share, Double share, Triple share, Four share */}
                       {categoriesList.length > 0 && (
-                        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+                        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs custom-scrollbar">
                           <button
-                            onClick={() => setSelectedCategoryTab("all")}
+                            onClick={() => handleSelectCategoryTab("all")}
                             className={`px-3 py-1.5 rounded-lg font-semibold shrink-0 transition ${selectedCategoryTab === "all"
                                 ? "bg-indigo-600 text-white shadow-sm"
                                 : "bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800"
@@ -865,7 +933,7 @@ export const BookClient: React.FC = () => {
                           {categoriesList.map((cat) => (
                             <button
                               key={cat.name}
-                              onClick={() => setSelectedCategoryTab(cat.name)}
+                              onClick={() => handleSelectCategoryTab(cat.name)}
                               className={`px-3 py-1.5 rounded-lg font-semibold shrink-0 transition ${selectedCategoryTab === cat.name
                                   ? "bg-indigo-600 text-white shadow-sm"
                                   : "bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800"
@@ -994,6 +1062,8 @@ export const BookClient: React.FC = () => {
                                       key={r.id}
                                       onClick={() => {
                                         if (!r.hasAvailability) return;
+                                        const roomCat = getSharingCategoryName(r);
+                                        setSelectedCategoryTab(roomCat);
                                         if (isSelected) {
                                           setStep(2);
                                         } else {
@@ -1084,14 +1154,64 @@ export const BookClient: React.FC = () => {
               {/* STEP 2: Bed Allocation Picker */}
               {step === 2 && (
                 <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800/80 bg-[#111827]/85 space-y-6">
-                  <div>
-                    <h2 className="text-2xl font-black text-white">
-                      Step 2: Choose Your Exact Bed
-                    </h2>
-                    <p className="text-xs text-slate-400 mt-1">
-                      Pick your preferred bunk level or pod in Room {selectedRoom?.roomNumber} (Floor {selectedRoom?.floor}, {selectedRoom?.building}).
-                    </p>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800/80">
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h2 className="text-2xl font-black text-white">
+                          Step 2: Choose Your Exact Bed
+                        </h2>
+                        <Badge variant="indigo" size="sm">
+                          {getSharingCategoryName(selectedRoom)}
+                        </Badge>
+                        <Badge variant={selectedRoom?.isAC ? "cyan" : "coral"} size="sm">
+                          {selectedRoom?.isAC ? "🌬️ AC" : "⚡ Non-AC"}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Type: <strong className="text-white">{selectedRoom?.roomType?.name}</strong> • Room {selectedRoom?.roomNumber} (Floor {selectedRoom?.floor}, {selectedRoom?.building})
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setStep(1)}
+                      className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 self-start sm:self-center"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" /> Change Room Type
+                    </button>
                   </div>
+
+                  {/* Rooms of the SAME type switcher */}
+                  {roomsOfSameCategory.length > 1 && (
+                    <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-slate-200">
+                          Available Rooms ({getSharingCategoryName(selectedRoom)}):
+                        </span>
+                        <span className="text-[11px] text-slate-400">
+                          {roomsOfSameCategory.filter((r) => r.hasAvailability).length} of {roomsOfSameCategory.length} rooms open
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 overflow-x-auto pb-1 custom-scrollbar">
+                        {roomsOfSameCategory.map((rm) => (
+                          <button
+                            key={rm.id}
+                            type="button"
+                            onClick={() => setSelectedRoomId(rm.id)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 ${
+                              rm.id === selectedRoomId
+                                ? "bg-indigo-600 text-white shadow-glow ring-2 ring-indigo-400"
+                                : rm.hasAvailability
+                                ? "bg-slate-800/90 text-slate-300 hover:bg-slate-700 border border-slate-700"
+                                : "bg-slate-950/40 text-slate-600 border border-slate-800/60 cursor-not-allowed opacity-50"
+                            }`}
+                            disabled={!rm.hasAvailability}
+                          >
+                            Room {rm.roomNumber} (Floor {rm.floor}) • {rm.totalAvailableBeds} beds
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Bed Grid */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">
@@ -1144,7 +1264,7 @@ export const BookClient: React.FC = () => {
                   <div className="p-4 rounded-2xl bg-indigo-950/40 border border-indigo-500/20 flex items-center gap-3 text-xs text-indigo-300">
                     <ShieldCheck className="w-4 h-4 text-indigo-400 shrink-0" />
                     <span>
-                      You have selected <strong className="text-white">{selectedBed?.bedNumber}</strong> ({selectedBed?.tier?.replace("_", " ")}). This bed will be reserved exclusively for your stay.
+                      You have selected <strong className="text-white">{selectedBed?.bedNumber}</strong> ({selectedBed?.tier?.replace("_", " ")}) in <strong className="text-white">Room {selectedRoom?.roomNumber}</strong> ({getSharingCategoryName(selectedRoom)}). This bed will be reserved exclusively for your stay.
                     </span>
                   </div>
 
@@ -1155,7 +1275,7 @@ export const BookClient: React.FC = () => {
                       onClick={() => setStep(1)}
                       leftIcon={<ArrowLeft className="w-4 h-4" />}
                     >
-                      Back
+                      Back to Rooms
                     </Button>
                     <Button
                       variant="glow"
@@ -1455,15 +1575,21 @@ export const BookClient: React.FC = () => {
                   {stayType !== "MONTHLY" && <div className="flex justify-between"><span className="text-slate-400">Check-Out</span><span className="font-semibold text-white">{checkOut}</span></div>}
                   {stayType === "MONTHLY" && <div className="flex justify-between"><span className="text-slate-400">Stay term</span><span className="font-semibold text-white">Month-to-month</span></div>}
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Room</span>
+                    <span className="text-slate-400">Room Type</span>
                     <span className="font-semibold text-white">
                       {selectedRoom?.roomType?.name || "Selecting..."}
                     </span>
                   </div>
                   <div className="flex justify-between">
+                    <span className="text-slate-400">Room</span>
+                    <span className="font-semibold text-white">
+                      {selectedRoom ? `Room ${selectedRoom.roomNumber} (${getSharingCategoryName(selectedRoom)})` : "Selecting..."}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
                     <span className="text-slate-400">Assigned Bed</span>
                     <span className="font-semibold text-indigo-400">
-                      {selectedBed ? selectedBed.bedNumber : "Select in Step 2"}
+                      {selectedBed ? `${selectedBed.bedNumber} (${selectedBed.tier?.replace("_", " ")})` : "Select in Step 2"}
                     </span>
                   </div>
                 </div>
@@ -1535,7 +1661,7 @@ export const BookClient: React.FC = () => {
                     rightIcon={<ArrowRight className="w-4 h-4" />}
                   >
                     {selectedRoom
-                      ? `Continue to Beds (Room ${selectedRoom.roomNumber}) →`
+                      ? `Continue to Beds (${getSharingCategoryName(selectedRoom)} • Room ${selectedRoom.roomNumber}) →`
                       : "Choose a Room to Continue"}
                   </Button>
                 )}
@@ -1550,7 +1676,7 @@ export const BookClient: React.FC = () => {
         <div className="lg:hidden fixed bottom-0 left-0 right-0 p-3 bg-[#0F172A]/95 border-t border-indigo-500/40 backdrop-blur-xl z-40 flex items-center justify-between gap-3 shadow-2xl">
           <div>
             <span className="font-black text-sm text-white block">
-              Room {selectedRoom.roomNumber} Selected
+              {getSharingCategoryName(selectedRoom)} • Room {selectedRoom.roomNumber}
             </span>
             <span className="text-[11px] text-emerald-400 font-semibold block">
               {selectedRoom.totalAvailableBeds} beds available

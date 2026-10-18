@@ -238,6 +238,34 @@ async function main() {
     },
   });
 
+  const fourSharingPod = await prisma.roomType.create({
+    data: {
+      name: "Four Sharing Pod Room",
+      slug: "four-sharing-pod-room",
+      description: "Spacious community quad pod room. Features four cozy pod beds with privacy curtains, reading lights, power sockets, and individual secure lockers.",
+      totalBeds: 4,
+      genderCategory: "MIXED",
+      securityDeposit: 2000,
+      basePrice: 399,
+      // Non-AC Pricing
+      pricePerDayNonAC: 399,
+      price7DaysNonAC: 2690,
+      price10DaysNonAC: 3690,
+      price15DaysNonAC: 5490,
+      price30DaysNonAC: 8999,
+      // AC Pricing
+      pricePerDayAC: 499,
+      price7DaysAC: 3390,
+      price10DaysAC: 4690,
+      price15DaysAC: 6990,
+      price30DaysAC: 10999,
+      images: JSON.stringify([
+        "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=800&auto=format&fit=crop&q=80",
+      ]),
+      amenities: JSON.stringify(["Privacy Curtain", "Reading Lamp", "Charging Socket", "Personal Locker", "Linen Included"]),
+    },
+  });
+
   console.log("Room Types created.");
 
   // 4. The Dedicated Hostel Property
@@ -298,11 +326,17 @@ async function main() {
     
     for (let floorNum = 1; floorNum <= 5; floorNum++) {
       const floorRooms = [
-        // Twin Sharing Pod Rooms (X01-X20) - 2 beds each
-        ...Array.from({ length: 20 }, (_, i) => ({
+        // Twin Sharing Pod Rooms (X01-X15) - 2 beds each
+        ...Array.from({ length: 15 }, (_, i) => ({
           num: (floorNum * 100) + 1 + i,
           type: twinSharingPod,
           capacity: 2,
+        })),
+        // Four Sharing Pod Rooms (X16-X20) - 4 beds each
+        ...Array.from({ length: 5 }, (_, i) => ({
+          num: (floorNum * 100) + 16 + i,
+          type: fourSharingPod,
+          capacity: 4,
         })),
         // Triple Sharing Rooms (X21-X30) - 3 beds each
         ...Array.from({ length: 10 }, (_, i) => ({
@@ -345,6 +379,9 @@ async function main() {
             bedNumber = bedIndex === 1 ? "Bed 1" : "Bed 2";
             tier = "SINGLE";
           } else if (roomConfig.capacity === 3) {
+            bedNumber = `Bed ${bedIndex}`;
+            tier = bedIndex <= 2 ? "LOWER_BUNK" : "UPPER_BUNK";
+          } else if (roomConfig.capacity === 4) {
             bedNumber = `Bed ${bedIndex}`;
             tier = bedIndex <= 2 ? "LOWER_BUNK" : "UPPER_BUNK";
           }

@@ -23,12 +23,16 @@ interface BookingsManagementClientProps {
   initialBookings: any[];
   hostels: any[];
   initialSearch?: string;
+  canEdit?: boolean;
+  hideFinancials?: boolean;
 }
 
 export const BookingsManagementClient: React.FC<BookingsManagementClientProps> = ({
   initialBookings,
   hostels,
   initialSearch = "",
+  canEdit = true,
+  hideFinancials = false,
 }) => {
   const [bookings, setBookings] = useState(initialBookings);
   const [search, setSearch] = useState(initialSearch);
@@ -167,7 +171,13 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
                       </span>
                     </td>
                     <td className="p-3.5 font-black text-white">
-                      ₹{b.totalAmount.toLocaleString()}
+                      {hideFinancials ? (
+                        <span className="font-mono text-slate-500 font-bold text-xs" title="Financial figures restricted for your role">
+                          ••••••
+                        </span>
+                      ) : (
+                        `₹${b.totalAmount.toLocaleString()}`
+                      )}
                     </td>
                     <td className="p-3.5">
                       <Badge
@@ -282,47 +292,56 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
             </div>
 
             {/* Price breakdown */}
-            <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-1.5 text-xs text-slate-300">
-              <span className="font-bold text-white block mb-2">Financial Breakdown:</span>
-              <div className="flex justify-between">
-                <span>Base Rate:</span>
-                <span className="font-semibold text-white">
-                  ₹{selectedBooking.baseAmount.toLocaleString()}
+            {hideFinancials ? (
+              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 flex items-center gap-2.5">
+                <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
+                <span>
+                  Financial figures and billing breakdowns are masked for your role credentials.
                 </span>
               </div>
-              {selectedBooking.taxAmount > 0 && (
+            ) : (
+              <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-1.5 text-xs text-slate-300">
+                <span className="font-bold text-white block mb-2">Financial Breakdown:</span>
                 <div className="flex justify-between">
-                  <span>GST:</span>
+                  <span>Base Rate:</span>
                   <span className="font-semibold text-white">
-                    ₹{selectedBooking.taxAmount.toLocaleString()}
+                    ₹{selectedBooking.baseAmount.toLocaleString()}
                   </span>
                 </div>
-              )}
-              <div className="flex justify-between">
-                <span>{selectedBooking.stayType === "MONTHLY" ? "Maintenance Fee:" : "Service Fee:"}</span>
-                <span className="font-semibold text-white">
-                  ₹{selectedBooking.serviceFee.toLocaleString()}
-                </span>
-              </div>
-              {selectedBooking.discountAmount > 0 && (
-                <div className="flex justify-between text-pink-400">
-                  <span>Coupon Discount:</span>
-                  <span>-₹{selectedBooking.discountAmount.toLocaleString()}</span>
+                {selectedBooking.taxAmount > 0 && (
+                  <div className="flex justify-between">
+                    <span>GST:</span>
+                    <span className="font-semibold text-white">
+                      ₹{selectedBooking.taxAmount.toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span>{selectedBooking.stayType === "MONTHLY" ? "Maintenance Fee:" : "Service Fee:"}</span>
+                  <span className="font-semibold text-white">
+                    ₹{selectedBooking.serviceFee.toLocaleString()}
+                  </span>
                 </div>
-              )}
-              {selectedBooking.securityDeposit > 0 && (
-                <div className="flex justify-between text-amber-300">
-                  <span>Security Deposit:</span>
-                  <span>₹{selectedBooking.securityDeposit.toLocaleString()}</span>
+                {selectedBooking.discountAmount > 0 && (
+                  <div className="flex justify-between text-pink-400">
+                    <span>Coupon Discount:</span>
+                    <span>-₹{selectedBooking.discountAmount.toLocaleString()}</span>
+                  </div>
+                )}
+                {selectedBooking.securityDeposit > 0 && (
+                  <div className="flex justify-between text-amber-300">
+                    <span>Security Deposit:</span>
+                    <span>₹{selectedBooking.securityDeposit.toLocaleString()}</span>
+                  </div>
+                )}
+                <div className="pt-2 border-t border-slate-800 flex justify-between font-bold text-sm text-white">
+                  <span>Total Amount:</span>
+                  <span className="text-emerald-400">
+                    ₹{selectedBooking.totalAmount.toLocaleString()}
+                  </span>
                 </div>
-              )}
-              <div className="pt-2 border-t border-slate-800 flex justify-between font-bold text-sm text-white">
-                <span>Total Amount:</span>
-                <span className="text-emerald-400">
-                  ₹{selectedBooking.totalAmount.toLocaleString()}
-                </span>
               </div>
-            </div>
+            )}
 
             {/* Extension History */}
             {selectedBooking.extensions && selectedBooking.extensions.length > 0 && (
@@ -343,7 +362,9 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
                     </div>
                     <div className="flex justify-between text-slate-300">
                       <span>Additional Charge:</span>
-                      <span className="font-semibold text-indigo-300">₹{ext.additionalAmount.toLocaleString()}</span>
+                      <span className="font-semibold text-indigo-300">
+                        {hideFinancials ? "••••••" : `₹${ext.additionalAmount.toLocaleString()}`}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -352,7 +373,7 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
 
             <div className="flex items-center justify-between pt-2">
               <div>
-                {selectedBooking.bookingStatus === "CONFIRMED" && (
+                {canEdit && selectedBooking.bookingStatus === "CONFIRMED" && (
                   <Button
                     variant="danger"
                     size="sm"
@@ -365,11 +386,13 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
               </div>
 
               <div className="flex items-center gap-2">
-                <Link href={`/confirmation?bookingRef=${selectedBooking.bookingReference}`}>
-                  <Button variant="outline" size="sm" leftIcon={<Printer className="w-4 h-4" />}>
-                    Tax Invoice
-                  </Button>
-                </Link>
+                {!hideFinancials && (
+                  <Link href={`/confirmation?bookingRef=${selectedBooking.bookingReference}`}>
+                    <Button variant="outline" size="sm" leftIcon={<Printer className="w-4 h-4" />}>
+                      Tax Invoice
+                    </Button>
+                  </Link>
+                )}
                 <Button variant="ghost" size="sm" onClick={() => setSelectedBooking(null)}>
                   Close
                 </Button>

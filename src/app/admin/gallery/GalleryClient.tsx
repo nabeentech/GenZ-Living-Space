@@ -632,15 +632,18 @@ export const GalleryClient: React.FC<GalleryClientProps> = ({
           {selectedFiles.length === 1 && (
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1.5">
-                Custom Title / Caption (Optional)
+                Custom Title (Optional)
               </label>
               <input
                 type="text"
-                placeholder="e.g. Panoramic Rooftop Terrace at Sunset"
+                placeholder="Leave empty for no title (clean photo)"
                 value={uploadTitle}
                 onChange={(e) => setUploadTitle(e.target.value)}
                 className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm text-white focus:outline-none focus:border-indigo-500"
               />
+              <p className="text-[11px] text-slate-400 mt-1">
+                If left blank, no title will be attached (only pure image is displayed).
+              </p>
             </div>
           )}
 
@@ -852,8 +855,12 @@ export const GalleryClient: React.FC<GalleryClientProps> = ({
               {/* Card Footer Information */}
               <div className="p-4 flex-1 flex flex-col justify-between space-y-2">
                 <div>
-                  <h4 className="text-sm font-bold text-white truncate" title={img.title}>
-                    {img.title}
+                  <h4 className="text-sm font-bold text-white truncate" title={img.title || "No Title (Clean Image)"}>
+                    {img.title ? (
+                      img.title
+                    ) : (
+                      <span className="text-slate-400 font-normal italic text-xs">No Title (Clean Image)</span>
+                    )}
                   </h4>
                   <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-1">
                     <span className="truncate">
@@ -899,11 +906,11 @@ export const GalleryClient: React.FC<GalleryClientProps> = ({
           <form onSubmit={handleSaveEdit} className="space-y-4 pt-2">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
-                Photo Title / Caption
+                Photo Title / Caption (Optional)
               </label>
               <input
                 type="text"
-                required
+                placeholder="Leave blank for no title"
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
                 className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm text-white focus:outline-none focus:border-indigo-500 font-semibold"
@@ -1046,7 +1053,9 @@ export const GalleryClient: React.FC<GalleryClientProps> = ({
               className="max-h-[75vh] w-auto object-contain rounded-2xl shadow-2xl"
             />
             <div className="mt-4 text-center space-y-1">
-              <h3 className="text-lg font-bold text-white">{currentLightboxItem.title}</h3>
+              {currentLightboxItem.title && (
+                <h3 className="text-lg font-bold text-white">{currentLightboxItem.title}</h3>
+              )}
               <div className="flex items-center justify-center gap-3 text-xs text-slate-400">
                 <Badge variant="indigo" size="sm">
                   {currentLightboxItem.category.replace("_", " ")}

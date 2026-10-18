@@ -2,7 +2,8 @@ import React from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowRight, BedDouble, ClipboardCheck, MessageSquare, NotebookTabs } from "lucide-react";
-import { getSessionUser, ROLES } from "@/lib/auth";
+import { getSessionUser } from "@/lib/auth";
+import { canAccessModule } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function PropertyManagerPanel() {
   const user = await getSessionUser();
   if (!user) redirect("/auth/login");
-  if (user.role !== ROLES.PROPERTY_MANAGER && user.role !== ROLES.SUPER_ADMIN) {
+  if (!canAccessModule(user, "manager")) {
     redirect("/admin");
   }
 
@@ -22,7 +23,7 @@ export default async function PropertyManagerPanel() {
   ]);
 
   const actions = [
-    { title: "Bed Allocation Matrix", detail: "Monitor rooms and update live bed statuses across Madhapur.", href: "/admin/beds", icon: <BedDouble className="w-5 h-5" />, tone: "text-indigo-400" },
+    { title: "Bed Allocation Matrix", detail: "Monitor rooms and update live bed statuses across GenZ Colive PG & Guest Rooms.", href: "/admin/beds", icon: <BedDouble className="w-5 h-5" />, tone: "text-indigo-400" },
     { title: "Housekeeping Board", detail: "Coordinate cleaning, inspection, and maintenance queues.", href: "/admin/housekeeping", icon: <ClipboardCheck className="w-5 h-5" />, tone: "text-amber-400" },
     { title: "Bookings Management", detail: "Review reservations, occupancy, and guest stay details.", href: "/admin/bookings", icon: <NotebookTabs className="w-5 h-5" />, tone: "text-cyan-400" },
     { title: "Complaints & Support", detail: "Track resident issues and coordinate staff responses.", href: "/admin/complaints", icon: <MessageSquare className="w-5 h-5" />, tone: "text-rose-400" },

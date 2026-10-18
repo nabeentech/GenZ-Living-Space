@@ -27,14 +27,17 @@ import {
   Wind,
   DollarSign,
   Image as ImageIcon,
+  ShieldCheck,
 } from "lucide-react";
 import Badge from "@/components/ui/Badge";
+import { canAccessModule } from "@/lib/permissions";
 
 interface AdminSidebarProps {
   user: {
     name: string;
     email: string;
     role: string;
+    permissions?: string | null;
   };
 }
 
@@ -43,7 +46,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ user }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const allNavItems: { label: string; href: string; icon: React.ReactNode; roles: string[] }[] = [
-    { label: "Dashboard Overview", href: "/admin", icon: <LayoutDashboard className="w-4 h-4" />, roles: ["SUPER_ADMIN", "FINANCE", "HOUSEKEEPING", "SUPPORT_STAFF"] },
+    { label: "Dashboard Overview", href: "/admin", icon: <LayoutDashboard className="w-4 h-4" />, roles: ["SUPER_ADMIN", "FINANCE", "HOUSEKEEPING", "SUPPORT_STAFF", "PROPERTY_MANAGER", "RECEPTIONIST"] },
     { label: "Reception Desk", href: "/admin/receptionist", icon: <QrCode className="w-4 h-4" />, roles: ["RECEPTIONIST", "SUPER_ADMIN"] },
     { label: "Manager Panel", href: "/admin/manager", icon: <LayoutDashboard className="w-4 h-4" />, roles: ["PROPERTY_MANAGER", "SUPER_ADMIN"] },
     { label: "Visual Bed Matrix", href: "/admin/beds", icon: <Grid className="w-4 h-4" />, roles: ["PROPERTY_MANAGER", "SUPER_ADMIN"] },
@@ -59,11 +62,16 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ user }) => {
     { label: "Coupons & Promos", href: "/admin/coupons", icon: <Tag className="w-4 h-4" />, roles: ["SUPER_ADMIN"] },
     { label: "Payments & Invoices", href: "/admin/payments", icon: <CreditCard className="w-4 h-4" />, roles: ["FINANCE", "SUPER_ADMIN"] },
     { label: "Reports & Analytics", href: "/admin/reports", icon: <BarChart3 className="w-4 h-4" />, roles: ["FINANCE", "SUPER_ADMIN"] },
-    { label: "Website CMS", href: "/admin/cms", icon: <Globe className="w-4 h-4" />, roles: ["SUPER_ADMIN"] },
     { label: "Gallery Management", href: "/admin/gallery", icon: <ImageIcon className="w-4 h-4" />, roles: ["SUPER_ADMIN", "PROPERTY_MANAGER"] },
+    { label: "Website CMS", href: "/admin/cms", icon: <Globe className="w-4 h-4" />, roles: ["SUPER_ADMIN"] },
     { label: "Audit Logs", href: "/admin/audit-logs", icon: <FileText className="w-4 h-4" />, roles: ["SUPER_ADMIN"] },
+    { label: "Staff & Access Control", href: "/admin/staff", icon: <ShieldCheck className="w-4 h-4" />, roles: ["SUPER_ADMIN"] },
   ];
-  const navItems = allNavItems.filter((item) => item.roles.includes(user.role));
+
+  const navItems = allNavItems.filter((item) => {
+    if (user.role === "SUPER_ADMIN") return true;
+    return canAccessModule(user, item.href);
+  });
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
