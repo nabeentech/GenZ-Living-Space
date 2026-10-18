@@ -67,6 +67,7 @@ model Hostel {
   tickets      SupportTicket[]
   tasks        HousekeepingTask[]
   amenities    HostelAmenity[]
+  galleryImages GalleryImage[]
 }
 
 model Amenity {
@@ -415,3 +416,22 @@ model WebsiteContent {
   contentJson String   // JSON string
   updatedAt   DateTime @updatedAt
 }
+
+model GalleryImage {
+  id          String   @id @default(cuid())
+  hostelId    String?
+  title       String
+  description String?
+  category    String   @default("COMMON_AREA") // ROOMS, COMMON_AREA, ROOFTOP, WORKSPACE, DINING, EVENTS, OTHER
+  imageUrl    String?  // Direct URL (for external/fallback/seed images)
+  imageData   Bytes?   // Binary image data stored directly in SQLite BLOB database
+  mimeType    String   @default("image/jpeg")
+  fileSize    Int?     // Size in bytes
+  isFeatured  Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  hostel      Hostel?  @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+}
+

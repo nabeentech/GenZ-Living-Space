@@ -50,6 +50,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user: propUser }) => {
   const navLinks = [
     { label: "Why GenZ", href: "/#why-us" },
     { label: "Amenities", href: "/#amenities" },
+    { label: "Gallery", href: "/gallery" },
     { label: "Community", href: "/#community" },
     { label: "FAQs", href: "/#faqs" },
   ];

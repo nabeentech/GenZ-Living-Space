@@ -62,6 +62,18 @@ export default async function HostelDetailPage({
         where: { status: "APPROVED" },
         include: { customer: true },
       },
+      galleryImages: {
+        select: {
+          id: true,
+          title: true,
+          category: true,
+        },
+        orderBy: [
+          { isFeatured: "desc" },
+          { sortOrder: "asc" },
+          { createdAt: "desc" },
+        ],
+      },
     },
   });
 
@@ -76,6 +88,13 @@ export default async function HostelDetailPage({
   } catch {
     galleryImages = [hostel.coverImage];
   }
+
+  // Prepend uploaded database gallery images
+  if (hostel.galleryImages && hostel.galleryImages.length > 0) {
+    const dbImages = hostel.galleryImages.map((g) => `/api/gallery/image/${g.id}`);
+    galleryImages = [...dbImages, ...galleryImages];
+  }
+
   if (galleryImages.length === 0) {
     galleryImages = [hostel.coverImage];
   }

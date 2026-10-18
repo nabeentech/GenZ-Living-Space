@@ -7,6 +7,7 @@ async function main() {
   console.log("Starting GenZ Living Space database seed...");
 
   // Clean existing data in reverse order of dependencies
+  await prisma.galleryImage.deleteMany();
   await prisma.review.deleteMany();
   await prisma.additionalCharge.deleteMany();
   await prisma.invoice.deleteMany();
@@ -558,6 +559,103 @@ async function main() {
       }),
     },
   });
+
+  // 9. Seed Curated Gallery Images
+  const madhapurHostel = createdHostels[0];
+  const sampleGalleryPhotos = [
+    {
+      title: "Rooftop Sunset Lounge & Terrace",
+      description: "Open air terrace with panoramic tech city views, cozy amphitheater seating, and warm evening ambient lights.",
+      category: "ROOFTOP",
+      hostelId: madhapurHostel?.id,
+      imageUrl: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=1200&auto=format&fit=crop&q=80",
+      mimeType: "image/jpeg",
+      fileSize: 245000,
+      isFeatured: true,
+      sortOrder: 1,
+    },
+    {
+      title: "Soundproof Creator & Podcast Pods",
+      description: "Studio grade acoustic insulation, dual monitors, and high-speed fiber internet for content creators and remote engineers.",
+      category: "WORKSPACE",
+      hostelId: madhapurHostel?.id,
+      imageUrl: "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=1200&auto=format&fit=crop&q=80",
+      mimeType: "image/jpeg",
+      fileSize: 310000,
+      isFeatured: true,
+      sortOrder: 2,
+    },
+    {
+      title: "Twin Sharing Pod Sanctuary",
+      description: "Ergonomic living pod with memory foam mattress, black-out privacy blinds, individual climate control, and USB fast chargers.",
+      category: "ROOMS",
+      hostelId: madhapurHostel?.id,
+      imageUrl: "https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=1200&auto=format&fit=crop&q=80",
+      mimeType: "image/jpeg",
+      fileSize: 198000,
+      isFeatured: true,
+      sortOrder: 3,
+    },
+    {
+      title: "Chillout Common Lounge & Café",
+      description: "Spacious social hall featuring artisan espresso machines, bean bags, acoustic guitars, and board game shelves.",
+      category: "COMMON_AREA",
+      hostelId: madhapurHostel?.id,
+      imageUrl: "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=1200&auto=format&fit=crop&q=80",
+      mimeType: "image/jpeg",
+      fileSize: 285000,
+      isFeatured: true,
+      sortOrder: 4,
+    },
+    {
+      title: "Community Chef Bar & Dining Area",
+      description: "Fully stocked modern kitchen with induction hobs, microwave stations, and shared dining tables for resident cookouts.",
+      category: "DINING",
+      hostelId: madhapurHostel?.id,
+      imageUrl: "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?w=1200&auto=format&fit=crop&q=80",
+      mimeType: "image/jpeg",
+      fileSize: 220000,
+      isFeatured: false,
+      sortOrder: 5,
+    },
+    {
+      title: "PlayStation 5 & Esports Arena",
+      description: "Dual 4K HDR gaming displays, PS5 consoles, ergonomic racing chairs, and gaming tournaments every weekend.",
+      category: "EVENTS",
+      hostelId: madhapurHostel?.id,
+      imageUrl: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80",
+      mimeType: "image/jpeg",
+      fileSize: 340000,
+      isFeatured: false,
+      sortOrder: 6,
+    },
+    {
+      title: "Private Creator Studio Suite",
+      description: "King sized bed, custom accent lighting, dedicated 500Mbps workstation, smart 43 inch 4K TV, and attached bathroom.",
+      category: "ROOMS",
+      hostelId: madhapurHostel?.id,
+      imageUrl: "https://images.unsplash.com/photo-1591088398332-8a7791972843?w=1200&auto=format&fit=crop&q=80",
+      mimeType: "image/jpeg",
+      fileSize: 275000,
+      isFeatured: false,
+      sortOrder: 7,
+    },
+    {
+      title: "Sun Deck & Outdoor Reflection Area",
+      description: "Quiet outdoor lawn area designed for morning yoga, reading, and unplugged relaxation.",
+      category: "COMMON_AREA",
+      hostelId: madhapurHostel?.id,
+      imageUrl: "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=1200&auto=format&fit=crop&q=80",
+      mimeType: "image/jpeg",
+      fileSize: 290000,
+      isFeatured: false,
+      sortOrder: 8,
+    },
+  ];
+
+  for (const item of sampleGalleryPhotos) {
+    await prisma.galleryImage.create({ data: item });
+  }
 
   console.log("Database seed completed successfully!");
 }

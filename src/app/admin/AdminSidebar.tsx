@@ -26,6 +26,7 @@ import {
   Calendar,
   Wind,
   DollarSign,
+  Image as ImageIcon,
 } from "lucide-react";
 import Badge from "@/components/ui/Badge";
 
@@ -59,6 +60,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ user }) => {
     { label: "Payments & Invoices", href: "/admin/payments", icon: <CreditCard className="w-4 h-4" />, roles: ["FINANCE", "SUPER_ADMIN"] },
     { label: "Reports & Analytics", href: "/admin/reports", icon: <BarChart3 className="w-4 h-4" />, roles: ["FINANCE", "SUPER_ADMIN"] },
     { label: "Website CMS", href: "/admin/cms", icon: <Globe className="w-4 h-4" />, roles: ["SUPER_ADMIN"] },
+    { label: "Gallery Management", href: "/admin/gallery", icon: <ImageIcon className="w-4 h-4" />, roles: ["SUPER_ADMIN", "PROPERTY_MANAGER"] },
     { label: "Audit Logs", href: "/admin/audit-logs", icon: <FileText className="w-4 h-4" />, roles: ["SUPER_ADMIN"] },
   ];
   const navItems = allNavItems.filter((item) => item.roles.includes(user.role));

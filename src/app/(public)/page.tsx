@@ -6,6 +6,7 @@ import Footer from "@/components/public/Footer";
 import HeroSearch from "@/components/public/HeroSearch";
 import WhyUs from "@/components/public/WhyUs";
 import AmenitiesGrid from "@/components/public/AmenitiesGrid";
+import HostelGallerySection from "@/components/public/HostelGallerySection";
 import Testimonials from "@/components/public/Testimonials";
 import FAQAccordion from "@/components/public/FAQAccordion";
 import Button from "@/components/ui/Button";
@@ -19,10 +20,41 @@ export default async function HomePage() {
   const user = await getSessionUser();
   if (user && user.role !== "CUSTOMER") redirect("/admin");
 
-  // Fetch CMS content for homepage
-  const cmsContent = await prisma.websiteContent.findUnique({
-    where: { sectionKey: "hero" },
-  });
+  // Fetch CMS content and Gallery images for homepage
+  const [cmsContent, galleryImages] = await Promise.all([
+    prisma.websiteContent.findUnique({
+      where: { sectionKey: "hero" },
+    }),
+    prisma.galleryImage.findMany({
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        category: true,
+        isFeatured: true,
+        imageUrl: true,
+        hostel: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            city: true,
+          },
+        },
+      },
+      orderBy: [
+        { isFeatured: "desc" },
+        { sortOrder: "asc" },
+        { createdAt: "desc" },
+      ],
+      take: 12,
+    }),
+  ]);
+
+  const formattedGallery = galleryImages.map((img) => ({
+    ...img,
+    src: `/api/gallery/image/${img.id}`,
+  }));
 
   let heroData = {
     badge: "Most Luxury and Comfortable Colive PG in Hyderabad",
@@ -97,6 +129,9 @@ export default async function HomePage() {
 
         {/* AMENITIES SECTION */}
         <AmenitiesGrid />
+
+        {/* HOSTEL GALLERY VISUAL TOUR */}
+        <HostelGallerySection initialImages={formattedGallery} />
 
         {/* TESTIMONIALS SECTION */}
         <Testimonials />
