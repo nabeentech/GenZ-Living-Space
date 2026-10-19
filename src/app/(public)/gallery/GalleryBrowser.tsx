@@ -14,6 +14,10 @@ import {
 } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { PublicGalleryImage } from "@/components/public/HostelGallerySection";
+import {
+  GalleryCategoryItem,
+  DEFAULT_GALLERY_CATEGORIES,
+} from "@/lib/gallery-categories";
 
 interface HostelOption {
   id: string;
@@ -25,23 +29,18 @@ interface HostelOption {
 interface GalleryBrowserProps {
   initialImages: PublicGalleryImage[];
   hostels: HostelOption[];
+  categories?: GalleryCategoryItem[];
 }
-
-const CATEGORIES = [
-  { id: "ALL", label: "All Spaces" },
-  { id: "ROOMS", label: "Rooms & Pods" },
-  { id: "COMMON_AREA", label: "Lounge & Chill" },
-  { id: "ROOFTOP", label: "Rooftop Terrace" },
-  { id: "WORKSPACE", label: "Work & Study" },
-  { id: "DINING", label: "Café & Dining" },
-  { id: "EVENTS", label: "Gaming Zone" },
-  { id: "OTHER", label: "Facilities" },
-];
 
 export const GalleryBrowser: React.FC<GalleryBrowserProps> = ({
   initialImages,
   hostels,
+  categories = DEFAULT_GALLERY_CATEGORIES,
 }) => {
+  const categoryTabs = [
+    { id: "ALL", label: "All Spaces" },
+    ...(categories && categories.length > 0 ? categories : DEFAULT_GALLERY_CATEGORIES),
+  ];
   const [activeCategory, setActiveCategory] = useState("ALL");
   const [selectedHostel, setSelectedHostel] = useState("all");
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -78,7 +77,7 @@ export const GalleryBrowser: React.FC<GalleryBrowserProps> = ({
       <div className="glass-panel p-4 rounded-3xl border border-slate-800 bg-[#111827]/80 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
         {/* Category Pills */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
-          {CATEGORIES.map((cat) => {
+          {categoryTabs.map((cat) => {
             const count =
               cat.id === "ALL"
                 ? initialImages.length

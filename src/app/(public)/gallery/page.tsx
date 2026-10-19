@@ -6,6 +6,7 @@ import Button from "@/components/ui/Button";
 import GalleryBrowser from "./GalleryBrowser";
 import { getSessionUser } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { getGalleryCategories } from "@/lib/gallery-categories";
 import { Sparkles, Camera, ArrowRight, Compass } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +20,7 @@ export const metadata = {
 export default async function PublicGalleryPage() {
   const user = await getSessionUser();
 
-  const [images, hostels] = await Promise.all([
+  const [images, hostels, categories] = await Promise.all([
     prisma.galleryImage.findMany({
       select: {
         id: true,
@@ -52,6 +53,7 @@ export default async function PublicGalleryPage() {
       },
       orderBy: { name: "asc" },
     }),
+    getGalleryCategories(),
   ]);
 
   const formattedHostels = hostels.map((h) => ({
@@ -105,7 +107,11 @@ export default async function PublicGalleryPage() {
 
         {/* Gallery Content */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
-          <GalleryBrowser initialImages={formattedImages} hostels={formattedHostels} />
+          <GalleryBrowser
+            initialImages={formattedImages}
+            hostels={formattedHostels}
+            categories={categories}
+          />
         </div>
 
         {/* Bottom CTA Banner */}

@@ -13,6 +13,7 @@ import Button from "@/components/ui/Button";
 import { Sparkles, ArrowRight, ShieldCheck, Flame, Compass, Coffee } from "lucide-react";
 import { getSessionUser } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { getGalleryCategories } from "@/lib/gallery-categories";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,7 @@ export default async function HomePage() {
   if (user && user.role !== "CUSTOMER") redirect("/admin");
 
   // Fetch CMS content and Gallery images for homepage
-  const [cmsContent, galleryImages] = await Promise.all([
+  const [cmsContent, galleryImages, categories] = await Promise.all([
     prisma.websiteContent.findUnique({
       where: { sectionKey: "hero" },
     }),
@@ -49,6 +50,7 @@ export default async function HomePage() {
       ],
       take: 12,
     }),
+    getGalleryCategories(),
   ]);
 
   const formattedGallery = galleryImages.map((img) => ({
@@ -131,7 +133,7 @@ export default async function HomePage() {
         <AmenitiesGrid />
 
         {/* HOSTEL GALLERY VISUAL TOUR */}
-        <HostelGallerySection initialImages={formattedGallery} />
+        <HostelGallerySection initialImages={formattedGallery} categories={categories} />
 
         {/* TESTIMONIALS SECTION */}
         <Testimonials />

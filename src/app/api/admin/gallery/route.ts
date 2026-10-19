@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSessionUser, hasPermission, ROLES } from "@/lib/auth";
+import sharp from "sharp";
 
 export const dynamic = "force-dynamic";
 
@@ -139,7 +140,28 @@ export async function POST(req: NextRequest) {
       }
 
       const arrayBuffer = await file.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
+      const inputBuffer = Buffer.from(arrayBuffer);
+
+      let finalBuffer: Buffer = inputBuffer;
+      let finalMimeType = "image/webp";
+
+      try {
+        // Optimize and convert to WebP (auto-rotate EXIF, max dimension 2560px, 82% quality)
+        finalBuffer = await sharp(inputBuffer)
+          .rotate()
+          .resize({
+            width: 2560,
+            height: 2560,
+            fit: "inside",
+            withoutEnlargement: true,
+          })
+          .webp({ quality: 82, effort: 4 })
+          .toBuffer();
+      } catch (sharpError) {
+        console.warn("Sharp WebP optimization failed, saving raw buffer fallback:", sharpError);
+        finalBuffer = inputBuffer;
+        finalMimeType = file.type || "image/jpeg";
+      }
 
       // Do not use file name as title. Only use custom title if explicitly provided, else leave empty.
       const itemTitle =
@@ -154,9 +176,9 @@ export async function POST(req: NextRequest) {
           category,
           hostelId,
           isFeatured: allFiles.length === 1 ? isFeatured : false,
-          mimeType: file.type || "image/jpeg",
-          fileSize: buffer.length,
-          imageData: buffer, // Store pure binary directly in SQLite BLOB!
+          mimeType: finalMimeType,
+          fileSize: finalBuffer.length,
+          imageData: finalBuffer, // Store optimized WebP binary directly in SQLite BLOB!
           imageUrl: null,
         },
         select: {

@@ -1,11 +1,12 @@
 import React from "react";
 import prisma from "@/lib/prisma";
 import GalleryClient from "./GalleryClient";
+import { getGalleryCategories } from "@/lib/gallery-categories";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminGalleryPage() {
-  const [images, hostels, totalCount, totalBytesResult] = await Promise.all([
+  const [images, hostels, totalCount, totalBytesResult, categories] = await Promise.all([
     prisma.galleryImage.findMany({
       select: {
         id: true,
@@ -50,6 +51,7 @@ export default async function AdminGalleryPage() {
         fileSize: true,
       },
     }),
+    getGalleryCategories(),
   ]);
 
   const formattedImages = images.map((img) => ({
@@ -63,6 +65,7 @@ export default async function AdminGalleryPage() {
     <GalleryClient
       initialImages={formattedImages}
       hostels={hostels}
+      initialCategories={categories}
       initialStats={{
         totalImages: totalCount,
         totalStorageBytes: totalBytesResult._sum.fileSize || 0,

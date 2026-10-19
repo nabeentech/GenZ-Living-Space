@@ -28,24 +28,24 @@ export interface PublicGalleryImage {
     city: string;
   } | null;
 }
+import {
+  GalleryCategoryItem,
+  DEFAULT_GALLERY_CATEGORIES,
+} from "@/lib/gallery-categories";
 
 interface HostelGallerySectionProps {
   initialImages: PublicGalleryImage[];
+  categories?: GalleryCategoryItem[];
 }
-
-const CATEGORIES = [
-  { id: "ALL", label: "All Spaces" },
-  { id: "ROOMS", label: "Rooms & Pods" },
-  { id: "COMMON_AREA", label: "Lounge & Chill" },
-  { id: "ROOFTOP", label: "Rooftop Terrace" },
-  { id: "WORKSPACE", label: "Work & Study" },
-  { id: "DINING", label: "Café & Dining" },
-  { id: "EVENTS", label: "Gaming Zone" },
-];
 
 export const HostelGallerySection: React.FC<HostelGallerySectionProps> = ({
   initialImages,
+  categories = DEFAULT_GALLERY_CATEGORIES,
 }) => {
+  const categoryTabs = [
+    { id: "ALL", label: "All Spaces" },
+    ...(categories && categories.length > 0 ? categories : DEFAULT_GALLERY_CATEGORIES),
+  ];
   const [activeCategory, setActiveCategory] = useState("ALL");
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
@@ -114,7 +114,7 @@ export const HostelGallerySection: React.FC<HostelGallerySectionProps> = ({
 
         {/* Category Filter Pills */}
         <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin">
-          {CATEGORIES.map((cat) => {
+          {categoryTabs.map((cat) => {
             const count =
               cat.id === "ALL"
                 ? initialImages.length

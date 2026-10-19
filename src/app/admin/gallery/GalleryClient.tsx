@@ -24,7 +24,17 @@ import {
   ChevronRight,
   RefreshCw,
   Building2,
+  Tag,
+  Plus,
+  ArrowUp,
+  ArrowDown,
+  RotateCcw,
 } from "lucide-react";
+import {
+  GalleryCategoryItem,
+  DEFAULT_GALLERY_CATEGORIES,
+  getCategoryLabel,
+} from "@/lib/gallery-categories";
 
 export interface GalleryItem {
   id: string;
@@ -57,22 +67,12 @@ interface HostelOption {
 interface GalleryClientProps {
   initialImages: GalleryItem[];
   hostels: HostelOption[];
+  initialCategories?: GalleryCategoryItem[];
   initialStats: {
     totalImages: number;
     totalStorageBytes: number;
   };
 }
-
-const CATEGORIES = [
-  { id: "ALL", label: "All Photos" },
-  { id: "ROOMS", label: "Rooms & Pods" },
-  { id: "COMMON_AREA", label: "Lounge & Chill" },
-  { id: "ROOFTOP", label: "Rooftop Terrace" },
-  { id: "WORKSPACE", label: "Work & Study" },
-  { id: "DINING", label: "Café & Dining" },
-  { id: "EVENTS", label: "Gaming & Community" },
-  { id: "OTHER", label: "Other Facilities" },
-];
 
 function formatBytes(bytes: number = 0) {
   if (bytes === 0) return "0 KB";
@@ -85,19 +85,31 @@ function formatBytes(bytes: number = 0) {
 export const GalleryClient: React.FC<GalleryClientProps> = ({
   initialImages,
   hostels,
+  initialCategories,
   initialStats,
 }) => {
   const [images, setImages] = useState<GalleryItem[]>(initialImages);
+  const [categories, setCategories] = useState<GalleryCategoryItem[]>(
+    initialCategories && initialCategories.length > 0
+      ? initialCategories
+      : DEFAULT_GALLERY_CATEGORIES
+  );
   const [stats, setStats] = useState(initialStats);
   const [activeCategory, setActiveCategory] = useState("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedHostelFilter, setSelectedHostelFilter] = useState("all");
 
+  // Category management modal state
+  const [isCategoriesModalOpen, setIsCategoriesModalOpen] = useState(false);
+  const [editingCategories, setEditingCategories] = useState<GalleryCategoryItem[]>(categories);
+  const [newCategoryLabel, setNewCategoryLabel] = useState("");
+  const [isSavingCategories, setIsSavingCategories] = useState(false);
+
   // Upload state
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [filePreviews, setFilePreviews] = useState<{ file: File; preview: string }[]>([]);
-  const [uploadCategory, setUploadCategory] = useState("COMMON_AREA");
+  const [uploadCategory, setUploadCategory] = useState(categories[0]?.id || "COMMON_AREA");
   const [uploadHostelId, setUploadHostelId] = useState(hostels[0]?.id || "all");
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadFeatured, setUploadFeatured] = useState(false);
@@ -130,6 +142,94 @@ export const GalleryClient: React.FC<GalleryClientProps> = ({
     setTimeout(() => {
       setAlertMessage((prev) => (prev?.text === text ? null : prev));
     }, 4000);
+  };
+
+  // Category management handlers
+  const handleOpenCategoriesModal = () => {
+    setEditingCategories(categories);
+    setNewCategoryLabel("");
+    setIsCategoriesModalOpen(true);
+  };
+
+  const handleMoveCategory = (index: number, direction: "up" | "down") => {
+    if (direction === "up" && index > 0) {
+      setEditingCategories((prev) => {
+        const copy = [...prev];
+        const temp = copy[index - 1];
+        copy[index - 1] = copy[index];
+        copy[index] = temp;
+        return copy;
+      });
+    } else if (direction === "down" && index < editingCategories.length - 1) {
+      setEditingCategories((prev) => {
+        const copy = [...prev];
+        const temp = copy[index + 1];
+        copy[index + 1] = copy[index];
+        copy[index] = temp;
+        return copy;
+      });
+    }
+  };
+
+  const handleCategoryLabelChange = (index: number, newLabel: string) => {
+    setEditingCategories((prev) => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], label: newLabel };
+      return copy;
+    });
+  };
+
+  const handleDeleteCategory = (index: number) => {
+    if (editingCategories.length <= 1) {
+      showAlert("error", "You must keep at least 1 category tag.");
+      return;
+    }
+    setEditingCategories((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAddNewCategory = () => {
+    const label = newCategoryLabel.trim();
+    if (!label) return;
+
+    const baseId =
+      label
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "") || "CATEGORY";
+    let id = baseId;
+    let counter = 2;
+    while (editingCategories.some((c) => c.id === id)) {
+      id = `${baseId}_${counter++}`;
+    }
+
+    setEditingCategories((prev) => [...prev, { id, label }]);
+    setNewCategoryLabel("");
+  };
+
+  const handleResetCategoriesToDefaults = () => {
+    setEditingCategories(DEFAULT_GALLERY_CATEGORIES);
+  };
+
+  const handleSaveCategories = async () => {
+    try {
+      setIsSavingCategories(true);
+      const res = await fetch("/api/admin/gallery/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ categories: editingCategories }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Failed to save category tags");
+      }
+      setCategories(data.categories);
+      setIsCategoriesModalOpen(false);
+      showAlert("success", "Category tags saved successfully!");
+    } catch (err: any) {
+      showAlert("error", err.message || "Failed to update category tags");
+    } finally {
+      setIsSavingCategories(false);
+    }
   };
 
   // Handle file selection
@@ -451,7 +551,15 @@ export const GalleryClient: React.FC<GalleryClientProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleOpenCategoriesModal}
+            leftIcon={<Tag className="w-3.5 h-3.5 text-indigo-400" />}
+          >
+            Manage Categories
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -602,15 +710,25 @@ export const GalleryClient: React.FC<GalleryClientProps> = ({
           {/* Form Options */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1.5">
-                Category
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-indigo-400">
+                  Category
+                </label>
+                <button
+                  type="button"
+                  onClick={handleOpenCategoriesModal}
+                  className="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-medium"
+                >
+                  <Tag className="w-3 h-3" />
+                  <span>Edit Categories</span>
+                </button>
+              </div>
               <select
                 value={uploadCategory}
                 onChange={(e) => setUploadCategory(e.target.value)}
                 className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm text-white focus:outline-none focus:border-indigo-500 font-medium"
               >
-                {CATEGORIES.filter((c) => c.id !== "ALL").map((cat) => (
+                {categories.map((cat) => (
                   <option key={cat.id} value={cat.id}>
                     {cat.label}
                   </option>
@@ -728,7 +846,7 @@ export const GalleryClient: React.FC<GalleryClientProps> = ({
 
       {/* Category Pills */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
-        {CATEGORIES.map((cat) => {
+        {[{ id: "ALL", label: "All Photos" }, ...categories].map((cat) => {
           const isActive = activeCategory === cat.id;
           const count =
             cat.id === "ALL"
@@ -756,6 +874,16 @@ export const GalleryClient: React.FC<GalleryClientProps> = ({
             </button>
           );
         })}
+
+        <button
+          type="button"
+          onClick={handleOpenCategoriesModal}
+          className="px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1.5 transition shrink-0 ml-auto"
+          title="Edit and organize category tags"
+        >
+          <Tag className="w-3.5 h-3.5 text-indigo-400" />
+          <span>Edit Tags</span>
+        </button>
       </div>
 
       {/* Gallery Grid */}
@@ -804,7 +932,7 @@ export const GalleryClient: React.FC<GalleryClientProps> = ({
                 {/* Top Badges */}
                 <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between gap-1 pointer-events-none">
                   <Badge variant="indigo" size="sm" className="backdrop-blur-md bg-indigo-950/80">
-                    {img.category.replace("_", " ")}
+                    {getCategoryLabel(img.category, categories)}
                   </Badge>
 
                   {img.isFeatured && (
@@ -868,6 +996,11 @@ export const GalleryClient: React.FC<GalleryClientProps> = ({
                     </span>
                     <span>•</span>
                     <span className="font-mono">{formatBytes(img.fileSize || 0)}</span>
+                    {img.mimeType === "image/webp" && (
+                      <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        WEBP
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -927,7 +1060,7 @@ export const GalleryClient: React.FC<GalleryClientProps> = ({
                   onChange={(e) => setEditCategory(e.target.value)}
                   className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm text-white focus:outline-none focus:border-indigo-500"
                 >
-                  {CATEGORIES.filter((c) => c.id !== "ALL").map((cat) => (
+                  {categories.map((cat) => (
                     <option key={cat.id} value={cat.id}>
                       {cat.label}
                     </option>
@@ -1058,7 +1191,7 @@ export const GalleryClient: React.FC<GalleryClientProps> = ({
               )}
               <div className="flex items-center justify-center gap-3 text-xs text-slate-400">
                 <Badge variant="indigo" size="sm">
-                  {currentLightboxItem.category.replace("_", " ")}
+                  {getCategoryLabel(currentLightboxItem.category, categories)}
                 </Badge>
                 {currentLightboxItem.hostel && (
                   <span>{currentLightboxItem.hostel.name}</span>
@@ -1070,6 +1203,156 @@ export const GalleryClient: React.FC<GalleryClientProps> = ({
           </div>
         </div>
       )}
+
+      {/* Manage Categories / Tags Modal */}
+      <Modal
+        isOpen={isCategoriesModalOpen}
+        onClose={() => setIsCategoriesModalOpen(false)}
+        title="Manage Gallery Categories & Tags"
+        description="Add, rename, reorder, or delete category tags for your gallery photos."
+      >
+        <div className="space-y-5 pt-2">
+          {/* Header tip */}
+          <div className="p-3 rounded-xl bg-indigo-950/40 border border-indigo-500/20 text-xs text-indigo-300 flex items-start gap-2.5">
+            <Tag className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+            <span>
+              These category tags organize your photos across the admin dashboard and public website gallery. You can rename tags, add new ones, reorder them, or remove unused tags.
+            </span>
+          </div>
+
+          {/* Categories List */}
+          <div className="space-y-2 max-h-[45vh] overflow-y-auto pr-1 scrollbar-thin">
+            {editingCategories.map((cat, idx) => {
+              const imageCount = images.filter(
+                (img) => img.category.toUpperCase() === cat.id.toUpperCase()
+              ).length;
+
+              return (
+                <div
+                  key={cat.id || idx}
+                  className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition"
+                >
+                  {/* Reorder Buttons */}
+                  <div className="flex flex-col gap-0.5">
+                    <button
+                      type="button"
+                      disabled={idx === 0}
+                      onClick={() => handleMoveCategory(idx, "up")}
+                      className="p-1 rounded text-slate-400 hover:text-white disabled:opacity-20 disabled:hover:text-slate-400 transition"
+                      title="Move up"
+                    >
+                      <ArrowUp className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={idx === editingCategories.length - 1}
+                      onClick={() => handleMoveCategory(idx, "down")}
+                      className="p-1 rounded text-slate-400 hover:text-white disabled:opacity-20 disabled:hover:text-slate-400 transition"
+                      title="Move down"
+                    >
+                      <ArrowDown className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Editable Label */}
+                  <div className="flex-1 min-w-0">
+                    <input
+                      type="text"
+                      value={cat.label}
+                      onChange={(e) => handleCategoryLabelChange(idx, e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-sm font-semibold text-white focus:outline-none focus:border-indigo-500"
+                      placeholder="Category display name"
+                    />
+                    <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-400 font-mono">
+                      <span>ID: {cat.id}</span>
+                      <span>•</span>
+                      <span>{imageCount} {imageCount === 1 ? "photo" : "photos"}</span>
+                    </div>
+                  </div>
+
+                  {/* Delete Button */}
+                  <button
+                    type="button"
+                    disabled={editingCategories.length <= 1}
+                    onClick={() => handleDeleteCategory(idx)}
+                    className="p-2 rounded-lg text-rose-400 hover:bg-rose-950/50 hover:text-rose-300 disabled:opacity-20 transition"
+                    title={
+                      editingCategories.length <= 1
+                        ? "Must keep at least 1 category"
+                        : "Delete category"
+                    }
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Add New Category Row */}
+          <div className="pt-3 border-t border-slate-800">
+            <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1.5">
+              Add New Category Tag
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={newCategoryLabel}
+                onChange={(e) => setNewCategoryLabel(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddNewCategory();
+                  }
+                }}
+                placeholder="e.g. Swimming Pool, Fitness Gym, Study Pods..."
+                className="flex-1 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleAddNewCategory}
+                leftIcon={<Plus className="w-4 h-4" />}
+              >
+                Add Tag
+              </Button>
+            </div>
+          </div>
+
+          {/* Modal Footer Actions */}
+          <div className="flex items-center justify-between pt-4 border-t border-slate-800">
+            <button
+              type="button"
+              onClick={handleResetCategoriesToDefaults}
+              className="text-xs text-slate-400 hover:text-white flex items-center gap-1.5 transition"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Reset to Defaults</span>
+            </button>
+
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="md"
+                onClick={() => setIsCategoriesModalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="glow"
+                size="md"
+                isLoading={isSavingCategories}
+                onClick={handleSaveCategories}
+              >
+                Save Categories
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
