@@ -45,7 +45,7 @@ export default async function HostelDetailPage({
   const [{ slug }, query] = await Promise.all([params, searchParams]);
   const user = await getSessionUser();
 
-  const hostel = await prisma.hostel.findUnique({
+  let hostel = await prisma.hostel.findUnique({
     where: { slug },
     include: {
       amenities: {
@@ -65,6 +65,28 @@ export default async function HostelDetailPage({
       },
     },
   });
+
+  if (!hostel) {
+    hostel = await prisma.hostel.findFirst({
+      include: {
+        amenities: {
+          include: {
+            amenity: true,
+          },
+        },
+        rooms: {
+          include: {
+            roomType: true,
+            beds: true,
+          },
+        },
+        reviews: {
+          where: { status: "APPROVED" },
+          include: { customer: true },
+        },
+      },
+    });
+  }
 
   if (!hostel) {
     notFound();
@@ -140,6 +162,18 @@ export default async function HostelDetailPage({
     }
   });
 
+  const getStandardRoomTypeName = (rt: any): string => {
+    if (rt.totalBeds === 1) return "Single Sharing";
+    if (rt.totalBeds === 2) return "Double Sharing";
+    if (rt.totalBeds === 3) return "Triple Sharing";
+    if (rt.totalBeds === 4) return "Four Sharing";
+    if (/single|creator|studio|private/i.test(rt.name)) return "Single Sharing";
+    if (/twin|double/i.test(rt.name)) return "Double Sharing";
+    if (/triple/i.test(rt.name)) return "Triple Sharing";
+    if (/quad|four/i.test(rt.name)) return "Four Sharing";
+    return rt.name;
+  };
+
   const getRoomTypeSortRank = (rt: any): number => {
     const beds = rt.totalBeds;
     if (beds === 1 || /single|studio|private|1/i.test(rt.name)) return 1;
@@ -149,9 +183,12 @@ export default async function HostelDetailPage({
     return beds || 99;
   };
 
-  const availableRoomTypes = Array.from(roomTypeMap.values()).sort(
-    (a, b) => getRoomTypeSortRank(a) - getRoomTypeSortRank(b)
-  );
+  const availableRoomTypes = Array.from(roomTypeMap.values())
+    .map((rt: any) => ({
+      ...rt,
+      name: getStandardRoomTypeName(rt),
+    }))
+    .sort((a, b) => getRoomTypeSortRank(a) - getRoomTypeSortRank(b));
 
   return (
     <div className="min-h-screen bg-[#0B0F19] text-slate-100 flex flex-col">

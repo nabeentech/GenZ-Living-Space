@@ -2,6 +2,24 @@ import { Prisma } from "@prisma/client";
 
 type Db = Prisma.TransactionClient;
 
+export const SHARING_NAMES: Record<number, string> = {
+  1: "Single Sharing",
+  2: "Double Sharing",
+  3: "Triple Sharing",
+  4: "Four Sharing",
+};
+
+export const SHARING_SLUGS: Record<number, string> = {
+  1: "single-sharing",
+  2: "double-sharing",
+  3: "triple-sharing",
+  4: "four-sharing",
+};
+
+export function getSharingName(capacity: number): string {
+  return SHARING_NAMES[capacity] ?? `${capacity}-Bed Shared Room`;
+}
+
 /** Return a room type whose bed count matches the room inventory. */
 export async function getRoomTypeForCapacity(db: Db, capacity: number) {
   const matching = await db.roomType.findFirst({
@@ -10,7 +28,7 @@ export async function getRoomTypeForCapacity(db: Db, capacity: number) {
   });
   if (matching) return matching;
 
-  const slug = `shared-room-${capacity}-bed`;
+  const slug = SHARING_SLUGS[capacity] ?? `shared-room-${capacity}-bed`;
   const existing = await db.roomType.findUnique({ where: { slug } });
   if (existing) {
     return db.roomType.update({
@@ -23,11 +41,11 @@ export async function getRoomTypeForCapacity(db: Db, capacity: number) {
   const acDaily = Math.round(daily * 1.2);
   return db.roomType.create({
     data: {
-      name: `${capacity}-Bed Shared Room`,
+      name: getSharingName(capacity),
       slug,
-      description: `Shared room with ${capacity} beds.`,
+      description: `${getSharingName(capacity)} with ${capacity} bed${capacity > 1 ? "s" : ""}.`,
       totalBeds: capacity,
-      genderCategory: "MIXED",
+      genderCategory: capacity === 1 ? "PRIVATE" : "MIXED",
       basePrice: daily,
       monthlyPrice: daily * 24,
       securityDeposit: 3000,

@@ -129,7 +129,7 @@ export default async function PublicGalleryPage() {
                 Reserve your pod or room in under 2 minutes. Instant digital QR pass on booking confirmation.
               </p>
               <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-                <Link href="/hostels/madhapur-01-hyd">
+                <Link href="/hostels/genz-colive-pg-guest-rooms">
                   <Button variant="glow" size="lg" rightIcon={<Compass className="w-4 h-4" />}>
                     Find A Bed & Book Now
                   </Button>

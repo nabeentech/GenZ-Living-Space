@@ -48,7 +48,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user: propUser }) => {
   }, [propUser]);
 
   const navLinks = [
-    { label: "Why GenZ", href: "/#why-us" },
+    { label: "Hostel & Rooms", href: "/hostels/genz-colive-pg-guest-rooms" },
     { label: "Amenities", href: "/#amenities" },
     { label: "Gallery", href: "/gallery" },
     { label: "Community", href: "/#community" },
@@ -75,7 +75,9 @@ export const Navbar: React.FC<NavbarProps> = ({ user: propUser }) => {
         {/* Desktop Navigation Links */}
         {!isAdmin && <nav className="hidden md:flex items-center gap-8">
           {navLinks.map((link) => {
-            const isActive = pathname === link.href;
+            const isActive =
+              pathname === link.href ||
+              (link.href.startsWith("/hostels") && pathname.startsWith("/hostels"));
             return (
               <Link
                 key={link.href}
@@ -127,7 +129,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user: propUser }) => {
             </Link>
           )}
 
-          {!isAdmin && <Link href="/hostels/madhapur-01-hyd">
+          {!isAdmin && <Link href="/hostels/genz-colive-pg-guest-rooms">
             <Button variant="glow" size="sm" rightIcon={<Compass className="w-4 h-4" />}>
               Find A Bed
             </Button>
@@ -150,16 +152,23 @@ export const Navbar: React.FC<NavbarProps> = ({ user: propUser }) => {
       {isMobileMenuOpen && (
         <div className="md:hidden border-b border-slate-800 bg-[#0B0F19] px-6 py-6 space-y-4 animate-in slide-in-from-top-4 duration-200">
           <div className="flex flex-col space-y-3">
-            {!isAdmin && navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="text-base font-medium text-slate-200 hover:text-indigo-400 py-1"
-              >
-                {link.label}
-              </Link>
-            ))}
+            {!isAdmin && navLinks.map((link) => {
+              const isActive =
+                pathname === link.href ||
+                (link.href.startsWith("/hostels") && pathname.startsWith("/hostels"));
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`text-base font-medium py-1 transition-colors ${
+                    isActive ? "text-indigo-400 font-semibold" : "text-slate-200 hover:text-indigo-400"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
           </div>
 
           <div className="pt-4 border-t border-slate-800 flex flex-col gap-3">
@@ -187,7 +196,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user: propUser }) => {
               </Link>
             )}
 
-            {!isAdmin && <Link href="/hostels/madhapur-01-hyd" onClick={() => setIsMobileMenuOpen(false)}>
+            {!isAdmin && <Link href="/hostels/genz-colive-pg-guest-rooms" onClick={() => setIsMobileMenuOpen(false)}>
               <Button variant="glow" size="md" className="w-full justify-center">
                 Explore Hostels & Book
               </Button>

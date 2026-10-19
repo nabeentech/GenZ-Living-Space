@@ -22,7 +22,7 @@ export const HeroSearch: React.FC = () => {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     router.push(
-      `/hostels/madhapur-01-hyd?checkIn=${checkIn}&checkOut=${checkOut}&guests=${guests}`
+      `/hostels/genz-colive-pg-guest-rooms?checkIn=${checkIn}&checkOut=${checkOut}&guests=${guests}`
     );
   };
 

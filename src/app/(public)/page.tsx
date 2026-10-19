@@ -158,7 +158,7 @@ export default async function HomePage() {
                   Lock your bed now. Receive your digital QR pass instantly and check in seamlessly at reception.
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
-                  <Link href="/hostels/madhapur-01-hyd">
+                  <Link href="/hostels/genz-colive-pg-guest-rooms">
                     <Button variant="glow" size="lg" rightIcon={<ArrowRight className="w-4 h-4" />}>
                       Explore Our Hostels
                     </Button>

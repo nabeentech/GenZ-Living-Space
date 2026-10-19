@@ -35,7 +35,7 @@ export const Footer: React.FC = () => {
             </h4>
             <ul className="space-y-2.5 text-sm">
               <li>
-                <Link href="/hostels/madhapur-01-hyd" className="hover:text-indigo-400 transition">
+                <Link href="/hostels/genz-colive-pg-guest-rooms" className="hover:text-indigo-400 transition">
                   GenZ Colive PG & Guest Rooms
                 </Link>
               </li>

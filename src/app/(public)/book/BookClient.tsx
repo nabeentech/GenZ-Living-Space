@@ -172,12 +172,12 @@ export function formatGovtId(raw: string, idType: string, isDeleting: boolean = 
 }
 
 export const getSharingCategoryName = (room: any): string => {
-  if (!room) return "Standard";
-  if (room.capacity === 1 || /single|studio|private|1/i.test(room.roomType?.name || "")) return "Single share";
-  if (room.capacity === 2 || /twin|double|2/i.test(room.roomType?.name || "")) return "Double share";
-  if (room.capacity === 3 || /triple|3/i.test(room.roomType?.name || "")) return "Triple share";
-  if (room.capacity === 4 || /quad|four|4/i.test(room.roomType?.name || "")) return "Four share";
-  return room.roomType?.name || "Standard";
+  if (!room) return "Single Sharing";
+  if (room.capacity === 1 || /single|studio|private|1/i.test(room.roomType?.name || "")) return "Single Sharing";
+  if (room.capacity === 2 || /twin|double|2/i.test(room.roomType?.name || "")) return "Double Sharing";
+  if (room.capacity === 3 || /triple|3/i.test(room.roomType?.name || "")) return "Triple Sharing";
+  if (room.capacity === 4 || /quad|four|4/i.test(room.roomType?.name || "")) return "Four Sharing";
+  return room.roomType?.name || "Single Sharing";
 };
 
 export const BookClient: React.FC = () => {
@@ -195,7 +195,7 @@ export const BookClient: React.FC = () => {
 
   const [hostels, setHostels] = useState<any[]>([]);
   const [selectedHostelSlug, setSelectedHostelSlug] = useState(
-    searchParams.get("hostel") || "madhapur-01-hyd"
+    searchParams.get("hostel") || "genz-colive-pg-guest-rooms"
   );
 
   const todayStr = new Date().toISOString().split("T")[0];
@@ -480,13 +480,13 @@ export const BookClient: React.FC = () => {
     return roomsData.filter((r) => getSharingCategoryName(r) === cat);
   }, [roomsData, selectedRoom]);
 
-  // Distinct category list and counts ordered: Single share, Double share, Triple share, Four share
+  // Distinct category list and counts ordered: Single Sharing, Double Sharing, Triple Sharing, Four Sharing
   const categoriesList = useMemo(() => {
     const counts: Record<string, number> = {
-      "Single share": 0,
-      "Double share": 0,
-      "Triple share": 0,
-      "Four share": 0,
+      "Single Sharing": 0,
+      "Double Sharing": 0,
+      "Triple Sharing": 0,
+      "Four Sharing": 0,
     };
 
     roomsData.forEach((r) => {
@@ -498,7 +498,7 @@ export const BookClient: React.FC = () => {
       }
     });
 
-    const orderedKeys = ["Single share", "Double share", "Triple share", "Four share"];
+    const orderedKeys = ["Single Sharing", "Double Sharing", "Triple Sharing", "Four Sharing"];
     const result: { name: string; count: number }[] = [];
 
     orderedKeys.forEach((key) => {
@@ -586,7 +586,7 @@ export const BookClient: React.FC = () => {
     return filteredRoomsList.reduce((acc, r) => acc + (r.totalAvailableBeds || 0), 0);
   }, [filteredRoomsList]);
 
-  // Group filtered rooms by category in order: Single share, Double share, Triple share, Four share
+  // Group filtered rooms by category in order: Single Sharing, Double Sharing, Triple Sharing, Four Sharing
   const filteredAndGroupedRooms = useMemo(() => {
     const grouped: Record<string, any[]> = {};
     filteredRoomsList.forEach((room) => {
@@ -596,7 +596,7 @@ export const BookClient: React.FC = () => {
     });
 
     const ordered: Record<string, any[]> = {};
-    const order = ["Single share", "Double share", "Triple share", "Four share"];
+    const order = ["Single Sharing", "Double Sharing", "Triple Sharing", "Four Sharing"];
     order.forEach((k) => {
       if (grouped[k] && grouped[k].length > 0) {
         ordered[k] = grouped[k];

@@ -153,11 +153,11 @@ async function main() {
 
   console.log("Amenities created.");
 
-  // 3. Create Room Types (Only 3 types with separate AC/Non-AC pricing)
+  // 3. Create Room Types (Only 4 types with separate AC/Non-AC pricing)
   const twinSharingPod = await prisma.roomType.create({
     data: {
-      name: "Twin Sharing Pod Room",
-      slug: "twin-sharing-pod-room",
+      name: "Double Sharing",
+      slug: "double-sharing",
       description: "Shared between only two residents. Features two single beds, dedicated work desks, high-speed Ethernet ports, and attached balcony.",
       totalBeds: 2,
       genderCategory: "MIXED",
@@ -212,8 +212,8 @@ async function main() {
 
   const privateCreatorStudio = await prisma.roomType.create({
     data: {
-      name: "Private Creator Studio",
-      slug: "private-creator-studio",
+      name: "Single Sharing",
+      slug: "single-sharing",
       description: "Ultra-luxe private sanctuary for solo builders or founders. Includes king-size bed, private work nook, smart TV, and designer bath.",
       totalBeds: 1,
       genderCategory: "PRIVATE",
@@ -240,8 +240,8 @@ async function main() {
 
   const fourSharingPod = await prisma.roomType.create({
     data: {
-      name: "Four Sharing Pod Room",
-      slug: "four-sharing-pod-room",
+      name: "Four Sharing",
+      slug: "four-sharing",
       description: "Spacious community quad pod room. Features four cozy pod beds with privacy curtains, reading lights, power sockets, and individual secure lockers.",
       totalBeds: 4,
       genderCategory: "MIXED",
@@ -271,7 +271,7 @@ async function main() {
   // 4. The Dedicated Hostel Property
   const hostelsData = [
     {
-      slug: "madhapur-01-hyd",
+      slug: "genz-colive-pg-guest-rooms",
       name: "GenZ Colive PG & Guest Rooms",
       tagline: "The Startup & Tech Creator Pad",
       city: "Madhapur - HYD",
