@@ -108,6 +108,10 @@ export default async function HostelDetailPage({
       .catch(() => undefined);
   }
 
+  if (hostel.description && (/madhapur\s*-?\s*01/i.test(hostel.description))) {
+    hostel.description = hostel.description.replace(/madhapur\s*-?\s*01/gi, hostel.name);
+  }
+
   // Load uploaded gallery images from the server database (no hardcoded static images)
   const dbGalleryRecords = await prisma.galleryImage.findMany({
     where: {
@@ -251,16 +255,30 @@ export default async function HostelDetailPage({
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-4 border-t border-slate-800/60 text-xs text-slate-300">
                   <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-indigo-400" />
-                    <span>Check-In: {hostel.checkInTime}</span>
+                    <Clock className="w-4 h-4 text-indigo-400 shrink-0" />
+                    <span>Check-In: Anytime</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-pink-400" />
-                    <span>Check-Out: {hostel.checkOutTime}</span>
+                    <Clock className="w-4 h-4 text-pink-400 shrink-0" />
+                    <span>Check-Out: Anytime</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-4 h-4 text-emerald-400" />
-                    <span>{hostel.contactPhone}</span>
+                  <div className="flex items-center gap-2 col-span-2 sm:col-span-1">
+                    <Phone className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <a
+                        href="tel:+919652037700"
+                        className="text-white hover:text-emerald-400 font-semibold transition"
+                      >
+                        +91 96520 37700
+                      </a>
+                      <span className="text-slate-500">/</span>
+                      <a
+                        href="tel:+919652037744"
+                        className="text-white hover:text-emerald-400 font-semibold transition"
+                      >
+                        +91 96520 37744
+                      </a>
+                    </div>
                   </div>
                 </div>
               </div>

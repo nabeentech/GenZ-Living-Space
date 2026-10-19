@@ -290,9 +290,9 @@ async function main() {
         "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=800&auto=format&fit=crop&q=80"
       ]),
       contactPhone: "+91 96520 37700 / +91 96520 37744",
-      contactEmail: "madhapur01@genzlivingspace.com",
-      checkInTime: "13:00",
-      checkOutTime: "11:00",
+      contactEmail: "contact@genzlivingspace.com",
+      checkInTime: "Anytime",
+      checkOutTime: "Anytime",
       rules: JSON.stringify([
         "Quiet co-working hours on rooftop: 10 PM to 8 AM",
         "Valid Government ID required at check-in",
