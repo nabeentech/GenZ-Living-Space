@@ -63,8 +63,8 @@ export const Navbar: React.FC<NavbarProps> = ({ user: propUser }) => {
         {/* Brand Logo */}
         <Link href="/" className="flex items-center gap-3 group">
           <div className="flex flex-col">
-            <span className="font-extrabold text-xl tracking-tight text-white flex items-center gap-1.5">
-              GenZ <span className="text-indigo-400 font-semibold">Living Space</span>
+            <span className="font-extrabold text-base sm:text-xl tracking-tight text-white flex items-center gap-1.5">
+              GenZ <span className="text-indigo-400 font-semibold">Colive PG & Guest Rooms</span>
             </span>
             <span className="text-[10px] uppercase font-bold tracking-widest text-pink-400 -mt-1">
               Madhapur - HYD

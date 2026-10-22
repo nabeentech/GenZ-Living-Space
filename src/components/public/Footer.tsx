@@ -11,7 +11,7 @@ export const Footer: React.FC = () => {
           <div className="lg:col-span-2 space-y-4">
             <Link href="/" className="flex items-center gap-3">
               <span className="font-extrabold text-xl tracking-tight text-white">
-                GenZ <span className="text-indigo-400">Living Space</span>
+                GenZ <span className="text-indigo-400">Colive PG & Guest Rooms</span>
               </span>
             </Link>
             <p className="text-sm text-slate-400 max-w-sm leading-relaxed">
