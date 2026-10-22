@@ -72,3 +72,6 @@ Thumbs.db
 *.sqlite
 *.sqlite-journal
 prisma/dev.db
+*.db.backup*
+prisma/*.backup*
+

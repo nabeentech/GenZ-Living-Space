@@ -10,7 +10,8 @@
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:seed": "tsx prisma/seed.ts",
-    "seed": "node -e \"require('tsx').register()\" -r ./prisma/seed.ts"
+    "seed": "node -e \"require('tsx').register()\" -r ./prisma/seed.ts",
+    "db:reset-live": "tsx scripts/reset-live-data.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
