@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
+import crypto from "crypto";
 import prisma from "@/lib/prisma";
-import { getSessionUser, hasPermission, ROLES } from "@/lib/auth";
+import { getSessionUser, hasPermission, ROLES, hashPassword } from "@/lib/auth";
 import { generateBookingQRCode } from "@/lib/qr";
 import { generateUniqueInvoiceNumber } from "@/lib/invoice";
 import { logAuditAction } from "@/lib/audit";
@@ -93,6 +94,8 @@ export async function POST(req: Request) {
 
       let customer = await tx.user.findUnique({ where: { email: emailToUse } });
       if (!customer) {
+        const tempPassword = crypto.randomBytes(16).toString("hex");
+        const validPasswordHash = await hashPassword(tempPassword);
         customer = await tx.user.create({
           data: {
             name: guestName,
@@ -101,7 +104,7 @@ export async function POST(req: Request) {
             gender: guestGender,
             dateOfBirth: guestDateOfBirth ? new Date(guestDateOfBirth) : null,
             govtIdNumber: guestGovtId,
-            passwordHash: "$2a$10$dummyWalkInPassGzHostel2026",
+            passwordHash: validPasswordHash,
             role: "CUSTOMER",
           },
         });

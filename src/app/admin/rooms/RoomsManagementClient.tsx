@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Wind, Zap, AlertCircle, Search, Loader2, CheckCircle2, X } from "lucide-react";
 import Badge from "@/components/ui/Badge";
+import { SHARING_NAMES } from "@/lib/room-types";
 
 interface Room {
   id: string;
@@ -223,7 +224,7 @@ export const RoomsManagementClient: React.FC<RoomsManagementClientProps> = ({ ca
                       <div>
                         <div className="text-2xl font-bold text-white mb-1">{room.roomNumber}</div>
                         <div className="flex gap-2">
-                          <Badge variant="indigo" size="sm">{room.capacity} beds</Badge>
+                          <Badge variant="indigo" size="sm">{SHARING_NAMES[room.capacity] || `${room.capacity} beds`}</Badge>
                           <Badge variant="default" size="sm">{room.status}</Badge>
                         </div>
                       </div>

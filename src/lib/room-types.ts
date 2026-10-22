@@ -16,6 +16,13 @@ export const SHARING_SLUGS: Record<number, string> = {
   4: "four-sharing",
 };
 
+export const SHARING_DESCRIPTIONS: Record<number, string> = {
+  1: "Ultra-luxe private sanctuary for solo builders or founders. Includes king-size bed, private work nook, smart TV, and designer bath.",
+  2: "Shared between only two residents. Features two single beds, dedicated work desks, high-speed Ethernet ports, and attached balcony.",
+  3: "Perfect for groups of three. Features three comfortable beds with individual reading lamps, charging sockets, and shared lockers.",
+  4: "Shared room with 4 beds.",
+};
+
 export function getSharingName(capacity: number): string {
   return SHARING_NAMES[capacity] ?? `${capacity}-Bed Shared Room`;
 }

@@ -258,66 +258,13 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
         throw new Error(json.message || "Failed to initiate payment");
       }
 
-      // Load Razorpay script
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.async = true;
+      // Redirect to PhonePe Standard Checkout
+      if (json.data?.redirectUrl) {
+        window.location.href = json.data.redirectUrl;
+        return;
+      }
 
-      script.onload = () => {
-        const options = {
-          key: json.data.key_id,
-          amount: json.data.amount,
-          currency: "INR",
-          order_id: json.data.orderId,
-          customer_notification: 1,
-          handler: async (response: any) => {
-            try {
-              // Verify payment
-              const verifyRes = await fetch("/api/payments/verify", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  orderId: json.data.orderId,
-                  razorpayPaymentId: response.razorpay_payment_id,
-                  razorpaySignature: response.razorpay_signature,
-                  bookingId: paymentModalBooking.id,
-                }),
-              });
-
-              const verifyJson = await verifyRes.json();
-              if (!verifyRes.ok || !verifyJson.success) {
-                throw new Error(verifyJson.message || "Payment verification failed");
-              }
-
-              setPaymentMsg("✓ Payment successful! Thank you.");
-              // Update booking
-              setBookings((prev) =>
-                prev.map((b) =>
-                  b.id === paymentModalBooking.id
-                    ? { ...b, paidAmount: b.totalAmount, balanceAmount: 0 }
-                    : b
-                )
-              );
-              setTimeout(() => {
-                setPaymentModalBooking(null);
-                setPaymentMsg("");
-              }, 2000);
-            } catch (err: any) {
-              setPaymentMsg(err.message || "Payment verification failed");
-            }
-          },
-          prefill: {
-            name: user.name,
-            email: user.email,
-            contact: user.phone,
-          },
-        };
-
-        const razorpay = new (window as any).Razorpay(options);
-        razorpay.open();
-      };
-
-      document.body.appendChild(script);
+      setPaymentMsg("✓ Payment initiated successfully.");
     } catch (error: any) {
       setPaymentMsg(error.message || "Failed to process payment");
     } finally {

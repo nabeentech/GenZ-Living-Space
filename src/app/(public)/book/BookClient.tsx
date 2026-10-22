@@ -770,6 +770,23 @@ export const BookClient: React.FC = () => {
       }
 
       setCreatedBooking(json.data.booking);
+
+      // Initiate PhonePe V2 Hosted Checkout
+      try {
+        const orderRes = await fetch("/api/payments/create-order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ bookingId: json.data.booking.id }),
+        });
+        const orderJson = await orderRes.json();
+        if (orderRes.ok && orderJson.success && orderJson.data?.redirectUrl) {
+          window.location.href = orderJson.data.redirectUrl;
+          return;
+        }
+      } catch (orderErr) {
+        console.warn("PhonePe order checkout redirect skipped, fallback to confirmation:", orderErr);
+      }
+
       router.replace(`/confirmation?bookingId=${encodeURIComponent(json.data.booking.id)}`);
     } catch (err: any) {
       setPaymentError(err.message || "Error holding bed. Please try again.");
@@ -778,10 +795,26 @@ export const BookClient: React.FC = () => {
     }
   };
 
-  // Payment remains disabled until the Razorpay account is ready.
   const handleConfirmPayment = async () => {
-    if (createdBooking) {
+    if (!createdBooking) return;
+    setIsProcessingPayment(true);
+    setPaymentError("");
+    try {
+      const orderRes = await fetch("/api/payments/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId: createdBooking.id }),
+      });
+      const orderJson = await orderRes.json();
+      if (orderRes.ok && orderJson.success && orderJson.data?.redirectUrl) {
+        window.location.href = orderJson.data.redirectUrl;
+        return;
+      }
       router.replace(`/confirmation?bookingRef=${encodeURIComponent(createdBooking.bookingReference)}&bookingId=${encodeURIComponent(createdBooking.id)}`);
+    } catch (err: any) {
+      setPaymentError(err.message || "Failed to initiate PhonePe payment");
+    } finally {
+      setIsProcessingPayment(false);
     }
   };
 

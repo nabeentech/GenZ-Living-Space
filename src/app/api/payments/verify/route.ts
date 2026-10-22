@@ -12,13 +12,22 @@ export async function POST(req: Request) {
     if (!user || user.role !== "CUSTOMER") {
       return NextResponse.json({ success: false, message: "Please sign in to complete payment." }, { status: 401 });
     }
+    const body = await req.json();
     const {
       bookingId,
+      merchantOrderId,
       razorpayOrderId,
       razorpayPaymentId,
       razorpaySignature,
       paymentMethod = "upi",
-    } = await req.json();
+    } = body;
+
+    if (merchantOrderId) {
+      const baseOrigin = process.env.APP_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      const statusRes = await fetch(`${baseOrigin.replace(/\/+$/, "")}/api/payments/status?merchantOrderId=${encodeURIComponent(merchantOrderId)}`);
+      const statusJson = await statusRes.json();
+      return NextResponse.json(statusJson, { status: statusRes.status });
+    }
 
     if (!bookingId || !razorpayOrderId || !razorpayPaymentId) {
       return NextResponse.json(

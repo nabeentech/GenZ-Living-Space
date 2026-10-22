@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import crypto from "crypto";
 import prisma from "@/lib/prisma";
 import { getSessionUser, hasPermission, ROLES } from "@/lib/auth";
 import { addUtcCalendarDays, calculateBookingPrice, getRoomTypePriceRates } from "@/lib/pricing";
@@ -77,6 +78,25 @@ export async function POST(req: Request) {
       );
     }
     const customerId = user.id;
+
+    // Prevent automated booking hoarding by a single account
+    const activeUnpaidBookings = await prisma.booking.count({
+      where: {
+        customerId: user.id,
+        paymentStatus: "PENDING",
+        bookingStatus: { in: ["CONFIRMED", "PAYMENT_PENDING"] },
+      },
+    });
+
+    if (activeUnpaidBookings >= 3) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "You have 3 active reservations awaiting payment. Please complete payment or cancel an existing booking before reserving another bed.",
+        },
+        { status: 429 }
+      );
+    }
 
     // Fetch Room and RoomType details for pricing
     const room = await prisma.room.findUnique({
@@ -160,7 +180,12 @@ export async function POST(req: Request) {
     const now = new Date();
     // Gateway is intentionally inactive until a Razorpay account is configured.
     const holdExpiresAt = null;
-    const bookingReference = `GZ-${Math.floor(100000 + Math.random() * 900000)}`;
+    let bookingReference = `GZ-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+    for (let i = 0; i < 3; i++) {
+      const existing = await prisma.booking.findUnique({ where: { bookingReference } });
+      if (!existing) break;
+      bookingReference = `GZ-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+    }
     const invoiceNumber = await generateUniqueInvoiceNumber();
 
     // Atomic Transaction: Ensure no double-booking race conditions!

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSessionUser, hasPermission, ROLES } from "@/lib/auth";
+import { canUserEdit } from "@/lib/permissions";
 import sharp from "sharp";
 
 export const dynamic = "force-dynamic";
@@ -110,6 +111,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 403 });
     }
 
+    if (!canUserEdit(user)) {
+      return NextResponse.json({ success: false, message: "You do not have permission to upload photos" }, { status: 403 });
+    }
+
     const formData = await req.formData();
     const files = formData.getAll("files") as File[];
     const singleFile = formData.get("file") as File | null;
@@ -120,6 +125,23 @@ export async function POST(req: NextRequest) {
         { success: false, message: "No image file provided for upload" },
         { status: 400 }
       );
+    }
+
+    if (allFiles.length > 5) {
+      return NextResponse.json(
+        { success: false, message: "You can upload a maximum of 5 images per batch" },
+        { status: 400 }
+      );
+    }
+
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB limit
+    for (const file of allFiles) {
+      if (file.size > MAX_FILE_SIZE) {
+        return NextResponse.json(
+          { success: false, message: `File "${file.name}" exceeds the maximum allowed size of 5MB` },
+          { status: 413 }
+        );
+      }
     }
 
     const customTitle = formData.get("title") as string | null;

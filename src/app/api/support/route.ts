@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import crypto from "crypto";
 import prisma from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 
@@ -24,7 +25,12 @@ export async function POST(req: Request) {
       );
     }
 
-    const ticketNumber = `TKT-${Math.floor(1000 + Math.random() * 9000)}`;
+    let ticketNumber = `TKT-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+    for (let i = 0; i < 3; i++) {
+      const existing = await prisma.supportTicket.findUnique({ where: { ticketNumber } });
+      if (!existing) break;
+      ticketNumber = `TKT-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+    }
 
     const ticket = await prisma.supportTicket.create({
       data: {

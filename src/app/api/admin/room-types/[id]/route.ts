@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
+import { SHARING_NAMES, SHARING_DESCRIPTIONS } from "@/lib/room-types";
 
 export const dynamic = "force-dynamic";
 
@@ -66,11 +67,14 @@ export async function PATCH(
         ...(price30DaysAC !== undefined && { price30DaysAC: Number(price30DaysAC) }),
       },
     });
-
     return NextResponse.json({
       success: true,
       message: "Room type pricing updated successfully",
-      data: updatedRoomType,
+      data: {
+        ...updatedRoomType,
+        name: SHARING_NAMES[updatedRoomType.totalBeds] || updatedRoomType.name,
+        description: SHARING_DESCRIPTIONS[updatedRoomType.totalBeds] || updatedRoomType.description,
+      },
     });
   } catch (error: any) {
     console.error("Error updating room type:", error);

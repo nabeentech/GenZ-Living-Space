@@ -6,6 +6,7 @@ import Badge from "@/components/ui/Badge";
 import CustomSelect from "@/components/ui/CustomSelect";
 import DatePicker from "@/components/ui/DatePicker";
 import { calculateStayBaseAmount, getRoomTypePriceRates } from "@/lib/pricing";
+import { SHARING_NAMES } from "@/lib/room-types";
 import {
   UserPlus,
   Calendar,
@@ -188,7 +189,7 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels }) => {
                 const r = rooms.find((item: any) => item.id === value);
                 if (r?.beds?.[0]) setSelectedBedId(r.beds[0].id);
               }}
-              options={rooms.map((r: any) => ({ value: r.id, label: `Room ${r.roomNumber} (${r.roomType?.name})` }))}
+              options={rooms.map((r: any) => ({ value: r.id, label: `Room ${r.roomNumber} (${SHARING_NAMES[r.capacity] || r.roomType?.name || `${r.capacity}-Share`})` }))}
               triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs"
             />
           </div>

@@ -6,6 +6,7 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import CustomSelect from "@/components/ui/CustomSelect";
 import { Bed as BedIcon, User, Sparkles, Filter, CheckCircle2, AlertTriangle, RefreshCw, ChevronRight, Edit2, Plus, Trash2 } from "lucide-react";
+import { SHARING_NAMES } from "@/lib/room-types";
 
 interface BedMatrixClientProps {
   hostels: any[];
@@ -495,7 +496,7 @@ export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels, canEd
                           <span>{room.building}</span>
                           <span>•</span>
                           <Badge variant="default" size="sm">
-                            {room.roomType.name}
+                            {SHARING_NAMES[room.capacity] || room.roomType.name}
                           </Badge>
                         </div>
                       </div>
@@ -681,7 +682,7 @@ export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels, canEd
           isOpen={!!selectedRoom}
           onClose={() => setSelectedRoom(null)}
           title={`Edit Room — ${selectedRoom.roomNumber}`}
-          description={`Floor ${selectedRoom.floor} • ${selectedRoom.building} • ${selectedRoom.roomType.name}`}
+          description={`Floor ${selectedRoom.floor} • ${selectedRoom.building} • ${SHARING_NAMES[selectedRoom.capacity] || selectedRoom.roomType.name}`}
         >
           <div className="space-y-4 py-2">
             <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2 text-xs">
@@ -691,7 +692,7 @@ export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels, canEd
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Room Type:</span>
-                <span className="font-bold text-white">{selectedRoom.roomType.name}</span>
+                <span className="font-bold text-white">{SHARING_NAMES[selectedRoom.capacity] || selectedRoom.roomType.name}</span>
               </div>
             </div>
 
@@ -840,7 +841,7 @@ export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels, canEd
                 Bed Capacity
               </label>
               <div className="flex items-center justify-between p-4 rounded-xl bg-slate-900 border border-slate-700">
-                <span className="text-lg font-black text-white">{newRoomCapacity} beds</span>
+                <span className="text-lg font-black text-white">{newRoomCapacity} beds ({SHARING_NAMES[newRoomCapacity] || "Shared"})</span>
                 <div className="flex gap-2">
                   <Button
                     variant="ghost"

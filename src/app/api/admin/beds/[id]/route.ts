@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSessionUser, hasPermission, ROLES } from "@/lib/auth";
 import { logAuditAction } from "@/lib/audit";
+import { canUserEdit } from "@/lib/permissions";
 
 export async function PATCH(
   req: Request,
@@ -11,6 +12,9 @@ export async function PATCH(
     const user = await getSessionUser();
     if (!user || !hasPermission(user.role, [ROLES.SUPER_ADMIN, ROLES.PROPERTY_MANAGER, ROLES.RECEPTIONIST, ROLES.HOUSEKEEPING])) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 403 });
+    }
+    if (!canUserEdit(user)) {
+      return NextResponse.json({ success: false, message: "You do not have permission to edit bed records" }, { status: 403 });
     }
 
     const { id: bedId } = await params;

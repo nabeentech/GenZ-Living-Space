@@ -18,7 +18,15 @@ export async function GET(
         },
         reviews: {
           where: { status: "APPROVED" },
-          include: { customer: true },
+          include: {
+            customer: {
+              select: {
+                id: true,
+                name: true,
+                avatarUrl: true,
+              },
+            },
+          },
         },
       },
     });

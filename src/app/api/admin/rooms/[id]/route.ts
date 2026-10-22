@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSessionUser, ROLES } from "@/lib/auth";
 import { getRoomTypeForCapacity } from "@/lib/room-types";
+import { canUserEdit, canUserDelete } from "@/lib/permissions";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -12,6 +13,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (!sessionUser || ![ROLES.SUPER_ADMIN, ROLES.PROPERTY_MANAGER].includes(sessionUser.role as any)) {
       return NextResponse.json(
         { success: false, message: "Unauthorized access" },
+        { status: 403 }
+      );
+    }
+
+    if (!canUserEdit(sessionUser)) {
+      return NextResponse.json(
+        { success: false, message: "You do not have permission to edit rooms" },
         { status: 403 }
       );
     }
@@ -154,6 +162,13 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       );
     }
 
+    if (!canUserDelete(sessionUser)) {
+      return NextResponse.json(
+        { success: false, message: "You do not have permission to delete rooms" },
+        { status: 403 }
+      );
+    }
+
     // Get room with all related data
     const room = await prisma.room.findUnique({
       where: { id },
@@ -188,12 +203,30 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       );
     }
 
-    // Delete all beds first
+    // Check if room has any historical booking records (CHECKED_OUT, CANCELLED, etc.)
+    const totalPastBookings = room.beds.flatMap((bed) => bed.bookings).length;
+    if (totalPastBookings > 0) {
+      // Soft-delete to preserve audit logs and historical guest invoices
+      await prisma.room.update({
+        where: { id },
+        data: { active: false, status: "BLOCKED" },
+      });
+      await prisma.bed.updateMany({
+        where: { roomId: id },
+        data: { status: "BLOCKED" },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `Room ${room.roomNumber} contains historical booking records and has been deactivated/archived safely.`,
+      });
+    }
+
+    // Safe to hard delete only if no bookings ever touched this room
     await prisma.bed.deleteMany({
       where: { roomId: id },
     });
 
-    // Delete the room
     await prisma.room.delete({
       where: { id },
     });

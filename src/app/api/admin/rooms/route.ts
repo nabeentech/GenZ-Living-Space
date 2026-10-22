@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSessionUser, ROLES } from "@/lib/auth";
 import { getRoomTypeForCapacity } from "@/lib/room-types";
+import { canUserEdit } from "@/lib/permissions";
 
 export async function GET(req: NextRequest) {
   try {
@@ -41,6 +42,13 @@ export async function POST(req: NextRequest) {
     if (!sessionUser || ![ROLES.SUPER_ADMIN, ROLES.PROPERTY_MANAGER].includes(sessionUser.role as any)) {
       return NextResponse.json(
         { success: false, message: "Unauthorized access" },
+        { status: 403 }
+      );
+    }
+
+    if (!canUserEdit(sessionUser)) {
+      return NextResponse.json(
+        { success: false, message: "You do not have permission to create rooms" },
         { status: 403 }
       );
     }

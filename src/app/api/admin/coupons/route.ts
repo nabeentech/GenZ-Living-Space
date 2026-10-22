@@ -58,6 +58,11 @@ export async function POST(req: Request) {
 
 export async function GET() {
   try {
+    const user = await getSessionUser();
+    if (!user || !hasPermission(user.role, [ROLES.SUPER_ADMIN, ROLES.FINANCE, ROLES.PROPERTY_MANAGER, ROLES.RECEPTIONIST])) {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+    }
+
     const coupons = await prisma.coupon.findMany({
       orderBy: { createdAt: "desc" },
     });

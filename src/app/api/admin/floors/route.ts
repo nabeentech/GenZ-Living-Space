@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSessionUser, ROLES } from "@/lib/auth";
+import { canUserEdit } from "@/lib/permissions";
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,6 +11,13 @@ export async function POST(req: NextRequest) {
     if (!sessionUser || ![ROLES.SUPER_ADMIN, ROLES.PROPERTY_MANAGER].includes(sessionUser.role as any)) {
       return NextResponse.json(
         { success: false, message: "Unauthorized access" },
+        { status: 403 }
+      );
+    }
+
+    if (!canUserEdit(sessionUser)) {
+      return NextResponse.json(
+        { success: false, message: "You do not have permission to create floors" },
         { status: 403 }
       );
     }
@@ -47,16 +55,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get default room type
+    // Get default room type (Four Sharing / four-sharing)
     const defaultRoomType = await prisma.roomType.findFirst({
       where: {
-        name: "4-Bed Creator Dorm",
+        OR: [
+          { slug: "four-sharing" },
+          { name: "Four Sharing" },
+          { totalBeds: 4 },
+        ],
       },
-    });
+    }) || await prisma.roomType.findFirst();
 
     if (!defaultRoomType) {
       return NextResponse.json(
-        { success: false, message: "Default room type not found" },
+        { success: false, message: "Default room type not found. Please seed room types." },
         { status: 400 }
       );
     }
