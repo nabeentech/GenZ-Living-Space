@@ -659,6 +659,7 @@ export const BookClient: React.FC = () => {
       weeklyDiscountPct: selectedRoom.roomType.weeklyDiscountPct,
       monthlyPrice: rates.days30,
       securityDeposit: selectedRoom.roomType.securityDeposit,
+      maintenanceFee: selectedRoom.roomType.maintenanceFee,
       coupon: appliedCoupon,
     });
   }, [selectedRoom, checkIn, checkOut, stayType, appliedCoupon]);

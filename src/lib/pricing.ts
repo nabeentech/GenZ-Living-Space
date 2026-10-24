@@ -7,6 +7,7 @@ export interface PriceCalculationParams {
   stayType?: "DAILY" | "MONTHLY";
   rates?: StayPriceRates;
   securityDeposit?: number;
+  maintenanceFee?: number;
   coupon?: {
     code: string;
     discountType: string; // "PERCENTAGE" | "FIXED"
@@ -97,7 +98,8 @@ export function calculateBookingPrice(params: PriceCalculationParams): PriceBrea
       days15: basePrice * 15,
       days30: monthlyPrice,
     },
-    securityDeposit: defaultDeposit = 0,
+    securityDeposit: configuredDeposit,
+    maintenanceFee: configuredMaintenance,
     coupon,
   } = params;
 
@@ -113,7 +115,7 @@ export function calculateBookingPrice(params: PriceCalculationParams): PriceBrea
   if (requestedStayType === "MONTHLY" || (!requestedStayType && nights >= 28)) {
     stayType = "MONTHLY";
     baseAmount = Math.round(rates.days30 * (nights / 30));
-    securityDeposit = 5000;
+    securityDeposit = configuredDeposit !== undefined && configuredDeposit !== null ? configuredDeposit : 5000;
   } else if (!requestedStayType && nights >= 7) {
     stayType = "WEEKLY";
   } else {
@@ -145,8 +147,9 @@ export function calculateBookingPrice(params: PriceCalculationParams): PriceBrea
   const taxableAmount = Math.max(0, baseAmount - discountAmount);
   // Hospitality GST removed (0%)
   const taxAmount = 0;
-  // Maintenance fee for monthly stays (₹2,000), convenience platform fee for short stays (₹99)
-  const serviceFee = stayType === "MONTHLY" ? 2000 : 99;
+  // Maintenance fee for monthly stays (defaults to ₹2,000 or admin-configured rate), convenience platform fee for short stays (₹99)
+  const monthlyMaintenance = configuredMaintenance !== undefined && configuredMaintenance !== null ? configuredMaintenance : 2000;
+  const serviceFee = stayType === "MONTHLY" ? monthlyMaintenance : 99;
 
   const totalAmount = taxableAmount + taxAmount + serviceFee + securityDeposit;
 
@@ -158,7 +161,7 @@ export function calculateBookingPrice(params: PriceCalculationParams): PriceBrea
     weeklyDiscountApplied,
     taxAmount,
     serviceFee,
-    maintenanceFee: stayType === "MONTHLY" ? 2000 : 0,
+    maintenanceFee: stayType === "MONTHLY" ? monthlyMaintenance : 0,
     securityDeposit,
     discountAmount,
     couponCode,

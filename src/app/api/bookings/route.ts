@@ -174,6 +174,7 @@ export async function POST(req: Request) {
       weeklyDiscountPct: room.roomType.weeklyDiscountPct,
       monthlyPrice: rates.days30,
       securityDeposit: room.roomType.securityDeposit,
+      maintenanceFee: (room.roomType as any).maintenanceFee,
       coupon: couponRecord,
     });
 

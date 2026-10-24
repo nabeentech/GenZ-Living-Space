@@ -483,7 +483,7 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
                       size="sm"
                       onClick={() => {
                         setOfflineRentAmount(
-                          String(selectedBooking.baseAmount + (selectedBooking.serviceFee || 2000))
+                          String(selectedBooking.baseAmount + (selectedBooking.serviceFee || selectedBooking.room?.roomType?.maintenanceFee || 2000))
                         );
                         setShowOfflineRentModal(true);
                         setOfflineRentMsg("");

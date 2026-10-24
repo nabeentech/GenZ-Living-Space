@@ -61,7 +61,7 @@ export async function GET(
 
     const rates = getRoomTypePriceRates(booking.room.roomType, booking.room.isAC);
     const baseRent = rates.days30 || booking.baseAmount;
-    const maintenanceFee = booking.serviceFee || 2000;
+    const maintenanceFee = (booking.room.roomType as any).maintenanceFee || booking.serviceFee || 2000;
     const totalMonthlyRent = baseRent + maintenanceFee;
 
     return NextResponse.json({
@@ -144,7 +144,7 @@ export async function POST(
 
     const rates = getRoomTypePriceRates(booking.room.roomType, booking.room.isAC);
     const baseRent = rates.days30 || booking.baseAmount;
-    const maintenanceFee = booking.serviceFee || 2000;
+    const maintenanceFee = (booking.room.roomType as any).maintenanceFee || booking.serviceFee || 2000;
     const defaultRenewalAmount = baseRent + maintenanceFee;
 
     // FLOW 1: OFFLINE PAYMENT (Staff collection at reception)

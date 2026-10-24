@@ -34,11 +34,14 @@ export async function PATCH(
       price10DaysAC,
       price15DaysAC,
       price30DaysAC,
+      securityDeposit,
+      maintenanceFee,
     } = body;
 
     const priceFields = [
       "pricePerDayNonAC", "price7DaysNonAC", "price10DaysNonAC", "price15DaysNonAC", "price30DaysNonAC",
       "pricePerDayAC", "price7DaysAC", "price10DaysAC", "price15DaysAC", "price30DaysAC",
+      "securityDeposit", "maintenanceFee",
     ];
     const suppliedFields = priceFields.filter((field) => body[field] !== undefined);
     if (suppliedFields.length === 0 || suppliedFields.some((field) => {
@@ -51,7 +54,7 @@ export async function PATCH(
       );
     }
 
-    // Update room type with new AC/Non-AC pricing
+    // Update room type with new AC/Non-AC pricing, deposit, and maintenance fee
     const updatedRoomType = await prisma.roomType.update({
       where: { id },
       data: {
@@ -65,6 +68,8 @@ export async function PATCH(
         ...(price10DaysAC !== undefined && { price10DaysAC: Number(price10DaysAC) }),
         ...(price15DaysAC !== undefined && { price15DaysAC: Number(price15DaysAC) }),
         ...(price30DaysAC !== undefined && { price30DaysAC: Number(price30DaysAC) }),
+        ...(securityDeposit !== undefined && { securityDeposit: Number(securityDeposit) }),
+        ...(maintenanceFee !== undefined && { maintenanceFee: Number(maintenanceFee) }),
       },
     });
     return NextResponse.json({

@@ -125,14 +125,17 @@ export default function PricingManagementClient({ canEdit = true }: { canEdit?: 
       const pricingFields = [
         "pricePerDayNonAC", "price7DaysNonAC", "price10DaysNonAC", "price15DaysNonAC", "price30DaysNonAC",
         "pricePerDayAC", "price7DaysAC", "price10DaysAC", "price15DaysAC", "price30DaysAC",
+        "securityDeposit", "maintenanceFee",
       ];
       const prices: Record<string, number> = {};
       for (const field of pricingFields) {
         const value = roomType[field];
-        if (value === "" || !Number.isFinite(Number(value)) || Number(value) < 0) {
-          throw new Error("Enter a valid non-negative amount for every pricing tier.");
+        if (value !== undefined && value !== null && value !== "") {
+          if (!Number.isFinite(Number(value)) || Number(value) < 0) {
+            throw new Error(`Enter a valid non-negative amount for ${field}.`);
+          }
+          prices[field] = Number(value);
         }
-        prices[field] = Number(value);
       }
 
       const res = await fetch(`/api/admin/room-types/${roomTypeId}`, {
@@ -261,6 +264,67 @@ export default function PricingManagementClient({ canEdit = true }: { canEdit?: 
                       canEdit={canEdit}
                       onPriceChange={handlePriceChange}
                     />
+                  </div>
+
+                  {/* Monthly Colive Fees & Deposits Section */}
+                  <div className="space-y-4 p-5 rounded-2xl bg-indigo-950/20 border border-indigo-500/30">
+                    <div className="flex items-center gap-2.5 pb-2 border-b border-indigo-500/20">
+                      <span className="text-base">🏢</span>
+                      <h4 className="font-bold text-white text-base">Monthly Colive Fees & Deposit</h4>
+                      <span className="text-[11px] text-slate-400 ml-auto">
+                        Configured per room type for 30-day agreements
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="block text-xs font-bold text-amber-300 uppercase tracking-wide">
+                          🛡️ Refundable Security Deposit
+                          <div className="text-slate-400 font-normal text-[10px] mt-0.5">
+                            Collected only on Month 1 move-in (Refunded on vacating)
+                          </div>
+                        </label>
+                        <div className="flex items-center gap-1.5 bg-slate-900 rounded-lg border border-slate-700 px-2.5 py-2 focus-within:border-amber-500 transition">
+                          <span className="text-slate-500 font-semibold text-sm">₹</span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            disabled={!canEdit}
+                            value={roomType.securityDeposit ?? ""}
+                            onChange={(e) =>
+                              handlePriceChange(roomType.id, "securityDeposit", e.target.value)
+                            }
+                            className="flex-1 bg-transparent text-white text-sm font-bold focus:outline-none placeholder:text-slate-600 disabled:opacity-60"
+                            placeholder="5000"
+                            aria-label={`${displayName} Security Deposit`}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="block text-xs font-bold text-indigo-300 uppercase tracking-wide">
+                          🛠️ Monthly Maintenance Fee
+                          <div className="text-slate-400 font-normal text-[10px] mt-0.5">
+                            Housekeeping, high-speed Wi-Fi & facility maintenance
+                          </div>
+                        </label>
+                        <div className="flex items-center gap-1.5 bg-slate-900 rounded-lg border border-slate-700 px-2.5 py-2 focus-within:border-indigo-500 transition">
+                          <span className="text-slate-500 font-semibold text-sm">₹</span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            disabled={!canEdit}
+                            value={roomType.maintenanceFee ?? ""}
+                            onChange={(e) =>
+                              handlePriceChange(roomType.id, "maintenanceFee", e.target.value)
+                            }
+                            className="flex-1 bg-transparent text-white text-sm font-bold focus:outline-none placeholder:text-slate-600 disabled:opacity-60"
+                            placeholder="2000"
+                            aria-label={`${displayName} Monthly Maintenance Fee`}
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Save Button */}

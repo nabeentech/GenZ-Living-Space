@@ -68,6 +68,7 @@ export const HostelBookingWidget: React.FC<HostelBookingWidgetProps> = ({
       weeklyDiscountPct: selectedRoomType.weeklyDiscountPct,
       monthlyPrice: rates.days30,
       securityDeposit: selectedRoomType.securityDeposit,
+      maintenanceFee: (selectedRoomType as any).maintenanceFee,
     });
   }, [selectedRoomType, checkIn, checkOut, stayType]);
 

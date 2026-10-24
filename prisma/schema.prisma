@@ -118,7 +118,8 @@ model RoomType {
   basePrice         Float?    // Daily rate in INR (fallback)
   monthlyPrice      Float?    // Monthly rate in INR (fallback)
   weeklyDiscountPct Float    @default(10.0)
-  securityDeposit   Float    @default(3000.0)
+  securityDeposit   Float    @default(5000.0)
+  maintenanceFee    Float    @default(2000.0)
   
   images            String   @default("[]") // JSON array
   amenities         String   @default("[]") // JSON array
