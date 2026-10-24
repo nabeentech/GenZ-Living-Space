@@ -75,5 +75,8 @@ prisma/dev.db
 *.db.backup*
 prisma/*.backup*
 
+# Temporary Scratch Scripts
+scratch/
+
 
 

@@ -177,6 +177,22 @@ export async function createPayment(input: CreatePaymentInput): Promise<{
         merchantUrls: {
           redirectUrl: input.redirectUrl,
         },
+        paymentModeConfig: {
+          version: "V2",
+          enabledPaymentModes: [
+            {
+              type: "UPI",
+              flows: ["QR", "INTENT", "COLLECT"],
+            },
+            {
+              type: "CARD",
+              types: ["CREDIT_CARD", "DEBIT_CARD"],
+            },
+            {
+              type: "NET_BANKING",
+            },
+          ],
+        },
       },
       ...(input.metaInfo ? { metaInfo: input.metaInfo } : {}),
     }),
