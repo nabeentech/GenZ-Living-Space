@@ -6,6 +6,7 @@ import Button from "@/components/ui/Button";
 import CustomSelect from "@/components/ui/CustomSelect";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
+import DatePicker from "@/components/ui/DatePicker";
 import {
   Search,
   Filter,
@@ -17,6 +18,9 @@ import {
   Calendar,
   AlertCircle,
   XCircle,
+  CreditCard,
+  LogOut,
+  Sparkles,
 } from "lucide-react";
 
 interface BookingsManagementClientProps {
@@ -42,6 +46,21 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [actionMsg, setActionMsg] = useState("");
+
+  // Offline Monthly Rent Modal State
+  const [showOfflineRentModal, setShowOfflineRentModal] = useState(false);
+  const [offlinePaymentMode, setOfflinePaymentMode] = useState("CASH");
+  const [offlineRentAmount, setOfflineRentAmount] = useState("");
+  const [offlineRentNotes, setOfflineRentNotes] = useState("");
+  const [isRecordingOfflineRent, setIsRecordingOfflineRent] = useState(false);
+  const [offlineRentMsg, setOfflineRentMsg] = useState("");
+
+  // Admin Notice to Vacate Modal State
+  const [showAdminNoticeModal, setShowAdminNoticeModal] = useState(false);
+  const [adminNoticeDate, setAdminNoticeDate] = useState("");
+  const [adminNoticeReason, setAdminNoticeReason] = useState("");
+  const [isAdminSubmittingNotice, setIsAdminSubmittingNotice] = useState(false);
+  const [adminNoticeMsg, setAdminNoticeMsg] = useState("");
 
   const filteredBookings = useMemo(() => {
     return bookings.filter((b) => {
@@ -91,6 +110,124 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
       alert(err.message || "Error cancelling booking");
     } finally {
       setIsCancelling(false);
+    }
+  };
+
+  const handleRecordOfflineRent = async () => {
+    if (!selectedBooking) return;
+    setIsRecordingOfflineRent(true);
+    setOfflineRentMsg("");
+
+    try {
+      const res = await fetch(`/api/bookings/${selectedBooking.id}/monthly-rent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          method: "OFFLINE",
+          paymentMode: offlinePaymentMode,
+          amount: Number(offlineRentAmount) || undefined,
+          notes: offlineRentNotes,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to record rent payment");
+      }
+
+      setOfflineRentMsg(json.message);
+      const updated = json.data?.updatedBooking || json.data;
+      if (updated) {
+        setBookings((prev) =>
+          prev.map((b) => (b.id === selectedBooking.id ? { ...b, ...updated } : b))
+        );
+        setSelectedBooking((prev: any) => ({ ...prev, ...updated }));
+      }
+
+      setTimeout(() => {
+        setShowOfflineRentModal(false);
+        setOfflineRentMsg("");
+      }, 2000);
+    } catch (err: any) {
+      setOfflineRentMsg(err.message || "Failed to record rent payment");
+    } finally {
+      setIsRecordingOfflineRent(false);
+    }
+  };
+
+  const handleAdminSubmitNotice = async () => {
+    if (!selectedBooking || !adminNoticeDate) return;
+    setIsAdminSubmittingNotice(true);
+    setAdminNoticeMsg("");
+
+    try {
+      const res = await fetch(`/api/bookings/${selectedBooking.id}/vacate-notice`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "SUBMIT",
+          vacateDate: adminNoticeDate,
+          reason: adminNoticeReason || "Notice recorded by front desk",
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to record vacating notice");
+      }
+
+      setAdminNoticeMsg(json.message);
+      const updated = json.data?.booking;
+      if (updated) {
+        setBookings((prev) =>
+          prev.map((b) => (b.id === selectedBooking.id ? { ...b, ...updated } : b))
+        );
+        setSelectedBooking((prev: any) => ({ ...prev, ...updated }));
+      }
+
+      setTimeout(() => {
+        setShowAdminNoticeModal(false);
+        setAdminNoticeMsg("");
+      }, 2000);
+    } catch (err: any) {
+      setAdminNoticeMsg(err.message || "Failed to record notice");
+    } finally {
+      setIsAdminSubmittingNotice(false);
+    }
+  };
+
+  const handleAdminWithdrawNotice = async () => {
+    if (!selectedBooking) return;
+    if (
+      !confirm(
+        "Are you sure you want to cancel the vacating notice and restore this resident to ongoing month-to-month status?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/bookings/${selectedBooking.id}/vacate-notice`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "WITHDRAW" }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to withdraw vacating notice");
+      }
+
+      const updated = json.data?.booking;
+      if (updated) {
+        setBookings((prev) =>
+          prev.map((b) => (b.id === selectedBooking.id ? { ...b, ...updated } : b))
+        );
+        setSelectedBooking((prev: any) => ({ ...prev, ...updated }));
+      }
+      alert(json.message || "Vacating notice cancelled. Month-to-month restored.");
+    } catch (err: any) {
+      alert(err.message || "Failed to cancel notice");
     }
   };
 
@@ -179,7 +316,7 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
                         `₹${b.totalAmount.toLocaleString()}`
                       )}
                     </td>
-                    <td className="p-3.5">
+                    <td className="p-3.5 space-y-1">
                       <Badge
                         variant={
                           b.bookingStatus === "CONFIRMED"
@@ -194,6 +331,19 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
                       >
                         {b.bookingStatus}
                       </Badge>
+                      {b.stayType === "MONTHLY" && (
+                        <div>
+                          <span
+                            className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+                              b.isOpenEnded
+                                ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+                                : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                            }`}
+                          >
+                            {b.isOpenEnded ? "Monthly Resident" : "Notice Active"}
+                          </span>
+                        </div>
+                      )}
                     </td>
                     <td className="p-3.5 text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -290,6 +440,91 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
                 </span>
               </div>
             </div>
+
+            {/* Monthly Resident Controls Card for Staff */}
+            {selectedBooking.stayType === "MONTHLY" && (
+              <div className="p-4 rounded-2xl bg-indigo-950/40 border border-indigo-500/30 space-y-3 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-indigo-300 flex items-center gap-1.5">
+                    🏢 Monthly Coliving Agreement
+                  </span>
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
+                      selectedBooking.isOpenEnded
+                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                        : "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                    }`}
+                  >
+                    {selectedBooking.isOpenEnded ? "Auto-Renewing Indefinite" : "Vacating Notice Active"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-slate-300">
+                  <div>
+                    <span className="text-slate-500 block">Current Paid Term Ends:</span>
+                    <span className="font-bold text-white">
+                      {new Date(selectedBooking.checkOutDate).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Scheduled Checkout:</span>
+                    <span className="font-bold text-indigo-200">
+                      {selectedBooking.isOpenEnded
+                        ? "Ongoing Month-to-Month"
+                        : new Date(selectedBooking.checkOutDate).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+
+                {canEdit && (
+                  <div className="pt-2 border-t border-indigo-500/20 flex flex-wrap items-center gap-2">
+                    <Button
+                      variant="glow"
+                      size="sm"
+                      onClick={() => {
+                        setOfflineRentAmount(
+                          String(selectedBooking.baseAmount + (selectedBooking.serviceFee || 2000))
+                        );
+                        setShowOfflineRentModal(true);
+                        setOfflineRentMsg("");
+                      }}
+                      leftIcon={<CreditCard className="w-3.5 h-3.5" />}
+                    >
+                      Record Offline Monthly Rent
+                    </Button>
+
+                    {selectedBooking.isOpenEnded ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-amber-500/50 text-amber-300 hover:border-amber-400 hover:bg-amber-500/10"
+                        onClick={() => {
+                          const minDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                            .toISOString()
+                            .slice(0, 10);
+                          setAdminNoticeDate(minDate);
+                          setShowAdminNoticeModal(true);
+                          setAdminNoticeMsg("");
+                        }}
+                        leftIcon={<LogOut className="w-3.5 h-3.5" />}
+                      >
+                        Set Vacating Notice
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-emerald-500/50 text-emerald-300 hover:border-emerald-400 hover:bg-emerald-500/10"
+                        onClick={handleAdminWithdrawNotice}
+                        leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
+                      >
+                        Cancel Notice (Restore Resident)
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Price breakdown */}
             {hideFinancials ? (
@@ -397,6 +632,190 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
                   Close
                 </Button>
               </div>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Record Offline Rent Modal */}
+      {showOfflineRentModal && selectedBooking && (
+        <Modal
+          isOpen={showOfflineRentModal}
+          onClose={() => !isRecordingOfflineRent && setShowOfflineRentModal(false)}
+          title="Record Offline Monthly Rent"
+          description={`Booking #${selectedBooking.bookingReference} — ${selectedBooking.guestName}`}
+        >
+          <div className="space-y-4 py-2 text-xs">
+            <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Resident:</span>
+                <span className="font-bold text-white">{selectedBooking.guestName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Current checkout:</span>
+                <span className="font-bold text-white">
+                  {new Date(selectedBooking.checkOutDate).toLocaleDateString()}
+                </span>
+              </div>
+              <div className="flex justify-between pt-1 border-t border-slate-800 text-indigo-300">
+                <span>New checkout after renewal:</span>
+                <span className="font-bold">
+                  {new Date(
+                    new Date(selectedBooking.checkOutDate).getTime() + 30 * 24 * 60 * 60 * 1000
+                  ).toLocaleDateString()}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-indigo-400 mb-1">Payment Method</label>
+              <CustomSelect
+                value={offlinePaymentMode}
+                onValueChange={setOfflinePaymentMode}
+                options={[
+                  { value: "CASH", label: "Cash (Collected at Reception)" },
+                  { value: "UPI", label: "Hostel Counter UPI QR" },
+                  { value: "CARD", label: "Card Swipe (POS Terminal)" },
+                  { value: "BANK_TRANSFER", label: "Direct Bank Transfer (NEFT/IMPS)" },
+                ]}
+                triggerClassName="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-indigo-400 mb-1">
+                Amount Collected (₹)
+              </label>
+              <input
+                type="number"
+                value={offlineRentAmount}
+                onChange={(e) => setOfflineRentAmount(e.target.value)}
+                placeholder="Rent Amount"
+                className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm font-bold text-white focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-400 mb-1">
+                Staff Notes / Reference (Optional)
+              </label>
+              <textarea
+                rows={2}
+                value={offlineRentNotes}
+                onChange={(e) => setOfflineRentNotes(e.target.value)}
+                placeholder="e.g. Receipt #1042 issued, collected by Rajesh"
+                className="w-full p-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+
+            {offlineRentMsg && (
+              <div
+                className={`p-3 rounded-xl text-xs ${
+                  offlineRentMsg.includes("recorded") || offlineRentMsg.includes("extended")
+                    ? "bg-emerald-950 border border-emerald-500 text-emerald-300"
+                    : "bg-rose-950 border border-rose-500 text-rose-300"
+                }`}
+              >
+                {offlineRentMsg}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowOfflineRentModal(false)}
+                disabled={isRecordingOfflineRent}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="glow"
+                size="sm"
+                isLoading={isRecordingOfflineRent}
+                onClick={handleRecordOfflineRent}
+                leftIcon={<CreditCard className="w-4 h-4" />}
+              >
+                Confirm & Extend Stay
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Admin Set Vacating Notice Modal */}
+      {showAdminNoticeModal && selectedBooking && (
+        <Modal
+          isOpen={showAdminNoticeModal}
+          onClose={() => !isAdminSubmittingNotice && setShowAdminNoticeModal(false)}
+          title="Set Resident Vacating Notice"
+          description={`Booking #${selectedBooking.bookingReference} — ${selectedBooking.guestName}`}
+        >
+          <div className="space-y-4 py-2 text-xs">
+            <div className="p-3 rounded-xl bg-amber-950/40 border border-amber-500/30 text-slate-300 space-y-1">
+              <p className="font-bold text-amber-300">Staff Notice Entry</p>
+              <p>
+                Setting a vacating notice fixes the checkout date and unlocks this bed for online
+                reservations starting after the departure date.
+              </p>
+            </div>
+
+            <div>
+              <label htmlFor="admin-vacating-departure-date" className="block text-xs font-bold text-indigo-400 mb-1">
+                Scheduled Departure Date
+              </label>
+              <DatePicker
+                value={adminNoticeDate}
+                min={new Date().toISOString().slice(0, 10)}
+                onChange={setAdminNoticeDate}
+                triggerClassName="min-h-12 rounded-xl border border-slate-700 bg-slate-900 p-3"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-400 mb-1">
+                Reason / Note (Optional)
+              </label>
+              <textarea
+                rows={2}
+                value={adminNoticeReason}
+                onChange={(e) => setAdminNoticeReason(e.target.value)}
+                placeholder="e.g. Resident informed front desk verbally / via WhatsApp"
+                className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+
+            {adminNoticeMsg && (
+              <div
+                className={`p-3 rounded-xl text-xs ${
+                  adminNoticeMsg.includes("recorded")
+                    ? "bg-emerald-950 border border-emerald-500 text-emerald-300"
+                    : "bg-rose-950 border border-rose-500 text-rose-300"
+                }`}
+              >
+                {adminNoticeMsg}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowAdminNoticeModal(false)}
+                disabled={isAdminSubmittingNotice}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                isLoading={isAdminSubmittingNotice}
+                onClick={handleAdminSubmitNotice}
+                disabled={!adminNoticeDate}
+                leftIcon={<LogOut className="w-4 h-4" />}
+              >
+                Record Notice
+              </Button>
             </div>
           </div>
         </Modal>

@@ -772,22 +772,18 @@ export const BookClient: React.FC = () => {
       setCreatedBooking(json.data.booking);
 
       // Initiate PhonePe V2 Hosted Checkout
-      try {
-        const orderRes = await fetch("/api/payments/create-order", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ bookingId: json.data.booking.id }),
-        });
-        const orderJson = await orderRes.json();
-        if (orderRes.ok && orderJson.success && orderJson.data?.redirectUrl) {
-          window.location.href = orderJson.data.redirectUrl;
-          return;
-        }
-      } catch (orderErr) {
-        console.warn("PhonePe order checkout redirect skipped, fallback to confirmation:", orderErr);
+      const orderRes = await fetch("/api/payments/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId: json.data.booking.id }),
+      });
+      const orderJson = await orderRes.json();
+      if (orderRes.ok && orderJson.success && orderJson.data?.redirectUrl) {
+        window.location.href = orderJson.data.redirectUrl;
+        return;
       }
 
-      router.replace(`/confirmation?bookingId=${encodeURIComponent(json.data.booking.id)}`);
+      throw new Error(orderJson.message || "Failed to initiate PhonePe payment gateway");
     } catch (err: any) {
       setPaymentError(err.message || "Error holding bed. Please try again.");
     } finally {
@@ -810,7 +806,7 @@ export const BookClient: React.FC = () => {
         window.location.href = orderJson.data.redirectUrl;
         return;
       }
-      router.replace(`/confirmation?bookingRef=${encodeURIComponent(createdBooking.bookingReference)}&bookingId=${encodeURIComponent(createdBooking.id)}`);
+      throw new Error(orderJson.message || "Failed to initiate PhonePe payment");
     } catch (err: any) {
       setPaymentError(err.message || "Failed to initiate PhonePe payment");
     } finally {
@@ -1526,7 +1522,7 @@ export const BookClient: React.FC = () => {
                       onClick={handleInitiateHold}
                       rightIcon={<Lock className="w-4 h-4" />}
                     >
-                      Reserve Bed & Generate QR
+                      Pay with PhonePe
                     </Button>
                   </div>
                 </div>
@@ -1537,12 +1533,12 @@ export const BookClient: React.FC = () => {
                 <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-indigo-500/50 bg-[#111827]/95 space-y-6 shadow-2xl">
                   <div className="p-4 rounded-2xl bg-indigo-950/80 border border-indigo-500/40 flex items-center gap-3">
                     <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                    <p className="text-sm text-slate-200">{selectedBed?.bedNumber} is reserved. Payment is due; the QR pass is ready.</p>
+                    <p className="text-sm text-slate-200">{selectedBed?.bedNumber} is reserved. Complete payment to confirm your booking.</p>
                   </div>
 
                   <div>
                     <h3 className="text-xl font-bold text-white">
-                      Reservation confirmed
+                      Reservation Pending Payment
                     </h3>
                     <p className="text-xs text-slate-400 mt-1">
                       Booking Reference:{" "}
@@ -1553,7 +1549,7 @@ export const BookClient: React.FC = () => {
                   </div>
 
                   <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
-                    <p className="text-sm text-slate-300">Payment is marked due. Your bed is assigned and the QR pass is available on the confirmation page.</p>
+                    <p className="text-sm text-slate-300">Your bed hold is active for 15 minutes. Please complete payment through PhonePe to receive your resident pass.</p>
                   </div>
 
                   {paymentError && (
@@ -1577,7 +1573,7 @@ export const BookClient: React.FC = () => {
                       onClick={handleConfirmPayment}
                       rightIcon={<CreditCard className="w-4 h-4" />}
                     >
-                      View Reservation & QR
+                      Pay Now with PhonePe
                     </Button>
                   </div>
                 </div>

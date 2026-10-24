@@ -62,9 +62,27 @@ export async function POST(req: Request) {
     const bookingReference = `GZ-W${Math.floor(10000 + Math.random() * 90000)}`;
     const invoiceNumber = await generateUniqueInvoiceNumber();
 
-    const bookingStatus = autoCheckIn ? "CHECKED_IN" : "CONFIRMED";
-    const bedStatus = autoCheckIn ? "OCCUPIED" : "RESERVED";
     const now = new Date();
+    const isPastStay = checkOut <= now;
+    const isFutureStay = checkIn > now;
+
+    // Smart status resolution:
+    // Past completed stay -> CHECKED_OUT (records revenue & history, keeps bed free)
+    // Currently active stay -> CHECKED_IN & OCCUPIED (locks bed for resident)
+    // Future advance stay -> CONFIRMED & RESERVED
+    const bookingStatus = isPastStay
+      ? "CHECKED_OUT"
+      : isFutureStay
+      ? "CONFIRMED"
+      : autoCheckIn
+      ? "CHECKED_IN"
+      : "CONFIRMED";
+
+    const bedStatus = isPastStay
+      ? "AVAILABLE"
+      : bookingStatus === "CHECKED_IN"
+      ? "OCCUPIED"
+      : "RESERVED";
 
     const result = await prisma.$transaction(async (tx) => {
       const bed = await tx.bed.findFirst({
@@ -73,7 +91,6 @@ export async function POST(req: Request) {
           roomId,
           hostelId,
           active: true,
-          status: "AVAILABLE",
           room: { active: true, status: "ACTIVE", hostel: { active: true } },
         },
       });
@@ -90,7 +107,11 @@ export async function POST(req: Request) {
           ],
         },
       });
-      if (conflictingBooking) throw new Error("The selected bed has already been reserved for those dates.");
+      if (conflictingBooking) {
+        throw new Error(
+          `The selected bed is already booked during these dates (${conflictingBooking.bookingReference}).`
+        );
+      }
 
       let customer = await tx.user.findUnique({ where: { email: emailToUse } });
       if (!customer) {
@@ -136,8 +157,10 @@ export async function POST(req: Request) {
           guestPhone,
           guestGender,
           guestGovtId,
-          checkInTime: autoCheckIn ? now : null,
-          checkedInBy: autoCheckIn ? user.name : null,
+          checkInTime: autoCheckIn ? (checkIn < now ? checkIn : now) : (isPastStay ? checkIn : null),
+          checkedInBy: autoCheckIn || isPastStay ? user.name : null,
+          checkOutTime: isPastStay ? checkOut : null,
+          checkedOutBy: isPastStay ? user.name : null,
         },
       });
 
@@ -148,14 +171,16 @@ export async function POST(req: Request) {
         data: { qrCodeData },
       });
 
-      // 3. Mark Bed
-      await tx.bed.update({
-        where: { id: bedId },
-        data: {
-          status: bedStatus,
-          currentOccupantId: customer.id,
-        },
-      });
+      // 3. Mark Bed (only mark occupied/reserved if stay is current or future)
+      if (!isPastStay) {
+        await tx.bed.update({
+          where: { id: bedId },
+          data: {
+            status: bedStatus,
+            currentOccupantId: customer.id,
+          },
+        });
+      }
 
       // 4. Record Payment
       await tx.payment.create({

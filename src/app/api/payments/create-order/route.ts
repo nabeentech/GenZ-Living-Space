@@ -69,23 +69,37 @@ export async function POST(req: Request) {
       );
     }
 
-    if (booking.bookingStatus === "CONFIRMED" && !amount) {
+    if (booking.bookingStatus === "CONFIRMED" && booking.balanceAmount <= 0) {
       return NextResponse.json(
-        { success: false, message: "This booking is already confirmed and paid." },
+        { success: false, message: "This booking is already fully paid." },
         { status: 400 }
       );
     }
 
     // Determine authoritative payment amount in rupees
-    const paymentAmount =
-      booking.bookingStatus === "PAYMENT_PENDING"
-        ? booking.totalAmount
-        : Number(amount || booking.balanceAmount);
+    let paymentAmount: number;
+    if (booking.bookingStatus === "PAYMENT_PENDING") {
+      // Must strictly use the database totalAmount; client cannot tamper with price
+      paymentAmount = booking.totalAmount;
+    } else {
+      // Balance payment for confirmed booking
+      const requested = amount ? Number(amount) : booking.balanceAmount;
+      if (isNaN(requested) || requested <= 0) {
+        return NextResponse.json({ success: false, message: "Invalid payment amount." }, { status: 400 });
+      }
+      if (requested > booking.balanceAmount) {
+        return NextResponse.json(
+          { success: false, message: `Payment amount cannot exceed remaining balance of Rs. ${booking.balanceAmount}` },
+          { status: 400 }
+        );
+      }
+      paymentAmount = Math.round(requested * 100) / 100;
+    }
 
     const amountInPaise = Math.round(paymentAmount * 100);
     if (!Number.isSafeInteger(amountInPaise) || amountInPaise < 100) {
       return NextResponse.json(
-        { success: false, message: "Invalid payment amount." },
+        { success: false, message: "Invalid payment amount (minimum Rs. 1 required)." },
         { status: 400 }
       );
     }

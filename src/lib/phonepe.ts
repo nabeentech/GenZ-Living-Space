@@ -230,16 +230,17 @@ export function verifyPhonePeWebhook(headers: {
     const authHeader = headers.authorization?.trim();
     if (!authHeader) return false;
 
+    const cleanAuth = authHeader.replace(/^(sha256|bearer|basic)\s+/i, "");
+    if (!/^[a-fA-F0-9]{64}$/.test(cleanAuth)) return false;
+
     const username = process.env.PHONEPE_WEBHOOK_USERNAME || "genz_webhook_user";
-    const password = process.env.PHONEPE_WEBHOOK_PASSWORD || "genz_webhook_pass";
+    const password = process.env.PHONEPE_WEBHOOK_PASSWORD || "genz_webhook_secure_pass_2026";
     const expected = createHash("sha256")
       .update(`${username}:${password}`, "utf8")
       .digest("hex");
 
-    if (!/^[a-fA-F0-9]{64}$/.test(authHeader)) return false;
-
     const expectedBuf = Buffer.from(expected, "hex");
-    const receivedBuf = Buffer.from(authHeader, "hex");
+    const receivedBuf = Buffer.from(cleanAuth, "hex");
 
     return expectedBuf.length === receivedBuf.length && timingSafeEqual(expectedBuf, receivedBuf);
   }

@@ -13,7 +13,8 @@ export default async function WalkInPage() {
         include: {
           roomType: true,
           beds: {
-            where: { active: true, status: "AVAILABLE" },
+            where: { active: true },
+            orderBy: { bedNumber: "asc" },
           },
         },
       },

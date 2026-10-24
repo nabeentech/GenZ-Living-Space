@@ -219,11 +219,22 @@ export async function POST(req: Request) {
         select: { checkInDate: true, checkOutDate: true, isOpenEnded: true },
       });
 
-      if (activeLongStay.some((stay) => stay.isOpenEnded || isLongStay(stay.checkInDate, stay.checkOutDate))) {
-        throw new Error("This bed is reserved for a long-term stay and cannot accept another booking until an admin releases it.");
+      if (
+        activeLongStay.some(
+          (stay) =>
+            stay.isOpenEnded ||
+            (isLongStay(stay.checkInDate, stay.checkOutDate) &&
+              stay.checkInDate < checkOut &&
+              stay.checkOutDate > checkIn)
+        )
+      ) {
+        throw new Error("This bed is reserved for a long-term stay during the requested dates.");
       }
 
-      // Create a confirmed, unpaid reservation and allocate the selected bed.
+      const holdDurationMinutes = 15;
+      const holdExpiresAt = new Date(Date.now() + holdDurationMinutes * 60 * 1000);
+
+      // Create a pending reservation and allocate the selected bed with a 15-minute hold.
       const booking = await tx.booking.create({
         data: {
           bookingReference,
@@ -245,7 +256,7 @@ export async function POST(req: Request) {
           totalAmount: pricing.totalAmount,
           paidAmount: 0,
           balanceAmount: pricing.totalAmount,
-          bookingStatus: "CONFIRMED",
+          bookingStatus: "PAYMENT_PENDING",
           paymentStatus: "PENDING",
           guestName: user.name,
           guestEmail: user.email,
@@ -253,7 +264,7 @@ export async function POST(req: Request) {
           guestGender: user.gender || guestGender,
           guestGovtId,
           specialRequests,
-          holdExpiresAt: null,
+          holdExpiresAt,
         },
         include: {
           hostel: true,
@@ -297,11 +308,11 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "Bed reserved. Payment is pending; payment gateway setup is not active yet.",
+      message: "Bed hold secured. Proceeding to payment...",
       data: {
         booking: result,
         pricing,
-        holdExpiresAt: null,
+        holdExpiresAt: result.holdExpiresAt,
       },
     });
   } catch (error: any) {

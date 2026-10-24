@@ -81,8 +81,8 @@ export async function POST(req: NextRequest) {
       (event.event === "checkout.order.completed" || event.event === "payment.captured") &&
       state === "COMPLETED"
     ) {
-      if (payment.status === "COMPLETED" && payment.booking?.bookingStatus === "CONFIRMED") {
-        return NextResponse.json({ success: true, received: true, message: "Already confirmed" }, { status: 200 });
+      if (payment.status === "COMPLETED") {
+        return NextResponse.json({ success: true, received: true, message: "Already completed" }, { status: 200 });
       }
 
       const txnDetail = event.payload.paymentDetails?.find((p) => p.state === "COMPLETED");
@@ -101,10 +101,15 @@ export async function POST(req: NextRequest) {
       const qrCodeData = await generateBookingQRCode(booking.bookingReference, booking.id);
       const invoiceNumber = await generateUniqueInvoiceNumber();
 
+      let meta: any = {};
+      try {
+        meta = payment.metadata ? JSON.parse(payment.metadata) : {};
+      } catch {}
+
       await prisma.$transaction(async (tx) => {
-        // Update Payment
-        await tx.payment.update({
-          where: { id: payment.id },
+        // Atomic check: only update if still PENDING to prevent double-credit race conditions
+        const updated = await tx.payment.updateMany({
+          where: { id: payment.id, status: "PENDING" },
           data: {
             status: "COMPLETED",
             gatewayPaymentId: txnId,
@@ -112,45 +117,117 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        // Update Booking
-        await tx.booking.update({
-          where: { id: booking.id },
-          data: {
-            bookingStatus: "CONFIRMED",
-            paymentStatus: "PAID",
-            paidAmount: booking.totalAmount,
-            balanceAmount: 0,
-            qrCodeData,
-            holdExpiresAt: null,
-          },
-        });
+        if (updated.count === 0) {
+          // Already processed by concurrent return redirect or another webhook retry
+          return;
+        }
 
-        // Reserve Bed
-        await tx.bed.update({
-          where: { id: booking.bedId },
-          data: { status: "RESERVED" },
-        });
+        if (meta.type === "MONTHLY_RENT") {
+          const cycleEnd = meta.cycleEnd
+            ? new Date(meta.cycleEnd)
+            : new Date(new Date(booking.checkOutDate).getTime() + 30 * 24 * 60 * 60 * 1000);
+          const paidNow = payment.amount;
 
-        // Create Invoice if not present
-        if (booking.invoices.length === 0) {
-          await tx.invoice.create({
+          // Advance booking checkOutDate and financial totals
+          await tx.booking.update({
+            where: { id: booking.id },
             data: {
-              invoiceNumber,
-              bookingId: booking.id,
-              customerId: booking.customerId,
-              hostelId: booking.hostelId,
-              issueDate: new Date(),
-              dueDate: new Date(),
-              baseAmount: booking.baseAmount,
-              taxAmount: booking.taxAmount,
-              serviceFee: booking.serviceFee,
-              securityDeposit: booking.securityDeposit,
-              discountAmount: booking.discountAmount,
-              totalAmount: booking.totalAmount,
-              paidAmount: booking.totalAmount,
-              status: "PAID",
+              checkOutDate: cycleEnd,
+              paidAmount: (booking.paidAmount || 0) + paidNow,
+              totalAmount: (booking.totalAmount || 0) + paidNow,
+              paymentStatus: "PAID",
             },
           });
+
+          // Mark cycle invoice as PAID
+          if (meta.invoiceId) {
+            await tx.invoice.update({
+              where: { id: meta.invoiceId },
+              data: {
+                status: "PAID",
+                paidAmount: paidNow,
+                balanceDue: 0,
+              },
+            });
+          } else if (meta.invoiceNumber) {
+            await tx.invoice.updateMany({
+              where: { invoiceNumber: meta.invoiceNumber },
+              data: {
+                status: "PAID",
+                paidAmount: paidNow,
+                balanceDue: 0,
+              },
+            });
+          }
+
+          // Create confirmed booking extension
+          await tx.bookingExtension.create({
+            data: {
+              bookingId: booking.id,
+              originalCheckOut: booking.checkOutDate,
+              newCheckOut: cycleEnd,
+              additionalAmount: paidNow,
+              status: "CONFIRMED",
+            },
+          });
+        } else {
+          const paidNow = payment.amount;
+          const newPaidTotal = Math.min(booking.totalAmount, (booking.paidAmount || 0) + paidNow);
+          const newBalance = Math.max(0, booking.totalAmount - newPaidTotal);
+          const isFullyPaid = newBalance <= 0;
+
+          // Update Booking
+          await tx.booking.update({
+            where: { id: booking.id },
+            data: {
+              bookingStatus: "CONFIRMED",
+              paymentStatus: isFullyPaid ? "PAID" : "PARTIAL",
+              paidAmount: newPaidTotal,
+              balanceAmount: newBalance,
+              qrCodeData,
+              holdExpiresAt: null,
+            },
+          });
+
+          // Reserve Bed
+          if (booking.bedId) {
+            await tx.bed.update({
+              where: { id: booking.bedId },
+              data: { status: "RESERVED" },
+            });
+          }
+
+          // Update or Generate Invoice
+          if (booking.invoices.length === 0) {
+            await tx.invoice.create({
+              data: {
+                invoiceNumber,
+                bookingId: booking.id,
+                customerId: booking.customerId,
+                hostelId: booking.hostelId,
+                issueDate: new Date(),
+                dueDate: new Date(),
+                baseAmount: booking.baseAmount,
+                taxAmount: booking.taxAmount,
+                serviceFee: booking.serviceFee,
+                securityDeposit: booking.securityDeposit,
+                discountAmount: booking.discountAmount,
+                totalAmount: booking.totalAmount,
+                paidAmount: newPaidTotal,
+                balanceDue: newBalance,
+                status: isFullyPaid ? "PAID" : "PARTIAL",
+              },
+            });
+          } else {
+            await tx.invoice.update({
+              where: { id: booking.invoices[0].id },
+              data: {
+                status: isFullyPaid ? "PAID" : "PARTIAL",
+                paidAmount: newPaidTotal,
+                balanceDue: newBalance,
+              },
+            });
+          }
         }
       });
 

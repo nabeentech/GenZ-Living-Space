@@ -198,8 +198,29 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels }) => {
             <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
               Available Bed
             </label>
-            <CustomSelect value={selectedBedId} onValueChange={setSelectedBedId} options={availableBeds.length === 0 ? [{ value: "", label: "No vacant beds in this room", disabled: true }] : availableBeds.map((b: any) => ({ value: b.id, label: `${b.bedNumber} (${b.tier?.replace("_", " ")})` }))} triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-bold text-emerald-400" />
+            <CustomSelect
+              value={selectedBedId}
+              onValueChange={setSelectedBedId}
+              options={
+                availableBeds.length === 0
+                  ? [{ value: "", label: "No beds in this room", disabled: true }]
+                  : availableBeds.map((b: any) => ({
+                      value: b.id,
+                      label: `${b.bedNumber} (${b.tier?.replace("_", " ")}${b.status !== "AVAILABLE" ? ` • ${b.status}` : " • Vacant"})`,
+                      disabled: b.status !== "AVAILABLE",
+                    }))
+              }
+              triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-bold text-emerald-400"
+            />
           </div>
+        </div>
+
+        {/* Offline & Backdated Helper Notice */}
+        <div className="p-3.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-200 flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-indigo-400 shrink-0" />
+          <span>
+            <strong>Pre-Platform / Offline Bookings Supported:</strong> You can select past check-in dates. If the guest is currently staying, they will be automatically marked Checked-In and their bed locked as Occupied.
+          </span>
         </div>
 
         {/* Dates */}
@@ -208,7 +229,7 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels }) => {
             <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
               Check-In Date
             </label>
-            <DatePicker value={checkIn} onChange={setCheckIn} min={todayStr} triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs" />
+            <DatePicker value={checkIn} onChange={setCheckIn} triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs" />
           </div>
 
           <div>
@@ -293,7 +314,18 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels }) => {
             <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
               Payment Method
             </label>
-            <CustomSelect value={paymentMethod} onValueChange={setPaymentMethod} options={[{ value: "cash", label: "Cash at Reception" }, { value: "upi", label: "UPI / QR Code" }, { value: "card", label: "Credit / Debit Card" }, { value: "bank_transfer", label: "Direct Bank Transfer" }]} triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-semibold" />
+            <CustomSelect
+              value={paymentMethod}
+              onValueChange={setPaymentMethod}
+              options={[
+                { value: "cash", label: "Cash at Reception" },
+                { value: "upi", label: "UPI / QR Code" },
+                { value: "card", label: "Credit / Debit Card" },
+                { value: "bank_transfer", label: "Direct Bank Transfer" },
+                { value: "offline_prepaid", label: "Pre-Platform / Offline Paid" },
+              ]}
+              triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-semibold"
+            />
           </div>
         </div>
 

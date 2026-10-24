@@ -1,5 +1,6 @@
 import PDFDocument from "pdfkit";
 import QRCode from "qrcode";
+import { SHARING_NAMES } from "@/lib/room-types";
 
 function formatINR(amount: number) {
   const rounded = Math.round((Number(amount) || 0) * 100) / 100;
@@ -85,22 +86,21 @@ export async function createInvoicePdf({ booking, invoice }: { booking: any; inv
   document.font("Helvetica-Bold").fontSize(15).fillColor("#ffffff").text("GZ", 36, 37, { width: 38, align: "center" });
   document.restore();
 
-  // Brand Name & Subtitle
-  document.font("Helvetica-Bold").fontSize(17).fillColor("#0f172a").text("GenZ Living Space", 84, 25);
-  document.font("Helvetica-Bold").fontSize(8.5).fillColor("#4f46e5").text("GenZ Colive PG and Guest Rooms", 84, 45);
+  // Brand Heading (Single heading, no subtext)
+  document.font("Helvetica-Bold").fontSize(15).fillColor("#0f172a").text("GenZ Colive PG & Guest Rooms", 84, 26);
 
   // Business Credentials (constrained to width 275 so no collision with right metadata)
-  document.font("Helvetica").fontSize(7).fillColor("#475569").text("Owner: KANDULA VEERAIAH   •   FSSAI Reg No: 23626028006147", 84, 59, { width: 275 });
+  document.font("Helvetica").fontSize(7).fillColor("#475569").text("Owner: KANDULA VEERAIAH   •   FSSAI Reg No: 23626028006147", 84, 47, { width: 275 });
   document.font("Helvetica").fontSize(7).fillColor("#64748b").text(
     "Madhapur - HYD, Telangana, India   •   Phone: +91 96520 37700",
     84,
-    70,
+    58,
     { width: 275 }
   );
   document.font("Helvetica").fontSize(7).fillColor("#64748b").text(
     "Email: genzlivingspace@gmail.com   •   Web: www.genzlivingspace.com",
     84,
-    81,
+    69,
     { width: 275 }
   );
 
@@ -137,14 +137,17 @@ export async function createInvoicePdf({ booking, invoice }: { booking: any; inv
 
   document.font("Helvetica-Bold").fontSize(7).fillColor("#4f46e5").text("BILLED TO / GUEST DETAILS", 46, 118);
   document.font("Helvetica-Bold").fontSize(9.5).fillColor("#0f172a").text(booking.guestName || "Guest", 46, 128, { width: 235 });
-  document.font("Helvetica").fontSize(7.5).fillColor("#475569").text(`Email: ${booking.guestEmail || "N/A"}`, 46, 140, { width: 235 });
-  document.font("Helvetica").fontSize(7.5).fillColor("#475569").text(`Phone: ${booking.guestPhone || "N/A"}`, 46, 152, { width: 235 });
-  document.font("Helvetica").fontSize(7.2).fillColor("#64748b").text(
-    booking.guestGovtId ? `Govt ID: ${booking.guestGovtId}` : "Identity: Verified at Reception Desk",
-    46,
-    164,
-    { width: 235 }
-  );
+
+  document.font("Helvetica-Bold").fontSize(7.5).fillColor("#0f172a").text("Email: ", 46, 140, { continued: true });
+  document.font("Helvetica").fontSize(7.5).fillColor("#475569").text(booking.guestEmail || "N/A");
+
+  document.font("Helvetica-Bold").fontSize(7.5).fillColor("#0f172a").text("Phone: ", 46, 152, { continued: true });
+  document.font("Helvetica").fontSize(7.5).fillColor("#475569").text(booking.guestPhone || "N/A");
+
+  const govtIdLabel = booking.guestGovtId ? booking.guestGovtId : "Verified at Reception Desk";
+  document.font("Helvetica-Bold").fontSize(7.5).fillColor("#0f172a").text("Govt ID: ", 46, 164, { continued: true });
+  document.font("Helvetica").fontSize(7.5).fillColor("#475569").text(govtIdLabel);
+
   document.font("Helvetica-Bold").fontSize(7).fillColor("#4338ca").text(
     `${booking.guestsCount || 1} Guest(s)   •   Resident Pass Confirmed`,
     46,
@@ -158,35 +161,32 @@ export async function createInvoicePdf({ booking, invoice }: { booking: any; inv
   document.restore();
 
   document.font("Helvetica-Bold").fontSize(7).fillColor("#4f46e5").text("PROPERTY & RESERVATION DETAILS", 314, 118);
-  document.font("Helvetica-Bold").fontSize(9).fillColor("#0f172a").text(
-    booking.hostel?.name || "GenZ Colive PG and Guest Rooms",
+  document.font("Helvetica-Bold").fontSize(9.5).fillColor("#0f172a").text(
+    booking.hostel?.name || "GenZ Colive PG & Guest Rooms",
     314,
     128,
     { width: 235 }
   );
 
-  document.font("Helvetica").fontSize(7.2).fillColor("#64748b").text(
-    `Location: ${booking.hostel?.city || "Madhapur, Hyderabad"}`,
-    314,
-    140,
-    { width: 235 }
-  );
+  document.font("Helvetica-Bold").fontSize(7.5).fillColor("#0f172a").text("Location: ", 314, 140, { continued: true });
+  document.font("Helvetica").fontSize(7.5).fillColor("#475569").text(booking.hostel?.city || "Madhapur - HYD");
 
-  const roomTypeLabel = booking.room?.roomType?.name ? ` (${booking.room.roomType.name})` : "";
-  document.font("Helvetica").fontSize(7.5).fillColor("#334155").text(
-    `Room ${booking.room?.roomNumber || "N/A"}${roomTypeLabel}   •   Bed ${booking.bed?.bedNumber || "N/A"}`,
-    314,
-    152,
-    { width: 235 }
-  );
+  const rawRoom = (booking.room?.roomNumber || "N/A").trim();
+  const cleanRoom = rawRoom.replace(/^room\s+/i, "");
+  const rawBed = (booking.bed?.bedNumber || "N/A").trim();
+  const cleanBed = rawBed.replace(/^bed\s+/i, "");
+  const roomTypeName = SHARING_NAMES[booking.room?.capacity || 0] || booking.room?.roomType?.name || "";
+  const roomTypeLabel = roomTypeName ? ` (${roomTypeName})` : "";
+
+  document.font("Helvetica-Bold").fontSize(7.5).fillColor("#0f172a").text("Room: ", 314, 152, { continued: true });
+  document.font("Helvetica-Bold").fontSize(7.5).fillColor("#334155").text(cleanRoom, { continued: true });
+  document.font("Helvetica").fontSize(7.5).fillColor("#64748b").text(`${roomTypeLabel}   •   `, { continued: true });
+  document.font("Helvetica-Bold").fontSize(7.5).fillColor("#0f172a").text("Bed: ", { continued: true });
+  document.font("Helvetica-Bold").fontSize(7.5).fillColor("#334155").text(cleanBed);
 
   const checkOutStr = booking.isOpenEnded ? "Ongoing (Monthly)" : formatDate(booking.checkOutDate);
-  document.font("Helvetica").fontSize(7.5).fillColor("#475569").text(
-    `Stay: ${formatDate(booking.checkInDate)} to ${checkOutStr}`,
-    314,
-    164,
-    { width: 235 }
-  );
+  document.font("Helvetica-Bold").fontSize(7.5).fillColor("#0f172a").text("Stay: ", 314, 164, { continued: true });
+  document.font("Helvetica").fontSize(7.5).fillColor("#334155").text(`${formatDate(booking.checkInDate)} to ${checkOutStr}`);
 
   const stayDuration = getStayDurationText(booking.checkInDate, booking.checkOutDate, booking.isOpenEnded);
   document.font("Helvetica-Bold").fontSize(7.2).fillColor("#059669").text(
@@ -409,10 +409,10 @@ export async function createInvoicePdf({ booking, invoice }: { booking: any; inv
   document.font("Helvetica-Bold").fontSize(7).fillColor("#475569").text("TERMS & OFFICIAL COMPLIANCE DECLARATIONS", 46, termsY + 6);
 
   const notes = [
-    "1. Food Safety & FSSAI: Food services operated under FSSAI Registration Number 23626028006147 (GenZ Colive PG and Guest Rooms).",
+    "1. Food Safety & FSSAI: Food services operated under FSSAI Registration Number 23626028006147 (GenZ Colive PG & Guest Rooms).",
     "2. Security Deposit: Refundable deposits are settled upon check-out clearance and return of keycard, subject to Section 5 of Terms.",
-    "3. Check-In & Policies: Standard check-in 1:00 PM; check-out 11:00 AM. Long-stay early vacating requires 30 days prior written notice.",
-    "4. Government Verification: Valid government photo identification (Aadhaar / Passport) is required at reception. Stay is non-transferable.",
+    "3. Check-In & Policies: Check-in and check-out is 24 hours. Long-stay early vacating requires 30 days prior written notice.",
+    "4. Government Verification: Valid government photo ID (Aadhaar / Passport) and passport-size photo required at submission. Stay is non-transferable.",
   ];
 
   notes.forEach((note, idx) => {
@@ -423,7 +423,7 @@ export async function createInvoicePdf({ booking, invoice }: { booking: any; inv
   const footerY = termsY + 70;
 
   // Left: Contact Support
-  document.font("Helvetica-Bold").fontSize(7.5).fillColor("#0f172a").text("GenZ Living Space Support Desk", 36, footerY);
+  document.font("Helvetica-Bold").fontSize(7.5).fillColor("#0f172a").text("GenZ Colive PG & Guest Rooms Support Desk", 36, footerY);
   document.font("Helvetica").fontSize(7).fillColor("#64748b").text(
     "Phone: +91 96520 37700 / +91 96520 37744   •   Email: genzlivingspace@gmail.com",
     36,
@@ -436,7 +436,7 @@ export async function createInvoicePdf({ booking, invoice }: { booking: any; inv
   );
 
   // Right: Signature
-  document.font("Helvetica-Bold").fontSize(7.5).fillColor("#0f172a").text("For GenZ Colive PG and Guest Rooms", 360, footerY, {
+  document.font("Helvetica-Bold").fontSize(7.5).fillColor("#0f172a").text("For GenZ Colive PG & Guest Rooms", 360, footerY, {
     width: 199,
     align: "right",
   });

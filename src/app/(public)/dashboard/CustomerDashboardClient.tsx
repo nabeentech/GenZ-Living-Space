@@ -83,6 +83,18 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentMsg, setPaymentMsg] = useState("");
 
+  // Notice to Vacate Modal State
+  const [vacateModalBooking, setVacateModalBooking] = useState<any | null>(null);
+  const [vacateDate, setVacateDate] = useState("");
+  const [vacateReason, setVacateReason] = useState("");
+  const [isSubmittingVacate, setIsSubmittingVacate] = useState(false);
+  const [vacateMsg, setVacateMsg] = useState("");
+  const [isWithdrawingVacate, setIsWithdrawingVacate] = useState(false);
+
+  // Monthly Rent Payment State
+  const [isPayingRent, setIsPayingRent] = useState(false);
+  const [rentPaymentError, setRentPaymentError] = useState("");
+
   // New Support Ticket Modal
   const [showNewTicketModal, setShowNewTicketModal] = useState(false);
   const [ticketHostelId, setTicketHostelId] = useState(hostels[0]?.id || "");
@@ -272,6 +284,119 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
     }
   };
 
+  const openVacateModal = (booking: any) => {
+    setVacateModalBooking(booking);
+    const min30 = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    setVacateDate(min30.toISOString().slice(0, 10));
+    setVacateReason("");
+    setVacateMsg("");
+  };
+
+  const handleSubmitVacateNotice = async () => {
+    if (!vacateModalBooking || !vacateDate) return;
+    setIsSubmittingVacate(true);
+    setVacateMsg("");
+
+    try {
+      const res = await fetch(`/api/bookings/${vacateModalBooking.id}/vacate-notice`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "SUBMIT",
+          vacateDate,
+          reason: vacateReason,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to submit vacating notice");
+      }
+
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === vacateModalBooking.id
+            ? { ...b, isOpenEnded: false, checkOutDate: new Date(vacateDate) }
+            : b
+        )
+      );
+
+      setVacateMsg(json.message);
+      setTimeout(() => {
+        setVacateModalBooking(null);
+        setVacateMsg("");
+      }, 2500);
+    } catch (err: any) {
+      setVacateMsg(err.message || "Failed to submit vacating notice");
+    } finally {
+      setIsSubmittingVacate(false);
+    }
+  };
+
+  const handleWithdrawVacateNotice = async (booking: any) => {
+    if (!confirm("Are you sure you want to withdraw your notice to vacate and continue your month-to-month stay?")) {
+      return;
+    }
+    setIsWithdrawingVacate(true);
+
+    try {
+      const res = await fetch(`/api/bookings/${booking.id}/vacate-notice`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "WITHDRAW" }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to withdraw vacating notice");
+      }
+
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === booking.id
+            ? { ...b, isOpenEnded: true }
+            : b
+        )
+      );
+
+      alert("Notice to vacate withdrawn successfully. Your month-to-month residency is restored.");
+    } catch (err: any) {
+      alert(err.message || "Failed to withdraw vacating notice");
+    } finally {
+      setIsWithdrawingVacate(false);
+    }
+  };
+
+  const handlePayMonthlyRent = async (booking: any) => {
+    setIsPayingRent(true);
+    setRentPaymentError("");
+
+    try {
+      const res = await fetch(`/api/bookings/${booking.id}/monthly-rent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ method: "PHONEPE" }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to initialize rent payment");
+      }
+
+      if (json.data?.redirectUrl) {
+        window.location.href = json.data.redirectUrl;
+        return;
+      }
+
+      alert("Rent payment initialized.");
+    } catch (err: any) {
+      setRentPaymentError(err.message || "Unable to proceed to rent checkout");
+      alert(err.message || "Unable to proceed to rent checkout");
+    } finally {
+      setIsPayingRent(false);
+    }
+  };
+
   // Handle Submit Support Ticket
   const handleSubmitTicket = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -392,6 +517,15 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
                     <Badge variant="available" size="sm">
                       {activeBooking.bookingStatus}
                     </Badge>
+                    {activeBooking.stayType === "MONTHLY" && (
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
+                        activeBooking.isOpenEnded
+                          ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/40"
+                          : "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                      }`}>
+                        {activeBooking.isOpenEnded ? "Month-to-Month Resident" : "Notice Active"}
+                      </span>
+                    )}
                     <span className="text-xs text-indigo-400 font-mono font-bold">
                       #{activeBooking.bookingReference}
                     </span>
@@ -419,27 +553,60 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
                       Invoice
                     </Button>
                   </Link>
-                  {!activeBooking.isOpenEnded && <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => openExtendModal(activeBooking)}
-                    leftIcon={<Calendar className="w-4 h-4" />}
-                  >
-                    Extend Stay
-                  </Button>}
-                  {isLongStayBooking(activeBooking) ? (
-                    <span className="text-[11px] text-amber-300 border border-amber-500/40 rounded-lg px-2.5 py-2">
-                      1-month notice • Admin cancellation
-                    </span>
+
+                  {/* Monthly Tenant Actions */}
+                  {activeBooking.stayType === "MONTHLY" ? (
+                    <>
+                      {activeBooking.isOpenEnded ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-amber-500/50 text-amber-300 hover:border-amber-400 hover:bg-amber-500/10"
+                          onClick={() => openVacateModal(activeBooking)}
+                          leftIcon={<LogOut className="w-4 h-4" />}
+                        >
+                          Notice to Vacate
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-indigo-500/50 text-indigo-300 hover:border-indigo-400 hover:bg-indigo-500/10"
+                          isLoading={isWithdrawingVacate}
+                          onClick={() => handleWithdrawVacateNotice(activeBooking)}
+                          leftIcon={<CheckCircle2 className="w-4 h-4" />}
+                        >
+                          Withdraw Notice
+                        </Button>
+                      )}
+                    </>
                   ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="border-rose-500/50 text-rose-400 hover:border-rose-400 hover:bg-rose-500/10 hover:text-rose-300"
-                      onClick={() => setCancelModalBooking(activeBooking)}
-                    >
-                      Cancel Stay
-                    </Button>
+                    <>
+                      {!activeBooking.isOpenEnded && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openExtendModal(activeBooking)}
+                          leftIcon={<Calendar className="w-4 h-4" />}
+                        >
+                          Extend Stay
+                        </Button>
+                      )}
+                      {isLongStayBooking(activeBooking) ? (
+                        <span className="text-[11px] text-amber-300 border border-amber-500/40 rounded-lg px-2.5 py-2">
+                          1-month notice • Admin cancellation
+                        </span>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-rose-500/50 text-rose-400 hover:border-rose-400 hover:bg-rose-500/10 hover:text-rose-300"
+                          onClick={() => setCancelModalBooking(activeBooking)}
+                        >
+                          Cancel Stay
+                        </Button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -470,6 +637,87 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
                   </span>
                 </div>
               </div>
+
+              {/* Monthly Resident Rent Renewal & Notice Banner */}
+              {activeBooking.stayType === "MONTHLY" && (
+                <div className="space-y-3">
+                  {!activeBooking.isOpenEnded ? (
+                    <div className="p-4 rounded-2xl bg-amber-950/40 border border-amber-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                      <div className="flex items-center gap-3">
+                        <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
+                        <div>
+                          <p className="font-bold text-amber-300 text-sm">
+                            30-Day Vacating Notice Active
+                          </p>
+                          <p className="text-slate-300">
+                            Scheduled departure:{" "}
+                            <span className="font-bold text-white">
+                              {formatDateDisplay(activeBooking.checkOutDate)}
+                            </span>
+                            . This bed has been made available for upcoming bookings following your departure.
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-slate-700 hover:border-slate-500 shrink-0"
+                        isLoading={isWithdrawingVacate}
+                        onClick={() => handleWithdrawVacateNotice(activeBooking)}
+                      >
+                        Stay Longer (Withdraw Notice)
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-950/60 via-purple-950/40 to-slate-900 border border-indigo-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-amber-400" />
+                          <span className="text-xs font-bold uppercase tracking-wider text-amber-300">
+                            Upcoming Rent Cycle{" "}
+                            {Math.ceil(
+                              (new Date(activeBooking.checkOutDate).getTime() - Date.now()) /
+                                (1000 * 60 * 60 * 24)
+                            ) <= 7
+                              ? "(Renewal Due)"
+                              : `(Due in ${Math.ceil(
+                                  (new Date(activeBooking.checkOutDate).getTime() - Date.now()) /
+                                    (1000 * 60 * 60 * 24)
+                                )} Days)`}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-300">
+                          Current term paid through:{" "}
+                          <span className="font-bold text-white">
+                            {formatDateDisplay(activeBooking.checkOutDate)}
+                          </span>
+                          {" • "}
+                          Next term:{" "}
+                          <span className="text-indigo-300 font-semibold">
+                            {formatDateDisplay(activeBooking.checkOutDate)} →{" "}
+                            {formatDateDisplay(
+                              new Date(
+                                new Date(activeBooking.checkOutDate).getTime() +
+                                  30 * 24 * 60 * 60 * 1000
+                              )
+                            )}
+                          </span>
+                        </p>
+                      </div>
+
+                      <Button
+                        variant="glow"
+                        size="sm"
+                        isLoading={isPayingRent}
+                        onClick={() => handlePayMonthlyRent(activeBooking)}
+                        leftIcon={<CreditCard className="w-4 h-4" />}
+                      >
+                        Pay Next Month Rent (PhonePe)
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Payment Status Card */}
               <div className={`p-4 rounded-2xl border ${activeBooking.balanceAmount > 0
@@ -1183,6 +1431,89 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
                 leftIcon={<CreditCard className="w-4 h-4" />}
               >
                 Pay ₹{paymentModalBooking.balanceAmount.toLocaleString()}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Notice to Vacate Modal */}
+      {vacateModalBooking && (
+        <Modal
+          isOpen={!!vacateModalBooking}
+          onClose={() => !isSubmittingVacate && setVacateModalBooking(null)}
+          title="Notice to Vacate (30-Day Notice)"
+          description={`Resident Agreement #${vacateModalBooking.bookingReference}`}
+        >
+          <div className="space-y-4 py-2 text-xs">
+            <div className="p-4 rounded-2xl bg-amber-950/40 border border-amber-500/30 space-y-2">
+              <span className="font-bold text-amber-300 flex items-center gap-1.5 text-sm">
+                <AlertCircle className="w-4 h-4" /> Coliving Vacating Policy
+              </span>
+              <p className="text-slate-300">
+                In accordance with GenZ Colive PG policies, residents are required to submit a minimum{" "}
+                <strong>30-day advance notice</strong> before vacating their bed.
+              </p>
+              <p className="text-slate-400">
+                Once submitted, your departure date will be fixed and this bed will be made available for incoming reservations starting the day after your departure.
+              </p>
+            </div>
+
+            <div>
+              <label htmlFor="vacate-departure-date" className="block text-xs font-bold text-indigo-400 mb-1">
+                Intended Departure Date (Minimum 30 days from today)
+              </label>
+              <DatePicker
+                value={vacateDate}
+                min={new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)}
+                onChange={setVacateDate}
+                triggerClassName="min-h-12 rounded-xl border border-slate-700 bg-slate-900 p-3"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-1">
+                Reason for Leaving (Optional)
+              </label>
+              <textarea
+                rows={2}
+                placeholder="e.g. Relocating for work, moving to independent apartment, course completed..."
+                value={vacateReason}
+                onChange={(e) => setVacateReason(e.target.value)}
+                className="w-full p-3 rounded-xl bg-slate-900 border border-slate-700 text-sm text-white focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+
+            {vacateMsg && (
+              <div
+                className={`p-3 rounded-xl text-xs ${
+                  vacateMsg.includes("successfully") || vacateMsg.includes("recorded")
+                    ? "bg-emerald-950 border border-emerald-500 text-emerald-300"
+                    : "bg-rose-950 border border-rose-500 text-rose-300"
+                }`}
+              >
+                {vacateMsg}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setVacateModalBooking(null)}
+                disabled={isSubmittingVacate}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                isLoading={isSubmittingVacate}
+                onClick={handleSubmitVacateNotice}
+                disabled={!vacateDate}
+                rightIcon={<ArrowRight className="w-4 h-4" />}
+              >
+                Confirm Vacating Notice
               </Button>
             </div>
           </div>
