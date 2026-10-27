@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { verifyPaymentSignature, verifyCapturedPayment } from "@/lib/razorpay";
 import { generateBookingQRCode } from "@/lib/qr";
-import { generateUniqueInvoiceNumber } from "@/lib/invoice";
+import { createInvoiceWithRetry } from "@/lib/invoice";
 import { logAuditAction } from "@/lib/audit";
 import { getSessionUser } from "@/lib/auth";
 
@@ -203,8 +203,7 @@ export async function POST(req: Request) {
       booking.id
     );
 
-    // Generate Invoice Number
-    const invoiceNumber = await generateUniqueInvoiceNumber();
+
 
     // Transactional confirmation
     const updatedBooking = await prisma.$transaction(async (tx) => {
@@ -250,26 +249,24 @@ export async function POST(req: Request) {
       });
 
       // 4. Generate Invoice
-      await tx.invoice.create({
-        data: {
-          invoiceNumber,
-          bookingId: booking.id,
-          customerId: booking.customerId,
-          hostelId: booking.hostelId,
-          issueDate: new Date(),
-          dueDate: new Date(),
-          baseAmount: booking.baseAmount,
-          taxAmount: booking.taxAmount,
-          serviceFee: booking.serviceFee,
-          securityDeposit: booking.securityDeposit,
-          discountAmount: booking.discountAmount,
-          totalAmount: booking.totalAmount,
-          paidAmount: booking.totalAmount,
-          status: "PAID",
-        },
+      const invoice = await createInvoiceWithRetry(tx, {
+        bookingId: booking.id,
+        customerId: booking.customerId,
+        hostelId: booking.hostelId,
+        issueDate: new Date(),
+        dueDate: new Date(),
+        baseAmount: booking.baseAmount,
+        taxAmount: booking.taxAmount,
+        serviceFee: booking.serviceFee,
+        securityDeposit: booking.securityDeposit,
+        discountAmount: booking.discountAmount,
+        totalAmount: booking.totalAmount,
+        paidAmount: booking.totalAmount,
+        balanceDue: 0,
+        status: "PAID",
       });
 
-      return confirmed;
+      return { confirmed, invoiceNumber: invoice.invoiceNumber };
     });
 
     // Log Audit action
@@ -290,8 +287,8 @@ export async function POST(req: Request) {
       success: true,
       message: "Payment captured successfully! Booking is confirmed.",
       data: {
-        booking: updatedBooking,
-        invoiceNumber,
+        booking: updatedBooking.confirmed,
+        invoiceNumber: updatedBooking.invoiceNumber,
       },
     });
   } catch (error: any) {

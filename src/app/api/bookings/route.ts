@@ -6,7 +6,7 @@ import { addUtcCalendarDays, calculateBookingPrice, getRoomTypePriceRates } from
 import { releaseExpiredBookingHolds } from "@/lib/booking-cleanup";
 import { isLongStay } from "@/lib/booking-policy";
 import { generateBookingQRCode } from "@/lib/qr";
-import { generateUniqueInvoiceNumber } from "@/lib/invoice";
+import { createInvoiceWithRetry } from "@/lib/invoice";
 
 export const dynamic = "force-dynamic";
 
@@ -187,7 +187,6 @@ export async function POST(req: Request) {
       if (!existing) break;
       bookingReference = `GZ-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
     }
-    const invoiceNumber = await generateUniqueInvoiceNumber();
 
     // Atomic Transaction: Ensure no double-booking race conditions!
     const result = await prisma.$transaction(async (tx) => {
@@ -288,13 +287,22 @@ export async function POST(req: Request) {
           },
         });
       }
-      await tx.invoice.create({ data: {
-        invoiceNumber, bookingId: booking.id, customerId: user.id, hostelId,
-        issueDate: now, dueDate: now, baseAmount: pricing.baseAmount, taxAmount: pricing.taxAmount,
-        serviceFee: pricing.serviceFee, securityDeposit: pricing.securityDeposit,
-        discountAmount: pricing.discountAmount, totalAmount: pricing.totalAmount,
-        paidAmount: 0, balanceDue: pricing.totalAmount, status: "DUE",
-      } });
+      await createInvoiceWithRetry(tx, {
+        bookingId: booking.id,
+        customerId: user.id,
+        hostelId,
+        issueDate: now,
+        dueDate: now,
+        baseAmount: pricing.baseAmount,
+        taxAmount: pricing.taxAmount,
+        serviceFee: pricing.serviceFee,
+        securityDeposit: pricing.securityDeposit,
+        discountAmount: pricing.discountAmount,
+        totalAmount: pricing.totalAmount,
+        paidAmount: 0,
+        balanceDue: pricing.totalAmount,
+        status: "DUE",
+      });
 
       // Update coupon usage count if applied
       if (couponRecord) {

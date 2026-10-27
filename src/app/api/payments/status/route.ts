@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { checkOrderStatus } from "@/lib/phonepe";
 import { generateBookingQRCode } from "@/lib/qr";
-import { generateUniqueInvoiceNumber } from "@/lib/invoice";
+import { createInvoiceWithRetry } from "@/lib/invoice";
 import { logAuditAction } from "@/lib/audit";
 import { getSessionUser } from "@/lib/auth";
 
@@ -99,7 +99,6 @@ async function handleOrderStatusVerification(merchantOrderId: string) {
     }
 
     const qrCodeData = await generateBookingQRCode(booking.bookingReference, booking.id);
-    const invoiceNumber = await generateUniqueInvoiceNumber();
 
     let meta: any = {};
     try {
@@ -199,24 +198,21 @@ async function handleOrderStatusVerification(merchantOrderId: string) {
 
         // 4. Update or Generate Invoice
         if (booking.invoices.length === 0) {
-          await tx.invoice.create({
-            data: {
-              invoiceNumber,
-              bookingId: booking.id,
-              customerId: booking.customerId,
-              hostelId: booking.hostelId,
-              issueDate: new Date(),
-              dueDate: new Date(),
-              baseAmount: booking.baseAmount,
-              taxAmount: booking.taxAmount,
-              serviceFee: booking.serviceFee,
-              securityDeposit: booking.securityDeposit,
-              discountAmount: booking.discountAmount,
-              totalAmount: booking.totalAmount,
-              paidAmount: newPaidTotal,
-              balanceDue: newBalance,
-              status: isFullyPaid ? "PAID" : "PARTIAL",
-            },
+          await createInvoiceWithRetry(tx, {
+            bookingId: booking.id,
+            customerId: booking.customerId,
+            hostelId: booking.hostelId,
+            issueDate: new Date(),
+            dueDate: new Date(),
+            baseAmount: booking.baseAmount,
+            taxAmount: booking.taxAmount,
+            serviceFee: booking.serviceFee,
+            securityDeposit: booking.securityDeposit,
+            discountAmount: booking.discountAmount,
+            totalAmount: booking.totalAmount,
+            paidAmount: newPaidTotal,
+            balanceDue: newBalance,
+            status: isFullyPaid ? "PAID" : "PARTIAL",
           });
         } else {
           await tx.invoice.update({

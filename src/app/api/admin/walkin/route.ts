@@ -3,7 +3,7 @@ import crypto from "crypto";
 import prisma from "@/lib/prisma";
 import { getSessionUser, hasPermission, ROLES, hashPassword } from "@/lib/auth";
 import { generateBookingQRCode } from "@/lib/qr";
-import { generateUniqueInvoiceNumber } from "@/lib/invoice";
+import { createInvoiceWithRetry } from "@/lib/invoice";
 import { logAuditAction } from "@/lib/audit";
 
 export async function POST(req: Request) {
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
     const emailToUse = guestEmail?.trim()?.toLowerCase() || `walkin_${Date.now()}@genzlivingspace.local`;
 
     const bookingReference = `GZ-W${Math.floor(10000 + Math.random() * 90000)}`;
-    const invoiceNumber = await generateUniqueInvoiceNumber();
+
 
     const now = new Date();
     const isPastStay = checkOut <= now;
@@ -197,20 +197,17 @@ export async function POST(req: Request) {
       });
 
       // 5. Generate Invoice
-      await tx.invoice.create({
-        data: {
-          invoiceNumber,
-          bookingId: b.id,
-          customerId: customer.id,
-          hostelId,
-          issueDate: now,
-          dueDate: now,
-          baseAmount: amount,
-          taxAmount: 0,
-          totalAmount: amount,
-          paidAmount: amount,
-          status: "PAID",
-        },
+      await createInvoiceWithRetry(tx, {
+        bookingId: b.id,
+        customerId: customer.id,
+        hostelId,
+        issueDate: now,
+        dueDate: now,
+        baseAmount: amount,
+        taxAmount: 0,
+        totalAmount: amount,
+        paidAmount: amount,
+        status: "PAID",
       });
 
       return b;

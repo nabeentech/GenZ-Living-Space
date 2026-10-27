@@ -3,7 +3,7 @@ import crypto from "crypto";
 import prisma from "@/lib/prisma";
 import { getSessionUser, hasPermission, ROLES } from "@/lib/auth";
 import { addUtcCalendarDays, getRoomTypePriceRates } from "@/lib/pricing";
-import { generateUniqueInvoiceNumber } from "@/lib/invoice";
+import { createInvoiceWithRetry } from "@/lib/invoice";
 import { createPayment } from "@/lib/phonepe";
 import { logAuditAction } from "@/lib/audit";
 
@@ -156,7 +156,6 @@ export async function POST(
       const paymentMode = body.paymentMode || "CASH"; // CASH, UPI, CARD, BANK_TRANSFER
       const paidAmount = Number(body.amount) || defaultRenewalAmount;
       const notes = body.notes || "";
-      const invoiceNumber = await generateUniqueInvoiceNumber();
 
       const result = await prisma.$transaction(async (tx) => {
         // 1. Advance booking checkOutDate and financial totals
@@ -172,24 +171,21 @@ export async function POST(
         });
 
         // 2. Create paid Invoice for this cycle
-        const invoice = await tx.invoice.create({
-          data: {
-            invoiceNumber,
-            bookingId: booking.id,
-            customerId: booking.customerId,
-            hostelId: booking.hostelId,
-            issueDate: new Date(),
-            dueDate: cycleStart,
-            baseAmount: baseRent,
-            serviceFee: maintenanceFee,
-            taxAmount: 0,
-            securityDeposit: 0,
-            discountAmount: 0,
-            totalAmount: paidAmount,
-            paidAmount: paidAmount,
-            balanceDue: 0,
-            status: "PAID",
-          },
+        const invoice = await createInvoiceWithRetry(tx, {
+          bookingId: booking.id,
+          customerId: booking.customerId,
+          hostelId: booking.hostelId,
+          issueDate: new Date(),
+          dueDate: cycleStart,
+          baseAmount: baseRent,
+          serviceFee: maintenanceFee,
+          taxAmount: 0,
+          securityDeposit: 0,
+          discountAmount: 0,
+          totalAmount: paidAmount,
+          paidAmount: paidAmount,
+          balanceDue: 0,
+          status: "PAID",
         });
 
         // 3. Create completed Payment record
@@ -209,7 +205,7 @@ export async function POST(
               staffRole: user.role,
               cycleStart: cycleStart.toISOString(),
               cycleEnd: cycleEnd.toISOString(),
-              invoiceNumber,
+              invoiceNumber: invoice.invoiceNumber,
               notes,
             }),
           },
@@ -239,7 +235,7 @@ export async function POST(
           paymentMode,
           amount: paidAmount,
           newCheckOut: cycleEnd.toISOString(),
-          invoiceNumber,
+          invoiceNumber: result.invoice.invoiceNumber,
           notes,
         },
       });
@@ -254,7 +250,6 @@ export async function POST(
     // FLOW 2: ONLINE PAYMENT VIA PHONEPE
     const paymentAmount = defaultRenewalAmount;
     const amountInPaise = Math.round(paymentAmount * 100);
-    const invoiceNumber = await generateUniqueInvoiceNumber();
 
     const baseOrigin =
       process.env.APP_BASE_URL ||
@@ -266,24 +261,21 @@ export async function POST(
     const merchantOrderId = `GZLS_RENT_${cleanRef}_${Date.now().toString(36)}`;
 
     // Create a DUE invoice for the upcoming cycle
-    const invoice = await prisma.invoice.create({
-      data: {
-        invoiceNumber,
-        bookingId: booking.id,
-        customerId: booking.customerId,
-        hostelId: booking.hostelId,
-        issueDate: new Date(),
-        dueDate: cycleStart,
-        baseAmount: baseRent,
-        serviceFee: maintenanceFee,
-        taxAmount: 0,
-        securityDeposit: 0,
-        discountAmount: 0,
-        totalAmount: paymentAmount,
-        paidAmount: 0,
-        balanceDue: paymentAmount,
-        status: "DUE",
-      },
+    const invoice = await createInvoiceWithRetry(prisma, {
+      bookingId: booking.id,
+      customerId: booking.customerId,
+      hostelId: booking.hostelId,
+      issueDate: new Date(),
+      dueDate: cycleStart,
+      baseAmount: baseRent,
+      serviceFee: maintenanceFee,
+      taxAmount: 0,
+      securityDeposit: 0,
+      discountAmount: 0,
+      totalAmount: paymentAmount,
+      paidAmount: 0,
+      balanceDue: paymentAmount,
+      status: "DUE",
     });
 
     // Create a PENDING payment record
@@ -303,7 +295,7 @@ export async function POST(
           bookingReference: booking.bookingReference,
           cycleStart: cycleStart.toISOString(),
           cycleEnd: cycleEnd.toISOString(),
-          invoiceNumber,
+          invoiceNumber: invoice.invoiceNumber,
           invoiceId: invoice.id,
           baseRent,
           maintenanceFee,
@@ -339,7 +331,7 @@ export async function POST(
         orderId: checkout.orderId,
         bookingReference: booking.bookingReference,
         paymentAmount,
-        invoiceNumber,
+        invoiceNumber: invoice.invoiceNumber,
         cycleStart,
         cycleEnd,
       },

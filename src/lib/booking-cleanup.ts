@@ -1,7 +1,7 @@
 import prisma from "./prisma";
 import { checkOrderStatus, isPhonePeConfigured } from "./phonepe";
 import { generateBookingQRCode } from "./qr";
-import { generateUniqueInvoiceNumber } from "./invoice";
+import { createInvoiceWithRetry } from "./invoice";
 import { logAuditAction } from "./audit";
 
 export async function releaseExpiredBookingHolds(): Promise<{
@@ -53,7 +53,6 @@ export async function releaseExpiredBookingHolds(): Promise<{
           const txnId = txnDetail?.transactionId || phonePeStatus.orderId;
           const paymentMode = txnDetail?.paymentMode || "PHONEPE_UPI";
           const qrCodeData = await generateBookingQRCode(booking.bookingReference, booking.id);
-          const invoiceNumber = await generateUniqueInvoiceNumber();
 
           await prisma.$transaction(async (tx) => {
             await tx.payment.update({
@@ -85,24 +84,21 @@ export async function releaseExpiredBookingHolds(): Promise<{
             }
 
             if (booking.invoices.length === 0) {
-              await tx.invoice.create({
-                data: {
-                  invoiceNumber,
-                  bookingId: booking.id,
-                  customerId: booking.customerId,
-                  hostelId: booking.hostelId,
-                  issueDate: now,
-                  dueDate: now,
-                  baseAmount: booking.baseAmount,
-                  taxAmount: booking.taxAmount,
-                  serviceFee: booking.serviceFee,
-                  securityDeposit: booking.securityDeposit,
-                  discountAmount: booking.discountAmount,
-                  totalAmount: booking.totalAmount,
-                  paidAmount: booking.totalAmount,
-                  balanceDue: 0,
-                  status: "PAID",
-                },
+              await createInvoiceWithRetry(tx, {
+                bookingId: booking.id,
+                customerId: booking.customerId,
+                hostelId: booking.hostelId,
+                issueDate: now,
+                dueDate: now,
+                baseAmount: booking.baseAmount,
+                taxAmount: booking.taxAmount,
+                serviceFee: booking.serviceFee,
+                securityDeposit: booking.securityDeposit,
+                discountAmount: booking.discountAmount,
+                totalAmount: booking.totalAmount,
+                paidAmount: booking.totalAmount,
+                balanceDue: 0,
+                status: "PAID",
               });
             } else {
               await tx.invoice.update({
