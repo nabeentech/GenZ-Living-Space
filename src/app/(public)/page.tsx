@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
-import HeroSearch from "@/components/public/HeroSearch";
+import HeroCarouselSection from "@/components/public/HeroCarouselSection";
 import WhyUs from "@/components/public/WhyUs";
 import AmenitiesGrid from "@/components/public/AmenitiesGrid";
 import HostelGallerySection from "@/components/public/HostelGallerySection";
@@ -55,13 +55,13 @@ export default async function HomePage() {
 
   const formattedGallery = galleryImages.map((img) => ({
     ...img,
-    src: `/api/gallery/image/${img.id}`,
+    src: img.imageUrl || `/api/gallery/image/${img.id}`,
   }));
 
   let heroData = {
-    badge: "Most Luxury and Comfortable Colive PG in Hyderabad",
-    headline: "Find Your Space. Live Your Way.",
-    subheadline: "Premium coliving, ultra-fast fiber, creative workspaces, and vibrant community living.",
+    badge: "India's #1 Gen-Z Living Experience",
+    headline: "More Than a Stay. A Better Way to Live.",
+    subheadline: "Premium coliving, ultra-fast fiber, creative workspaces, and vibrant community living across 4 hand-curated hostel sanctuaries in Madhapur.",
   };
 
   if (cmsContent?.contentJson) {
@@ -78,53 +78,12 @@ export default async function HomePage() {
       <Navbar user={user} />
 
       <main className="flex-1">
-        {/* HERO SECTION */}
-        <section className="relative pt-6 pb-24 lg:pt-10 lg:pb-32 overflow-hidden">
-          {/* Subtle Ambient Glow Gradients */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-to-b from-indigo-600/15 via-purple-600/10 to-transparent blur-[120px] pointer-events-none" />
-          <div className="absolute top-1/3 -left-48 w-96 h-96 bg-pink-500/10 blur-[120px] rounded-full pointer-events-none" />
-
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-            {/* Top Pill */}
-            <div className="flex justify-center mb-6">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-panel border border-indigo-500/30 text-xs font-semibold text-indigo-300 shadow-glow">
-                <Flame className="w-3.5 h-3.5 text-pink-400" />
-                <span>{heroData.badge}</span>
-              </div>
-            </div>
-
-            {/* Main Headline */}
-            <div className="text-center max-w-4xl mx-auto space-y-6">
-              <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-[1.08] text-white">
-                {heroData.headline}
-              </h1>
-              <p className="text-base sm:text-xl text-slate-300 max-w-2xl mx-auto font-normal leading-relaxed">
-                {heroData.subheadline}
-              </p>
-            </div>
-
-            {/* Interactive Availability Search Bar */}
-            <div className="mt-12 max-w-5xl mx-auto">
-              <HeroSearch />
-            </div>
-
-            {/* Quick Metrics Bar */}
-            <div className="mt-16 grid grid-cols-3 gap-4 max-w-4xl mx-auto justify-center">
-              <div className="glass-panel p-4 rounded-2xl text-center border border-slate-800/80 bg-[#111827]/60">
-                <span className="block text-2xl sm:text-3xl font-black text-cyan-400">1 Gbps</span>
-                <span className="text-xs text-slate-400 font-medium">Fiber Optic Wi-Fi</span>
-              </div>
-              <div className="glass-panel p-4 rounded-2xl text-center border border-slate-800/80 bg-[#111827]/60">
-                <span className="block text-2xl sm:text-3xl font-black text-amber-300">4.9 ★</span>
-                <span className="text-xs text-slate-400 font-medium">Average Guest Rating</span>
-              </div>
-              <div className="glass-panel p-4 rounded-2xl text-center border border-slate-800/80 bg-[#111827]/60">
-                <span className="block text-2xl sm:text-3xl font-black text-pink-400">10,000+</span>
-                <span className="text-xs text-slate-400 font-medium">Happy Nomads</span>
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* HERO SECTION WITH AUTO-SCROLLING GALLERY CAROUSEL */}
+        <HeroCarouselSection
+          galleryImages={formattedGallery}
+          badge={heroData.badge}
+          subheadline={heroData.subheadline}
+        />
 
         {/* WHY GENZ SECTION */}
         <WhyUs />

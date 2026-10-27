@@ -42,7 +42,10 @@ export async function GET(
 
     // If external/fallback imageUrl was provided
     if (image.imageUrl) {
-      return NextResponse.redirect(image.imageUrl, { status: 307 });
+      const targetUrl = image.imageUrl.startsWith("/")
+        ? new URL(image.imageUrl, req.url).toString()
+        : image.imageUrl;
+      return NextResponse.redirect(targetUrl, { status: 307 });
     }
 
     return new Response("No image content available", { status: 404 });

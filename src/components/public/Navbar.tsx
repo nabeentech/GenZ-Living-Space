@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, Compass, User, ShieldAlert } from "lucide-react";
+import { Menu, X, Compass, User, ShieldAlert, ArrowRightCircle } from "lucide-react";
 import Button from "../ui/Button";
 
 interface NavbarProps {
@@ -67,7 +67,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user: propUser }) => {
               GenZ <span className="text-indigo-400 font-semibold">Colive PG & Guest Rooms</span>
             </span>
             <span className="text-[10px] uppercase font-bold tracking-widest text-pink-400 -mt-1">
-              Madhapur - HYD
+              MADHAPUR • HYD
             </span>
           </div>
         </Link>
@@ -130,7 +130,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user: propUser }) => {
           )}
 
           {!isAdmin && <Link href="/hostels/genz-colive-pg-guest-rooms">
-            <Button variant="glow" size="sm" rightIcon={<Compass className="w-4 h-4" />}>
+            <Button variant="glow" size="sm" rightIcon={<ArrowRightCircle className="w-4 h-4" />}>
               Find A Bed
             </Button>
           </Link>}

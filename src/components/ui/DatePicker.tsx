@@ -56,7 +56,7 @@ export default function DatePicker({ value, onChange, label, min, className = ""
   const selectedLabel = selectedDate?.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 
   return (
-    <div ref={rootRef} className={`relative ${className}`}>
+    <div ref={rootRef} className={`relative ${open ? "z-50" : "z-10"} ${className}`}>
       <button
         type="button"
         aria-haspopup="dialog"
@@ -76,15 +76,15 @@ export default function DatePicker({ value, onChange, label, min, className = ""
         </span>
       </button>
 
-      {open && <div role="dialog" aria-label={label ? `${label} calendar` : "Choose date"} className="absolute left-0 top-[calc(100%+0.5rem)] z-[70] w-[min(20rem,calc(100vw-2rem))] rounded-2xl border border-slate-700 bg-[#111827] p-4 shadow-2xl shadow-black/50">
-        <div className="mb-3 flex items-center justify-between">
-          <span className="font-bold text-white">{visibleMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</span>
+      {open && <div role="dialog" aria-label={label ? `${label} calendar` : "Choose date"} className="absolute left-0 top-[calc(100%+0.5rem)] z-[70] w-[min(19.5rem,calc(100vw-2rem))] rounded-2xl border border-slate-700 bg-[#111827] p-3.5 sm:p-4 shadow-2xl shadow-black/90">
+        <div className="mb-2.5 flex items-center justify-between">
+          <span className="font-bold text-white text-sm sm:text-base">{visibleMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</span>
           <div className="flex gap-1">
-            <button type="button" aria-label="Previous month" onClick={() => setVisibleMonth(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() - 1, 1))} className="rounded-lg p-2 text-slate-300 hover:bg-slate-800 hover:text-white"><ChevronLeft className="h-4 w-4" /></button>
-            <button type="button" aria-label="Next month" onClick={() => setVisibleMonth(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1))} className="rounded-lg p-2 text-slate-300 hover:bg-slate-800 hover:text-white"><ChevronRight className="h-4 w-4" /></button>
+            <button type="button" aria-label="Previous month" onClick={() => setVisibleMonth(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() - 1, 1))} className="rounded-lg p-1.5 text-slate-300 hover:bg-slate-800 hover:text-white"><ChevronLeft className="h-4 w-4" /></button>
+            <button type="button" aria-label="Next month" onClick={() => setVisibleMonth(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1))} className="rounded-lg p-1.5 text-slate-300 hover:bg-slate-800 hover:text-white"><ChevronRight className="h-4 w-4" /></button>
           </div>
         </div>
-        <div className="mb-1 grid grid-cols-7 text-center text-[11px] font-semibold text-slate-500">{"MTWTFSS".split("").map((day, index) => <span key={`${day}-${index}`} className="py-2">{day}</span>)}</div>
+        <div className="mb-1 grid grid-cols-7 text-center text-[10px] font-semibold text-slate-500">{"MTWTFSS".split("").map((day, index) => <span key={`${day}-${index}`} className="py-1">{day}</span>)}</div>
         <div className="grid grid-cols-7 gap-1">
           {days.map((day, index) => {
             if (!day) return <span key={`empty-${index}`} />;
@@ -92,10 +92,10 @@ export default function DatePicker({ value, onChange, label, min, className = ""
             const isDisabled = Boolean(min && key < min);
             const isSelected = key === value;
             const isToday = key === dateKey(new Date());
-            return <button key={key} type="button" disabled={isDisabled} onClick={() => { onChange(key); setOpen(false); }} className={`h-9 rounded-lg text-sm transition ${isSelected ? "bg-indigo-600 font-bold text-white shadow-glow" : isToday ? "border border-indigo-500/60 text-indigo-300" : "text-slate-200 hover:bg-slate-800"} disabled:cursor-not-allowed disabled:text-slate-700`}>{day.getDate()}</button>;
+            return <button key={key} type="button" disabled={isDisabled} onClick={() => { onChange(key); setOpen(false); }} className={`h-8 rounded-lg text-xs transition ${isSelected ? "bg-indigo-600 font-bold text-white shadow-glow" : isToday ? "border border-indigo-500/60 text-indigo-300" : "text-slate-200 hover:bg-slate-800"} disabled:cursor-not-allowed disabled:text-slate-700`}>{day.getDate()}</button>;
           })}
         </div>
-        <div className="mt-3 flex justify-between border-t border-slate-800 pt-3">
+        <div className="mt-2.5 flex justify-between border-t border-slate-800 pt-2.5">
           <button type="button" onClick={() => { onChange(""); setOpen(false); }} className="text-xs font-semibold text-slate-400 hover:text-white">Clear</button>
           <button type="button" onClick={() => { const today = dateKey(new Date()); if (!min || today >= min) onChange(today); setOpen(false); }} className="text-xs font-semibold text-indigo-300 hover:text-white">Today</button>
         </div>
