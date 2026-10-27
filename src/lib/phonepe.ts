@@ -1,12 +1,18 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 
-const isProduction = process.env.PHONEPE_ENV === "PRODUCTION";
+const environment = process.env.PHONEPE_ENV || "SANDBOX";
+if (environment !== "PRODUCTION" && environment !== "SANDBOX") {
+  throw new Error("PHONEPE_ENV must be SANDBOX or PRODUCTION");
+}
+const isProduction = environment === "PRODUCTION";
 const BASE_URL = isProduction
   ? "https://api.phonepe.com/apis/pg"
   : "https://api-preprod.phonepe.com/apis/pg-sandbox";
 const TOKEN_URL = isProduction
   ? "https://api.phonepe.com/apis/identity-manager/v1/oauth/token"
   : "https://api-preprod.phonepe.com/apis/pg-sandbox/v1/oauth/token";
+
+export class PhonePePaymentNotCreatedError extends Error {}
 
 export type TokenResponse = {
   access_token: string;
@@ -34,10 +40,29 @@ export type CreatePaymentInput = {
   amount: number; // In paise (minimum 100)
   redirectUrl: string;
   metaInfo?: Record<string, string>;
+  holdExpiresAt?: Date;
 };
 
 let cachedToken: TokenResponse | null = null;
 let tokenRefreshPromise: Promise<TokenResponse> | null = null;
+
+// Opt in on the server only. Never log headers, raw provider bodies, metadata,
+// redirect URLs (which may contain session tokens), or OAuth request values.
+export function diagnostic(event: string, details: Record<string, unknown>): void {
+  if (process.env.PHONEPE_DIAGNOSTICS !== "true") return;
+  console.info("PhonePe diagnostic", JSON.stringify({
+    event,
+    timestamp: new Date().toISOString(),
+    environment: isProduction ? "PRODUCTION" : "SANDBOX",
+    ...details,
+  }));
+}
+
+async function providerErrorCode(response: Response): Promise<string | undefined> {
+  const body = await response.json().catch(() => null);
+  const code = body?.code;
+  return typeof code === "string" && /^[A-Z0-9_]{1,80}$/.test(code) ? code : undefined;
+}
 
 export function isPhonePeConfigured(): boolean {
   return Boolean(
@@ -81,8 +106,7 @@ export async function getAccessToken(): Promise<TokenResponse> {
     });
 
     if (!response.ok) {
-      const errText = await response.text();
-      console.error("PhonePe OAuth failed:", response.status, errText);
+      diagnostic("oauth.error", { status: response.status, code: await providerErrorCode(response) });
       throw new Error(`PhonePe OAuth failed: HTTP ${response.status}`);
     }
 
@@ -108,6 +132,23 @@ export async function getAccessToken(): Promise<TokenResponse> {
 
 async function phonePeFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = await getAccessToken();
+  const statusOrder = path.match(/^\/checkout\/v2\/order\/([^/]+)\/status/);
+  let merchantOrderId: string | undefined = statusOrder ? decodeURIComponent(statusOrder[1]) : undefined;
+  if (process.env.PHONEPE_DIAGNOSTICS === "true" && path === "/checkout/v2/pay" && typeof init.body === "string") {
+    // Inspect the final serialized body, rather than an earlier builder input.
+    const body = JSON.parse(init.body);
+    merchantOrderId = body.merchantOrderId;
+    diagnostic("checkout.request", {
+      endpoint: `${BASE_URL}${path}`,
+      merchantOrderId: body.merchantOrderId,
+      amountPaise: body.amount,
+      expireAfterSeconds: body.expireAfter,
+      fields: Object.keys(body),
+      paymentFlowFields: Object.keys(body.paymentFlow),
+      paymentModeConfig: body.paymentFlow.paymentModeConfig,
+      metaInfoKeys: Object.keys(body.metaInfo ?? {}),
+    });
+  }
   const response = await fetch(`${BASE_URL}${path}`, {
     ...init,
     headers: {
@@ -119,13 +160,32 @@ async function phonePeFetch<T>(path: string, init: RequestInit = {}): Promise<T>
     signal: AbortSignal.timeout(15000),
   });
 
+  diagnostic("api.response", {
+    operation: path === "/checkout/v2/pay" ? "createPayment" : statusOrder ? "orderStatus" : "other",
+    status: response.status,
+    merchantOrderId,
+    requestId: response.headers.get("x-request-id"),
+    correlationId: response.headers.get("x-correlation-id"),
+  });
   if (!response.ok) {
-    const errText = await response.text();
-    console.error(`PhonePe API ${path} returned HTTP ${response.status}:`, errText);
+    diagnostic("api.error", { merchantOrderId, status: response.status, code: await providerErrorCode(response) });
     throw new Error(`PhonePe API returned HTTP ${response.status}`);
   }
 
-  return response.json() as Promise<T>;
+  const result = await response.json();
+  if (path === "/checkout/v2/pay") {
+    diagnostic("checkout.created", {
+      merchantOrderId,
+      orderId: result.orderId,
+      state: result.state,
+      expireAt: result.expireAt,
+    });
+  }
+  if (statusOrder) diagnostic("order.status", {
+    merchantOrderId, orderId: result.orderId, state: result.state,
+    amountPaise: result.amount, expireAt: result.expireAt,
+  });
+  return result as T;
 }
 
 export async function createPayment(input: CreatePaymentInput): Promise<{
@@ -142,23 +202,13 @@ export async function createPayment(input: CreatePaymentInput): Promise<{
     throw new Error("Amount must be an integer of at least 100 paise");
   }
 
-  // Fallback simulator for local development if credentials are not yet configured
-  if (!isPhonePeConfigured()) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("PhonePe credentials are not configured in production");
-    }
-
-    const orderId = `OMO_SIM_${Date.now()}`;
-    const returnUrl = new URL(input.redirectUrl);
-    returnUrl.searchParams.set("merchantOrderId", input.merchantOrderId);
-    returnUrl.searchParams.set("simulated", "true");
-
-    return {
-      orderId,
-      state: "PENDING",
-      expireAt: Date.now() + 1200 * 1000,
-      redirectUrl: returnUrl.toString(),
-    };
+  let expireAfter: number;
+  try {
+    if (!isPhonePeConfigured()) throw new Error("PhonePe credentials are not configured");
+    await getAccessToken(); // Authenticate before computing the remaining hold.
+    expireAfter = checkoutExpirySeconds(input.holdExpiresAt);
+  } catch {
+    throw new PhonePePaymentNotCreatedError("Payment was not sent: check gateway configuration or booking hold");
   }
 
   return phonePeFetch<{
@@ -171,13 +221,15 @@ export async function createPayment(input: CreatePaymentInput): Promise<{
     body: JSON.stringify({
       merchantOrderId: input.merchantOrderId,
       amount: input.amount,
-      expireAfter: 1200,
+      expireAfter,
       paymentFlow: {
         type: "PG_CHECKOUT",
         merchantUrls: {
           redirectUrl: input.redirectUrl,
         },
         paymentModeConfig: {
+          // Payment-mode schema V2 (distinct from the checkout API version).
+          // https://developer.phonepe.com/payment-gateway/website-integration/standard-checkout/api-integration/api-reference/create-payment/configure-payment-modes
           version: "V2",
           enabledPaymentModes: [
             {
@@ -204,25 +256,7 @@ export async function checkOrderStatus(merchantOrderId: string): Promise<PhonePe
     throw new Error("Invalid merchantOrderId format");
   }
 
-  // Fallback simulator for development
-  if (!isPhonePeConfigured()) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("PhonePe credentials are not configured in production");
-    }
-    return {
-      orderId: `OMO_SIM_${Date.now()}`,
-      state: "COMPLETED",
-      amount: 100000,
-      paymentDetails: [
-        {
-          transactionId: `TXN_SIM_${Date.now()}`,
-          amount: 100000,
-          state: "COMPLETED",
-          paymentMode: "UPI_INTENT",
-        },
-      ],
-    };
-  }
+  if (!isPhonePeConfigured()) throw new Error("PhonePe credentials are not configured");
 
   const params = new URLSearchParams({ details: "false" });
   return phonePeFetch<PhonePeOrderStatus>(
@@ -231,54 +265,33 @@ export async function checkOrderStatus(merchantOrderId: string): Promise<PhonePe
   );
 }
 
-/**
- * Validates PhonePe webhook.
- * Supports SHA-256 (username:password) or HMAC verification depending on PHONEPE_WEBHOOK_AUTH_MODE.
- */
+// Use the documented SHA256(username:password) mode. HMAC is deliberately
+// rejected until PhonePe provides a verified algorithm/encoding test vector.
 export function verifyPhonePeWebhook(headers: {
   authorization?: string | null;
   keyId?: string | null;
   signature?: string | null;
-}, rawBody: string): boolean {
-  const authMode = process.env.PHONEPE_WEBHOOK_AUTH_MODE || "SHA";
+}, _rawBody: string): boolean {
+  if ((process.env.PHONEPE_WEBHOOK_AUTH_MODE || "SHA") !== "SHA") return false;
+  const username = process.env.PHONEPE_WEBHOOK_USERNAME;
+  const password = process.env.PHONEPE_WEBHOOK_PASSWORD;
+  if (!username || !password) return false;
+  const digest = headers.authorization?.trim();
+  if (!digest || !/^[a-fA-F0-9]{64}$/.test(digest)) return false;
+  const expected = createHash("sha256").update(`${username}:${password}`, "utf8").digest();
+  return timingSafeEqual(expected, Buffer.from(digest, "hex"));
+}
 
-  if (authMode === "SHA") {
-    const authHeader = headers.authorization?.trim();
-    if (!authHeader) return false;
-
-    const cleanAuth = authHeader.replace(/^(sha256|bearer|basic)\s+/i, "");
-    if (!/^[a-fA-F0-9]{64}$/.test(cleanAuth)) return false;
-
-    const username = process.env.PHONEPE_WEBHOOK_USERNAME || "genz_webhook_user";
-    const password = process.env.PHONEPE_WEBHOOK_PASSWORD || "genz_webhook_secure_pass_2026";
-    const expected = createHash("sha256")
-      .update(`${username}:${password}`, "utf8")
-      .digest("hex");
-
-    const expectedBuf = Buffer.from(expected, "hex");
-    const receivedBuf = Buffer.from(cleanAuth, "hex");
-
-    return expectedBuf.length === receivedBuf.length && timingSafeEqual(expectedBuf, receivedBuf);
+// Reserve 60 seconds for OAuth/network latency. PhonePe's documented minimum
+// is 300 seconds; never silently extend a nearly expired booking to satisfy it.
+export function checkoutExpirySeconds(holdExpiresAt?: Date, now = Date.now()): number {
+  const seconds = holdExpiresAt
+    ? Math.min(1200, Math.floor((holdExpiresAt.getTime() - now) / 1000) - 60)
+    : 1200;
+  if (!Number.isFinite(seconds) || seconds < 300) {
+    throw new Error("Booking hold has less than six minutes remaining; create a fresh booking");
   }
-
-  if (authMode === "HMAC") {
-    const signature = headers.signature?.trim();
-    if (!signature) return false;
-
-    const secret = process.env.PHONEPE_WEBHOOK_SECRET || process.env.PHONEPE_CLIENT_SECRET;
-    if (!secret) return false;
-
-    const expected = createHash("sha256")
-      .update(rawBody + secret, "utf8")
-      .digest("hex");
-
-    const expectedBuf = Buffer.from(expected);
-    const receivedBuf = Buffer.from(signature);
-
-    return expectedBuf.length === receivedBuf.length && timingSafeEqual(expectedBuf, receivedBuf);
-  }
-
-  return false;
+  return seconds;
 }
 
 export async function createRefund(params: {
@@ -291,11 +304,7 @@ export async function createRefund(params: {
   amount: number;
 }> {
   if (!isPhonePeConfigured()) {
-    return {
-      refundId: `REF_SIM_${Date.now()}`,
-      state: "COMPLETED",
-      amount: params.amount,
-    };
+    throw new Error("PhonePe credentials are not configured");
   }
 
   return phonePeFetch<{

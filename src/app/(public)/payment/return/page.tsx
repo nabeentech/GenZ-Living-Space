@@ -35,6 +35,14 @@ function ReturnContent() {
         const res = await fetch(`/api/payments/status?merchantOrderId=${encodeURIComponent(merchantOrderId!)}`);
         const data = await res.json();
 
+        if (!res.ok) {
+          clearInterval(intervalId);
+          setStatus("ERROR");
+          setMessage(data.message || "Unable to verify payment. Please sign in and check your dashboard.");
+          setLoading(false);
+          return;
+        }
+
         if (data.success && data.state === "COMPLETED") {
           clearInterval(intervalId);
           setStatus("COMPLETED");
@@ -46,6 +54,15 @@ function ReturnContent() {
           setTimeout(() => {
             router.replace(`/confirmation?bookingId=${encodeURIComponent(data.bookingId)}&payment=success`);
           }, 2000);
+          return;
+        }
+
+        if (data.state === "REVIEW_REQUIRED") {
+          clearInterval(intervalId);
+          setStatus("ERROR");
+          setMessage(data.message || "Payment received; please contact support to review your booking.");
+          setBookingId(data.bookingId || null);
+          setLoading(false);
           return;
         }
 

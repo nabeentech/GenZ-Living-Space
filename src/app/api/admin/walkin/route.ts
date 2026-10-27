@@ -103,7 +103,7 @@ export async function POST(req: Request) {
           checkOutDate: { gt: checkIn },
           OR: [
             { bookingStatus: { in: ["CONFIRMED", "CHECKED_IN"] } },
-            { bookingStatus: "PAYMENT_PENDING", holdExpiresAt: { gt: now } },
+            { bookingStatus: "PAYMENT_PENDING" },
           ],
         },
       });

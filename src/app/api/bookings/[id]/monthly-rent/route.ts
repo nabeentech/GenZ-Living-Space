@@ -4,7 +4,10 @@ import prisma from "@/lib/prisma";
 import { getSessionUser, hasPermission, ROLES } from "@/lib/auth";
 import { addUtcCalendarDays, getRoomTypePriceRates } from "@/lib/pricing";
 import { createInvoiceWithRetry } from "@/lib/invoice";
-import { createPayment } from "@/lib/phonepe";
+import { claimPhonePeAttempt } from "@/lib/payment-initiation";
+import { paymentTransaction, paymentMetadata, PaymentFlowError } from "@/lib/payment-reconciliation";
+import { sendPhonePePayment } from "@/lib/phonepe-payment";
+import { diagnostic } from "@/lib/phonepe";
 import { logAuditAction } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
@@ -89,7 +92,7 @@ export async function GET(
     });
   } catch (error: any) {
     console.error("Monthly rent GET error:", error);
-    return NextResponse.json({ success: false, message: error.message || "Failed to load monthly rent details" }, { status: 500 });
+    return NextResponse.json({ success: false, message: error.message || "Failed to load monthly rent details" }, { status: error instanceof PaymentFlowError ? error.status : 500 });
   }
 }
 
@@ -250,6 +253,7 @@ export async function POST(
     // FLOW 2: ONLINE PAYMENT VIA PHONEPE
     const paymentAmount = defaultRenewalAmount;
     const amountInPaise = Math.round(paymentAmount * 100);
+    if (!Number.isSafeInteger(amountInPaise) || amountInPaise < 100) throw new PaymentFlowError("Invalid monthly rent amount", 400);
 
     const baseOrigin =
       process.env.APP_BASE_URL ||
@@ -257,69 +261,69 @@ export async function POST(
       "http://localhost:3000";
     const cleanOrigin = baseOrigin.replace(/\/+$/, "");
 
-    const cleanRef = booking.bookingReference.replace(/[^A-Za-z0-9_-]/g, "");
-    const merchantOrderId = `GZLS_RENT_${cleanRef}_${Date.now().toString(36)}`;
+    const merchantOrderId = `GZLS_RENT_${crypto.randomUUID()}`;
 
-    // Create a DUE invoice for the upcoming cycle
-    const invoice = await createInvoiceWithRetry(prisma, {
-      bookingId: booking.id,
-      customerId: booking.customerId,
-      hostelId: booking.hostelId,
-      issueDate: new Date(),
-      dueDate: cycleStart,
-      baseAmount: baseRent,
-      serviceFee: maintenanceFee,
-      taxAmount: 0,
-      securityDeposit: 0,
-      discountAmount: 0,
-      totalAmount: paymentAmount,
-      paidAmount: 0,
-      balanceDue: paymentAmount,
-      status: "DUE",
-    });
-
-    // Create a PENDING payment record
-    const paymentRecord = await prisma.payment.create({
-      data: {
+    const { invoice, paymentRecord } = await paymentTransaction(prisma, async tx => {
+      await claimPhonePeAttempt(tx, booking.id, cycleStart);
+      const priorAttempts = await tx.payment.findMany({ where: { bookingId: booking.id, gateway: "PHONEPE" }, orderBy: { createdAt: "desc" } });
+      const priorCycle = priorAttempts.map(item => paymentMetadata(item.metadata)).find(meta => meta.type === "MONTHLY_RENT" && meta.cycleStart === cycleStart.toISOString());
+      const existingInvoice = priorCycle?.invoiceId ? await tx.invoice.findUnique({ where: { id: priorCycle.invoiceId } }) : null;
+      if (existingInvoice && (existingInvoice.status !== "DUE" || Math.round(existingInvoice.totalAmount * 100) !== amountInPaise)) throw new PaymentFlowError("Rent invoice changed; contact support");
+      const invoice = existingInvoice || await createInvoiceWithRetry(tx, {
         bookingId: booking.id,
-        customerId: user.id,
-        amount: paymentAmount,
-        currency: "INR",
-        gateway: "PHONEPE",
-        gatewayOrderId: merchantOrderId,
-        status: "PENDING",
-        paymentMethod: "PG_CHECKOUT",
-        metadata: JSON.stringify({
-          type: "MONTHLY_RENT",
+        customerId: booking.customerId,
+        hostelId: booking.hostelId,
+        issueDate: new Date(),
+        dueDate: cycleStart,
+        baseAmount: baseRent,
+        serviceFee: maintenanceFee,
+        taxAmount: 0,
+        securityDeposit: 0,
+        discountAmount: 0,
+        totalAmount: paymentAmount,
+        paidAmount: 0,
+        balanceDue: paymentAmount,
+        status: "DUE",
+      });
+
+      // Create a PENDING payment record
+      const paymentRecord = await tx.payment.create({
+        data: {
           bookingId: booking.id,
-          bookingReference: booking.bookingReference,
-          cycleStart: cycleStart.toISOString(),
-          cycleEnd: cycleEnd.toISOString(),
-          invoiceNumber: invoice.invoiceNumber,
-          invoiceId: invoice.id,
-          baseRent,
-          maintenanceFee,
-          totalMonthlyRent: paymentAmount,
-        }),
-      },
+          customerId: user.id,
+          amount: paymentAmount,
+          currency: "INR",
+          gateway: "PHONEPE",
+          gatewayOrderId: merchantOrderId,
+          status: "PENDING",
+          paymentMethod: "PG_CHECKOUT",
+          metadata: JSON.stringify({
+            type: "MONTHLY_RENT",
+            bookingId: booking.id,
+            bookingReference: booking.bookingReference,
+            cycleStart: cycleStart.toISOString(),
+            cycleEnd: cycleEnd.toISOString(),
+            invoiceNumber: invoice.invoiceNumber,
+            invoiceId: invoice.id,
+            baseRent,
+            maintenanceFee,
+            totalMonthlyRent: paymentAmount,
+          }),
+        },
+      });
+
+      return { invoice, paymentRecord };
     });
+    diagnostic("payment.initiated", { merchantOrderId, amountPaise: amountInPaise, flow: "MONTHLY_RENT" });
 
     // Initiate PhonePe hosted checkout
-    const checkout = await createPayment({
+    const checkout = await sendPhonePePayment(paymentRecord, {
       merchantOrderId,
       amount: amountInPaise,
       redirectUrl: `${cleanOrigin}/payment/return?merchantOrderId=${encodeURIComponent(merchantOrderId)}`,
       metaInfo: {
         udf1: booking.id,
         udf2: "monthly-rent-renewal",
-      },
-    });
-
-    // Update with PhonePe order ID
-    await prisma.payment.update({
-      where: { id: paymentRecord.id },
-      data: {
-        gatewayPaymentId: checkout.orderId,
       },
     });
 
@@ -337,10 +341,10 @@ export async function POST(
       },
     });
   } catch (error: any) {
-    console.error("Monthly rent POST error:", error);
+    diagnostic("checkout.failed", { reason: error instanceof PaymentFlowError ? "BOOKING_VALIDATION_FAILED" : "INITIATION_UNAVAILABLE" });
     return NextResponse.json(
-      { success: false, message: error.message || "Failed to initiate monthly rent payment" },
-      { status: 500 }
+      { success: false, message: error instanceof PaymentFlowError ? error.message : "Unable to initiate rent payment. Check existing payment status before retrying." },
+      { status: error instanceof PaymentFlowError ? error.status : 500 }
     );
   }
 }

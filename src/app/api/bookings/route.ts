@@ -179,8 +179,6 @@ export async function POST(req: Request) {
     });
 
     const now = new Date();
-    // Gateway is intentionally inactive until a Razorpay account is configured.
-    const holdExpiresAt = null;
     let bookingReference = `GZ-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
     for (let i = 0; i < 3; i++) {
       const existing = await prisma.booking.findUnique({ where: { bookingReference } });
@@ -198,7 +196,7 @@ export async function POST(req: Request) {
             { OR: [{ isOpenEnded: true, checkInDate: { lt: checkOut } }, { isOpenEnded: false, checkInDate: { lt: checkOut }, checkOutDate: { gt: checkIn } }] },
             { OR: [
               { bookingStatus: { in: ["CONFIRMED", "CHECKED_IN"] } },
-              { bookingStatus: "PAYMENT_PENDING", holdExpiresAt: { gt: now } },
+              { bookingStatus: "PAYMENT_PENDING" },
             ] },
           ],
         },
@@ -213,7 +211,7 @@ export async function POST(req: Request) {
           bedId,
           OR: [
             { bookingStatus: { in: ["CONFIRMED", "CHECKED_IN"] } },
-            { bookingStatus: "PAYMENT_PENDING", holdExpiresAt: { gt: now } },
+            { bookingStatus: "PAYMENT_PENDING" },
           ],
         },
         select: { checkInDate: true, checkOutDate: true, isOpenEnded: true },

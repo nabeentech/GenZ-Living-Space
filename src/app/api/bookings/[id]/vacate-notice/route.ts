@@ -74,7 +74,7 @@ export async function POST(
           checkInDate: { gte: booking.checkOutDate },
           OR: [
             { bookingStatus: { in: ["CONFIRMED", "CHECKED_IN"] } },
-            { bookingStatus: "PAYMENT_PENDING", holdExpiresAt: { gt: now } },
+            { bookingStatus: "PAYMENT_PENDING" },
           ],
         },
       });

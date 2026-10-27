@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { customerPhonePeStatus } from "@/lib/payment-status";
 import { verifyPaymentSignature, verifyCapturedPayment } from "@/lib/razorpay";
 import { generateBookingQRCode } from "@/lib/qr";
 import { createInvoiceWithRetry } from "@/lib/invoice";
@@ -23,10 +24,7 @@ export async function POST(req: Request) {
     } = body;
 
     if (merchantOrderId) {
-      const baseOrigin = process.env.APP_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-      const statusRes = await fetch(`${baseOrigin.replace(/\/+$/, "")}/api/payments/status?merchantOrderId=${encodeURIComponent(merchantOrderId)}`);
-      const statusJson = await statusRes.json();
-      return NextResponse.json(statusJson, { status: statusRes.status });
+      return customerPhonePeStatus(merchantOrderId, user);
     }
 
     if (!bookingId || !razorpayOrderId || !razorpayPaymentId) {

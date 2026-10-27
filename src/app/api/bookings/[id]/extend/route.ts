@@ -53,7 +53,7 @@ export async function POST(
         checkOutDate: { gt: currentCheckOut },
         OR: [
           { bookingStatus: { in: ["CONFIRMED", "CHECKED_IN"] } },
-          { bookingStatus: "PAYMENT_PENDING", holdExpiresAt: { gt: new Date() } },
+          { bookingStatus: "PAYMENT_PENDING" },
         ],
       },
     });

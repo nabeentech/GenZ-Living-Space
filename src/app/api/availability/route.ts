@@ -31,7 +31,6 @@ export async function GET(req: Request) {
       );
     }
 
-    const now = new Date();
 
     // 1. Find all rooms matching hostel (and optional roomType)
     const roomWhere: any = {
@@ -58,7 +57,7 @@ export async function GET(req: Request) {
 
     // 2. Query all conflicting bookings for these beds in the date range
     // Overlapping condition: (b.checkInDate < checkOut) AND (b.checkOutDate > checkIn)
-    // AND bookingStatus in ['CONFIRMED', 'CHECKED_IN'] OR (bookingStatus = 'PAYMENT_PENDING' AND holdExpiresAt > now)
+    // Unresolved PAYMENT_PENDING bookings remain reserved until safe cleanup cancels them.
     const conflictingBookings = await prisma.booking.findMany({
       where: {
         hostelId,
@@ -71,7 +70,6 @@ export async function GET(req: Request) {
           { bookingStatus: { in: ["CONFIRMED", "CHECKED_IN"] } },
           {
             bookingStatus: "PAYMENT_PENDING",
-            holdExpiresAt: { gt: now },
           },
           ] },
         ],

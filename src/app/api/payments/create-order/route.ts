@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { createPayment } from "@/lib/phonepe";
-import { releaseExpiredBookingHolds } from "@/lib/booking-cleanup";
+import { randomUUID } from "node:crypto";
+import { claimPhonePeAttempt } from "@/lib/payment-initiation";
+import { paymentTransaction, PaymentFlowError } from "@/lib/payment-reconciliation";
+import { sendPhonePePayment } from "@/lib/phonepe-payment";
+import { diagnostic, checkoutExpirySeconds } from "@/lib/phonepe";
 import { getSessionUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   try {
-    await releaseExpiredBookingHolds();
     const user = await getSessionUser();
     if (!user || user.role !== "CUSTOMER") {
       return NextResponse.json(
@@ -111,45 +113,46 @@ export async function POST(req: Request) {
     const cleanOrigin = baseOrigin.replace(/\/+$/, "");
 
     // Clean, unique merchantOrderId: max 63 chars, alphanumeric with _ and -
-    const cleanRef = booking.bookingReference.replace(/[^A-Za-z0-9_-]/g, "");
-    const merchantOrderId = `GZLS_${cleanRef}_${Date.now().toString(36)}`;
+    const merchantOrderId = `GZLS_${randomUUID()}`;
+    if (booking.bookingStatus === "PAYMENT_PENDING") {
+      try { checkoutExpirySeconds(booking.holdExpiresAt || new Date(0)); }
+      catch { throw new PaymentFlowError("Booking hold is too close to expiry; create a fresh booking", 410); }
+    }
 
     // 1. Create a PENDING payment record in Prisma BEFORE calling PhonePe
-    const paymentRecord = await prisma.payment.create({
-      data: {
-        bookingId: booking.id,
-        customerId: user.id,
-        amount: paymentAmount,
-        currency: "INR",
-        gateway: "PHONEPE",
-        gatewayOrderId: merchantOrderId,
-        status: "PENDING",
-        paymentMethod: "PG_CHECKOUT",
-        metadata: JSON.stringify({
-          bookingReference: booking.bookingReference,
-          hostelName: booking.hostel.name,
-          guestEmail: booking.guestEmail,
-          paymentType: amount ? "balance_payment" : "full_payment",
-        }),
-      },
+    const paymentRecord = await paymentTransaction(prisma, async tx => {
+      const current = await claimPhonePeAttempt(tx, booking.id);
+      if (Math.round(paymentAmount * 100) > Math.round((current.totalAmount - current.paidAmount) * 100)) throw new PaymentFlowError("Outstanding amount changed; refresh and retry");
+      return tx.payment.create({
+        data: {
+          bookingId: booking.id,
+          customerId: user.id,
+          amount: paymentAmount,
+          currency: "INR",
+          gateway: "PHONEPE",
+          gatewayOrderId: merchantOrderId,
+          status: "PENDING",
+          paymentMethod: "PG_CHECKOUT",
+          metadata: JSON.stringify({
+            bookingReference: booking.bookingReference,
+            hostelName: booking.hostel.name,
+            guestEmail: booking.guestEmail,
+            paymentType: amount ? "balance_payment" : "full_payment",
+          }),
+        },
+      });
     });
+    diagnostic("payment.initiated", { merchantOrderId, amountPaise: amountInPaise, holdExpiresAt: booking.holdExpiresAt?.toISOString() });
 
     // 2. Create the PhonePe hosted checkout session
-    const checkout = await createPayment({
+    const checkout = await sendPhonePePayment(paymentRecord, {
       merchantOrderId,
       amount: amountInPaise,
+      holdExpiresAt: booking.bookingStatus === "PAYMENT_PENDING" ? booking.holdExpiresAt! : undefined,
       redirectUrl: `${cleanOrigin}/payment/return?merchantOrderId=${encodeURIComponent(merchantOrderId)}`,
       metaInfo: {
         udf1: booking.id,
         udf2: "genz-living-space",
-      },
-    });
-
-    // 3. Save PhonePe provider order ID
-    await prisma.payment.update({
-      where: { id: paymentRecord.id },
-      data: {
-        gatewayPaymentId: checkout.orderId,
       },
     });
 
@@ -165,10 +168,10 @@ export async function POST(req: Request) {
       },
     });
   } catch (error: any) {
-    console.error("PhonePe create-order error:", error);
+    diagnostic("checkout.failed", { reason: error instanceof PaymentFlowError ? "BOOKING_VALIDATION_FAILED" : "INITIATION_UNAVAILABLE" });
     return NextResponse.json(
-      { success: false, message: error.message || "Failed to initiate payment. Please retry safely." },
-      { status: 500 }
+      { success: false, message: error instanceof PaymentFlowError ? error.message : "Unable to initiate payment. Check existing payment status before retrying." },
+      { status: error instanceof PaymentFlowError ? error.status : 500 }
     );
   }
 }
