@@ -28,7 +28,6 @@ import {
   DollarSign,
   Image as ImageIcon,
   ShieldCheck,
-  Database,
 } from "lucide-react";
 import Badge from "@/components/ui/Badge";
 import { canAccessModule } from "@/lib/permissions";
@@ -67,7 +66,6 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ user }) => {
     { label: "Website CMS", href: "/admin/cms", icon: <Globe className="w-4 h-4" />, roles: ["SUPER_ADMIN"] },
     { label: "Audit Logs", href: "/admin/audit-logs", icon: <FileText className="w-4 h-4" />, roles: ["SUPER_ADMIN"] },
     { label: "Staff & Access Control", href: "/admin/staff", icon: <ShieldCheck className="w-4 h-4" />, roles: ["SUPER_ADMIN"] },
-    { label: "Database Studio (ORM)", href: "/admin/database", icon: <Database className="w-4 h-4 text-purple-400" />, roles: ["SUPER_ADMIN"] },
   ];
 
   const navItems = allNavItems.filter((item) => {

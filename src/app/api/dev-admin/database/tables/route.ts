@@ -1,16 +1,16 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getSessionUser } from "@/lib/auth";
+import { isDevAdminAuthenticated } from "@/lib/dev-auth";
 import { TABLE_DEFINITIONS } from "@/lib/database-studio";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const user = await getSessionUser();
-    if (!user || user.role !== "SUPER_ADMIN") {
+    const isDev = await isDevAdminAuthenticated();
+    if (!isDev) {
       return NextResponse.json(
-        { success: false, message: "Unauthorized. Super Admin access required." },
+        { success: false, message: "Unauthorized. Dev Admin master session required." },
         { status: 403 }
       );
     }

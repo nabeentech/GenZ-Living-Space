@@ -154,13 +154,6 @@ export const ADMIN_MODULES: AdminModuleDef[] = [
     description: "Create staff logins, assign roles, and customize permissions",
     category: "system",
   },
-  {
-    key: "database",
-    label: "Database Studio (ORM)",
-    href: "/admin/database",
-    description: "Dev ORM database table explorer, record manager, and test data cleanup",
-    category: "system",
-  },
 ];
 
 export const ALL_MODULE_KEYS = ADMIN_MODULES.map((m) => m.key);

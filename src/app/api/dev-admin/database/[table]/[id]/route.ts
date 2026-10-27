@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getSessionUser } from "@/lib/auth";
+import { isDevAdminAuthenticated } from "@/lib/dev-auth";
 import { TABLE_DEFINITIONS } from "@/lib/database-studio";
 
 export const dynamic = "force-dynamic";
@@ -15,10 +15,10 @@ interface RouteParams {
 // GET: Fetch full single record
 export async function GET(req: Request, { params }: RouteParams) {
   try {
-    const user = await getSessionUser();
-    if (!user || user.role !== "SUPER_ADMIN") {
+    const isDev = await isDevAdminAuthenticated();
+    if (!isDev) {
       return NextResponse.json(
-        { success: false, message: "Unauthorized. Super Admin access required." },
+        { success: false, message: "Unauthorized. Dev Admin master session required." },
         { status: 403 }
       );
     }
@@ -40,7 +40,6 @@ export async function GET(req: Request, { params }: RouteParams) {
       );
     }
 
-    // Determine smart relations for detailed inspection
     let include: any = undefined;
     if (table === "booking") {
       include = { hostel: true, room: true, bed: true, payments: true, invoices: true, extensions: true };
@@ -82,10 +81,10 @@ export async function GET(req: Request, { params }: RouteParams) {
 // PATCH: Update specific fields of a record
 export async function PATCH(req: Request, { params }: RouteParams) {
   try {
-    const user = await getSessionUser();
-    if (!user || user.role !== "SUPER_ADMIN") {
+    const isDev = await isDevAdminAuthenticated();
+    if (!isDev) {
       return NextResponse.json(
-        { success: false, message: "Unauthorized. Super Admin access required." },
+        { success: false, message: "Unauthorized. Dev Admin master session required." },
         { status: 403 }
       );
     }
@@ -115,14 +114,11 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       );
     }
 
-    // Protect primary key and timestamps from manual corruption
     const sanitized: Record<string, any> = {};
     for (const [key, value] of Object.entries(updates)) {
       if (["id", "createdAt", "updatedAt"].includes(key)) continue;
 
-      // Handle type casting where needed
       if (typeof value === "string") {
-        // Parse ISO dates if applicable
         if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
           const d = new Date(value);
           if (!isNaN(d.getTime())) {
@@ -138,17 +134,6 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       where: { id },
       data: sanitized,
     });
-
-    await prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        userName: user.name || "Super Admin",
-        action: `UPDATE_${table.toUpperCase()}`,
-        entity: table,
-        entityId: id,
-        newValue: JSON.stringify({ fields: Object.keys(sanitized) }),
-      },
-    }).catch(() => null);
 
     return NextResponse.json({
       success: true,

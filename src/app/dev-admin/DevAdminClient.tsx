@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
 import {
   Database,
   Sparkles,
@@ -17,51 +18,54 @@ import {
   ChevronRight,
   ShieldAlert,
   Save,
-  Filter,
-  Layers,
+  Lock,
+  Unlock,
+  Key,
   Archive,
-  Download,
+  ArrowRight,
   X,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
 import { TableDefinition, CATEGORY_LABELS } from "@/lib/database-studio";
 
-interface DatabaseStudioClientProps {
-  currentUser: {
-    id: string;
-    name: string;
-    email: string;
-    role: string;
-  };
+interface DevAdminClientProps {
+  initialIsAuthenticated: boolean;
   initialTables: (TableDefinition & { count: number })[];
   initialTotalRecords: number;
 }
 
-export default function DatabaseStudioClient({
-  currentUser,
+export default function DevAdminClient({
+  initialIsAuthenticated,
   initialTables,
   initialTotalRecords,
-}: DatabaseStudioClientProps) {
-  // State: Tables
+}: DevAdminClientProps) {
+  // Auth state
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(initialIsAuthenticated);
+  const [passcode, setPasscode] = useState<string>("");
+  const [authError, setAuthError] = useState<string>("");
+  const [isAuthenticating, setIsAuthenticating] = useState<boolean>(false);
+
+  // Studio Tables State
   const [tables, setTables] = useState(initialTables);
   const [totalRecords, setTotalRecords] = useState(initialTotalRecords);
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [tableSearch, setTableSearch] = useState<string>("");
   const [selectedTable, setSelectedTable] = useState<string>("booking");
 
-  // State: Records & Pagination
+  // Records & Pagination
   const [rows, setRows] = useState<any[]>([]);
   const [columns, setColumns] = useState<string[]>([]);
-  const [isLoadingRows, setIsLoadingRows] = useState<boolean>(true);
+  const [isLoadingRows, setIsLoadingRows] = useState<boolean>(false);
   const [recordSearch, setRecordSearch] = useState<string>("");
   const [page, setPage] = useState<number>(1);
   const [limit, setLimit] = useState<number>(25);
   const [totalRows, setTotalRows] = useState<number>(0);
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
 
-  // State: Modals
+  // Modals
   const [inspectRecord, setInspectRecord] = useState<any | null>(null);
   const [editRecord, setEditRecord] = useState<any | null>(null);
   const [editForm, setEditForm] = useState<Record<string, any>>({});
@@ -70,10 +74,9 @@ export default function DatabaseStudioClient({
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     isOpen: boolean;
     ids: string[];
-    isBulk: boolean;
-  }>({ isOpen: false, ids: [], isBulk: false });
+  }>({ isOpen: false, ids: [] });
 
-  // State: Handover Cleanup Modal
+  // Handover Cleanup Modal
   const [isCleanupOpen, setIsCleanupOpen] = useState<boolean>(false);
   const [cleanupLoading, setCleanupLoading] = useState<boolean>(false);
   const [cleanupResult, setCleanupResult] = useState<any | null>(null);
@@ -86,14 +89,47 @@ export default function DatabaseStudioClient({
     resetCoupons: true,
   });
 
-  // State: Notification message
+  // Notifications & Copy
   const [notification, setNotification] = useState<{
     type: "success" | "error" | "info";
     text: string;
   } | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Filtered tables based on category and search
+  // Authenticate Dev Master Key
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passcode.trim()) return;
+    setIsAuthenticating(true);
+    setAuthError("");
+    try {
+      const res = await fetch("/api/dev-admin/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ passcode: passcode.trim() }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setIsAuthenticated(true);
+        refreshTables();
+      } else {
+        setAuthError(json.message || "Invalid Developer Master Key.");
+      }
+    } catch {
+      setAuthError("Failed to authenticate. Check server connection.");
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
+  // Lock Dev Terminal
+  const handleLogout = async () => {
+    await fetch("/api/dev-admin/auth", { method: "DELETE" });
+    setIsAuthenticated(false);
+    setPasscode("");
+  };
+
+  // Filtered tables list
   const filteredTables = useMemo(() => {
     return tables.filter((t) => {
       const matchesCategory =
@@ -110,10 +146,10 @@ export default function DatabaseStudioClient({
     return tables.find((t) => t.tableName === selectedTable) || tables[0];
   }, [tables, selectedTable]);
 
-  // Fetch tables metadata & counts
+  // Refresh tables metadata
   const refreshTables = async () => {
     try {
-      const res = await fetch("/api/admin/database/tables");
+      const res = await fetch("/api/dev-admin/database/tables");
       const json = await res.json();
       if (json.success) {
         setTables(json.data.tables);
@@ -126,7 +162,7 @@ export default function DatabaseStudioClient({
 
   // Fetch rows for the active table
   const fetchRows = async () => {
-    if (!selectedTable) return;
+    if (!isAuthenticated || !selectedTable) return;
     setIsLoadingRows(true);
     setSelectedRowIds([]);
     try {
@@ -135,7 +171,7 @@ export default function DatabaseStudioClient({
         limit: limit.toString(),
         search: recordSearch,
       });
-      const res = await fetch(`/api/admin/database/${selectedTable}?${params}`);
+      const res = await fetch(`/api/dev-admin/database/${selectedTable}?${params}`);
       const json = await res.json();
       if (json.success) {
         setRows(json.data.rows);
@@ -152,8 +188,10 @@ export default function DatabaseStudioClient({
   };
 
   useEffect(() => {
-    fetchRows();
-  }, [selectedTable, page, limit]);
+    if (isAuthenticated) {
+      fetchRows();
+    }
+  }, [isAuthenticated, selectedTable, page, limit]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -167,7 +205,6 @@ export default function DatabaseStudioClient({
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  // Toggle selection for all visible rows
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
       setSelectedRowIds(rows.map((r) => r.id).filter(Boolean));
@@ -188,7 +225,7 @@ export default function DatabaseStudioClient({
     if (ids.length === 0) return;
     setIsDeleting(true);
     try {
-      const res = await fetch(`/api/admin/database/${selectedTable}`, {
+      const res = await fetch(`/api/dev-admin/database/${selectedTable}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids }),
@@ -199,7 +236,7 @@ export default function DatabaseStudioClient({
           type: "success",
           text: json.message || `Deleted ${ids.length} record(s)`,
         });
-        setDeleteConfirmation({ isOpen: false, ids: [], isBulk: false });
+        setDeleteConfirmation({ isOpen: false, ids: [] });
         setSelectedRowIds([]);
         fetchRows();
         refreshTables();
@@ -213,10 +250,9 @@ export default function DatabaseStudioClient({
     }
   };
 
-  // Open Edit Modal
+  // Start Edit
   const handleStartEdit = (row: any) => {
     setEditRecord(row);
-    // clone editable fields (excluding id, createdAt, updatedAt)
     const editable: Record<string, any> = {};
     for (const [k, v] of Object.entries(row)) {
       if (!["id", "createdAt", "updatedAt"].includes(k)) {
@@ -232,7 +268,7 @@ export default function DatabaseStudioClient({
     setIsSavingEdit(true);
     try {
       const res = await fetch(
-        `/api/admin/database/${selectedTable}/${editRecord.id}`,
+        `/api/dev-admin/database/${selectedTable}/${editRecord.id}`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -258,11 +294,11 @@ export default function DatabaseStudioClient({
     }
   };
 
-  // Run Handover Cleanup
+  // Handover Cleanup
   const handleRunCleanup = async () => {
     setCleanupLoading(true);
     try {
-      const res = await fetch("/api/admin/database/cleanup", {
+      const res = await fetch("/api/dev-admin/database/cleanup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(cleanupOptions),
@@ -286,7 +322,7 @@ export default function DatabaseStudioClient({
     }
   };
 
-  // Smart Cell Formatter
+  // Cell Formatter
   const renderCellValue = (key: string, val: any) => {
     if (val === null || val === undefined) {
       return <span className="text-slate-600 italic">null</span>;
@@ -305,7 +341,6 @@ export default function DatabaseStudioClient({
       return <span className="font-mono text-slate-300">{val}</span>;
     }
     if (typeof val === "string") {
-      // Check for ISO Date
       if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(val)) {
         const d = new Date(val);
         return (
@@ -318,7 +353,6 @@ export default function DatabaseStudioClient({
           </span>
         );
       }
-      // Check for Statuses
       if (["CONFIRMED", "PAID", "CAPTURED", "ACTIVE", "COMPLETED", "APPROVED"].includes(val)) {
         return <Badge variant="success" size="sm">{val}</Badge>;
       }
@@ -334,10 +368,9 @@ export default function DatabaseStudioClient({
       if (["OCCUPIED", "MAINTENANCE"].includes(val)) {
         return <Badge variant="indigo" size="sm">{val}</Badge>;
       }
-      // ID truncation
       if (key === "id" || key.endsWith("Id")) {
         return (
-          <span className="font-mono text-[11px] text-indigo-400 bg-indigo-950/40 px-1.5 py-0.5 rounded border border-indigo-900/60 truncate max-w-[120px] inline-block">
+          <span className="font-mono text-[11px] text-purple-400 bg-purple-950/40 px-1.5 py-0.5 rounded border border-purple-900/60 truncate max-w-[120px] inline-block">
             {val.slice(0, 10)}...
           </span>
         );
@@ -356,8 +389,88 @@ export default function DatabaseStudioClient({
 
   const totalPages = Math.ceil(totalRows / limit) || 1;
 
+  // -------------------------------------------------------------
+  // VIEW 1: LOCKED DEV TERMINAL (Auth Gate)
+  // -------------------------------------------------------------
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-[#07090E] flex flex-col justify-center items-center p-4 antialiased text-slate-100">
+        <div className="w-full max-w-md space-y-6">
+          <div className="text-center space-y-2">
+            <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-purple-600/20 text-purple-400 border border-purple-500/30 mb-2">
+              <Lock className="w-7 h-7" />
+            </div>
+            <h1 className="text-2xl font-black text-white tracking-tight">
+              Developer Database Terminal
+            </h1>
+            <p className="text-xs text-slate-400 max-w-sm mx-auto">
+              Private developer root console for GenZ Living Space. Separate from platform owner & Super Admin.
+            </p>
+          </div>
+
+          <form
+            onSubmit={handleLogin}
+            className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800 bg-[#0E131F]/95 space-y-5 shadow-2xl"
+          >
+            <div className="flex items-center gap-2 pb-3 border-b border-slate-800 text-xs text-slate-400">
+              <Key className="w-4 h-4 text-purple-400 shrink-0" />
+              <span>Enter Developer Master Key</span>
+            </div>
+
+            {authError && (
+              <div className="p-3 rounded-xl bg-red-950/70 border border-red-500/40 text-xs text-red-200 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                <span>{authError}</span>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                Master Dev Passcode
+              </label>
+              <input
+                type="password"
+                placeholder="Enter secret developer key..."
+                value={passcode}
+                onChange={(e) => setPasscode(e.target.value)}
+                autoFocus
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-purple-500 font-mono tracking-wider"
+              />
+              <span className="text-[11px] text-slate-500 block pt-1">
+                Default key is configured in your <code>.env</code> file.
+              </span>
+            </div>
+
+            <Button
+              variant="glow"
+              size="lg"
+              type="submit"
+              isLoading={isAuthenticating}
+              className="w-full"
+              rightIcon={<ArrowRight className="w-4 h-4" />}
+            >
+              Unlock Dev Terminal
+            </Button>
+          </form>
+
+          <div className="text-center">
+            <Link
+              href="/"
+              className="text-xs text-slate-500 hover:text-slate-300 transition-colors inline-flex items-center gap-1"
+            >
+              <span>← Return to Public Website</span>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // -------------------------------------------------------------
+  // VIEW 2: UNLOCKED DEV DATABASE STUDIO & ORM
+  // -------------------------------------------------------------
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-[#07090E] text-slate-100 p-4 sm:p-6 lg:p-8 antialiased space-y-6">
       {/* Notification Toast */}
       {notification && (
         <div
@@ -386,21 +499,21 @@ export default function DatabaseStudioClient({
         </div>
       )}
 
-      {/* Header Banner */}
+      {/* Dev Header Banner */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800/80 bg-[#0E131F]/90">
         <div>
           <div className="flex items-center gap-2.5 mb-1.5">
             <span className="inline-flex items-center justify-center p-2 rounded-xl bg-purple-600/20 text-purple-400 border border-purple-500/30">
               <Database className="w-5 h-5" />
             </span>
-            <Badge variant="indigo" size="md">Dev Studio & ORM</Badge>
-            <Badge variant="default" size="sm">SQLite Production</Badge>
+            <Badge variant="indigo" size="md">DEV ADMIN ROOT CONSOLE</Badge>
+            <Badge variant="default" size="sm">Private Access</Badge>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Database Studio & ORM Explorer
+            Developer Database Studio & ORM
           </h1>
           <p className="text-sm text-slate-400 mt-1 max-w-2xl">
-            Live database management for developer & client handover. Browse all 20 tables, inspect relations, edit fields, and safely cascade-delete records without manual SQL queries.
+            Direct database console for developer use. Isolated from client Super Admin accounts. Safely browse tables, update fields, purge test records, and prepare clean handover data.
           </p>
         </div>
 
@@ -429,10 +542,19 @@ export default function DatabaseStudioClient({
           >
             ✨ Handover Cleanup Tool
           </Button>
+
+          <Button
+            variant="ghost"
+            size="md"
+            onClick={handleLogout}
+            leftIcon={<Lock className="w-4 h-4 text-purple-400" />}
+          >
+            Lock Terminal
+          </Button>
         </div>
       </div>
 
-      {/* Database Overview Metric Cards */}
+      {/* Metrics Row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <div className="glass-panel p-4 rounded-2xl border border-slate-800 bg-slate-900/40">
           <span className="text-xs text-slate-400 font-medium">Total Database Records</span>
@@ -451,14 +573,14 @@ export default function DatabaseStudioClient({
           </p>
         </div>
         <div className="glass-panel p-4 rounded-2xl border border-slate-800 bg-slate-900/40">
-          <span className="text-xs text-slate-400 font-medium">Matching Table Rows</span>
+          <span className="text-xs text-slate-400 font-medium">Matching Records</span>
           <p className="text-2xl font-black text-emerald-400 mt-1">
             {totalRows.toLocaleString()}
           </p>
         </div>
       </div>
 
-      {/* Main Studio Grid: Left Sidebar (Tables) + Right Area (Data Grid) */}
+      {/* Studio 2-Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
         {/* Left Col: Table Selector Navigator */}
         <div className="lg:col-span-1 space-y-4">
@@ -611,7 +733,6 @@ export default function DatabaseStudioClient({
                       setDeleteConfirmation({
                         isOpen: true,
                         ids: selectedRowIds,
-                        isBulk: true,
                       })
                     }
                     leftIcon={<Trash2 className="w-3.5 h-3.5" />}
@@ -720,7 +841,6 @@ export default function DatabaseStudioClient({
                                   setDeleteConfirmation({
                                     isOpen: true,
                                     ids: [row.id],
-                                    isBulk: false,
                                   })
                                 }
                                 title="Delete Record"
@@ -900,7 +1020,7 @@ export default function DatabaseStudioClient({
       {/* MODAL 3: Delete Confirmation */}
       <Modal
         isOpen={deleteConfirmation.isOpen}
-        onClose={() => setDeleteConfirmation({ isOpen: false, ids: [], isBulk: false })}
+        onClose={() => setDeleteConfirmation({ isOpen: false, ids: [] })}
         title="Confirm Record Deletion"
         description={`You are about to delete ${deleteConfirmation.ids.length} record(s) from '${currentTableDef?.name}'`}
         maxWidth="md"
@@ -920,7 +1040,7 @@ export default function DatabaseStudioClient({
             <Button
               variant="outline"
               size="md"
-              onClick={() => setDeleteConfirmation({ isOpen: false, ids: [], isBulk: false })}
+              onClick={() => setDeleteConfirmation({ isOpen: false, ids: [] })}
             >
               Cancel
             </Button>
@@ -1075,7 +1195,6 @@ export default function DatabaseStudioClient({
               </label>
             </div>
           ) : (
-            /* Results Screen */
             <div className="space-y-4 p-5 rounded-2xl bg-emerald-950/40 border border-emerald-500/40 text-xs">
               <div className="flex items-center gap-2 text-emerald-400 font-bold text-base">
                 <CheckCircle2 className="w-5 h-5" />

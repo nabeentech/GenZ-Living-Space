@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getSessionUser } from "@/lib/auth";
+import { isDevAdminAuthenticated } from "@/lib/dev-auth";
 import { TABLE_DEFINITIONS } from "@/lib/database-studio";
 
 export const dynamic = "force-dynamic";
@@ -14,10 +14,10 @@ interface RouteParams {
 // GET: Fetch paginated, searchable rows for a selected table
 export async function GET(req: Request, { params }: RouteParams) {
   try {
-    const user = await getSessionUser();
-    if (!user || user.role !== "SUPER_ADMIN") {
+    const isDev = await isDevAdminAuthenticated();
+    if (!isDev) {
       return NextResponse.json(
-        { success: false, message: "Unauthorized. Super Admin access required." },
+        { success: false, message: "Unauthorized. Dev Admin master session required." },
         { status: 403 }
       );
     }
@@ -63,7 +63,6 @@ export async function GET(req: Request, { params }: RouteParams) {
       }),
     ]);
 
-    // Inspect first row or model to establish column headers
     const columns = rows.length > 0
       ? Object.keys(rows[0])
       : ["id", def.sortField];
@@ -94,10 +93,10 @@ export async function GET(req: Request, { params }: RouteParams) {
 // DELETE: Delete single or multiple records by ID with cascade protection
 export async function DELETE(req: Request, { params }: RouteParams) {
   try {
-    const user = await getSessionUser();
-    if (!user || user.role !== "SUPER_ADMIN") {
+    const isDev = await isDevAdminAuthenticated();
+    if (!isDev) {
       return NextResponse.json(
-        { success: false, message: "Unauthorized. Super Admin access required." },
+        { success: false, message: "Unauthorized. Dev Admin master session required." },
         { status: 403 }
       );
     }
@@ -157,14 +156,6 @@ export async function DELETE(req: Request, { params }: RouteParams) {
         deletedCount = res.count;
       });
     } else if (table === "user") {
-      // Prevent deleting the currently authenticated Super Admin
-      if (ids.includes(user.id)) {
-        return NextResponse.json(
-          { success: false, message: "Cannot delete your own active administrative account" },
-          { status: 400 }
-        );
-      }
-
       await prisma.$transaction(async (tx) => {
         const userBookings = await tx.booking.findMany({
           where: { customerId: { in: ids } },
@@ -194,7 +185,6 @@ export async function DELETE(req: Request, { params }: RouteParams) {
       });
     } else if (table === "bed") {
       await prisma.$transaction(async (tx) => {
-        // Disconnect or prevent deleting beds with active bookings
         const activeBookings = await tx.booking.count({
           where: { bedId: { in: ids }, bookingStatus: { in: ["CONFIRMED", "CHECKED_IN", "PAYMENT_PENDING"] } },
         });
@@ -206,23 +196,10 @@ export async function DELETE(req: Request, { params }: RouteParams) {
         deletedCount = res.count;
       });
     } else {
-      // Standard generic delete
       const delegate = (prisma as any)[table];
       const res = await delegate.deleteMany({ where: { id: { in: ids } } });
       deletedCount = res.count;
     }
-
-    // Record audit log
-    await prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        userName: user.name || "Super Admin",
-        action: `DELETE_${table.toUpperCase()}`,
-        entity: table,
-        entityId: ids.join(",").slice(0, 100),
-        newValue: JSON.stringify({ deletedCount, requestedIdsCount: ids.length }),
-      },
-    }).catch(() => null);
 
     return NextResponse.json({
       success: true,

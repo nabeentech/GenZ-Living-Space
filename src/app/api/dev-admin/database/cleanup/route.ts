@@ -2,16 +2,16 @@ import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import prisma from "@/lib/prisma";
-import { getSessionUser } from "@/lib/auth";
+import { isDevAdminAuthenticated } from "@/lib/dev-auth";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
-    const user = await getSessionUser();
-    if (!user || user.role !== "SUPER_ADMIN") {
+    const isDev = await isDevAdminAuthenticated();
+    if (!isDev) {
       return NextResponse.json(
-        { success: false, message: "Unauthorized. Super Admin access required." },
+        { success: false, message: "Unauthorized. Dev Admin master session required." },
         { status: 403 }
       );
     }
@@ -101,18 +101,6 @@ export async function POST(req: Request) {
       }
     });
 
-    // Record cleanup audit log
-    await prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        userName: user.name || "Super Admin",
-        action: "HANDOVER_DATABASE_CLEANUP",
-        entity: "DATABASE",
-        entityId: "SYSTEM_PURGE",
-        newValue: JSON.stringify({ results, backupCreated, backupFileName }),
-      },
-    }).catch(() => null);
-
     return NextResponse.json({
       success: true,
       message: "Database cleanup completed successfully. Platform is in a fresh, clean production-ready state.",
@@ -123,7 +111,7 @@ export async function POST(req: Request) {
       },
     });
   } catch (error: any) {
-    console.error("Handover cleanup error:", error);
+    console.error("Dev Handover cleanup error:", error);
     return NextResponse.json(
       { success: false, message: error.message || "Failed to execute database cleanup" },
       { status: 500 }
