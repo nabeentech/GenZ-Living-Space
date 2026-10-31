@@ -8,6 +8,7 @@ import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import DatePicker from "@/components/ui/DatePicker";
 import CustomSelect from "@/components/ui/CustomSelect";
+import { isValidIndianMobile, normalizeIndianMobileForInput } from "@/lib/phone-validation";
 import {
   Calendar,
   MapPin,
@@ -107,7 +108,7 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profileData, setProfileData] = useState({
     name: user.name || "",
-    phone: user.phone || "",
+    phone: normalizeIndianMobileForInput(user.phone),
     gender: user.gender || "",
     govtIdType: user.govtIdType || "",
     govtIdNumber: user.govtIdNumber || "",
@@ -121,6 +122,9 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
   const activeBooking = bookings.find(
     (b) => b.bookingStatus === "CONFIRMED" || b.bookingStatus === "CHECKED_IN"
   );
+  const nextDueInvoice = activeBooking?.invoices
+    ?.filter((invoice: any) => invoice.status !== "PAID" && invoice.status !== "CANCELLED" && invoice.totalAmount > invoice.paidAmount)
+    .sort((first: any, second: any) => new Date(first.dueDate).getTime() - new Date(second.dueDate).getTime())[0];
 
   const handleSignOut = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -131,6 +135,10 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
   const handleUpdateProfile = async () => {
     if (!profileData.name || !profileData.phone) {
       setProfileMsg("Name and phone are required");
+      return;
+    }
+    if (!isValidIndianMobile(profileData.phone)) {
+      setProfileMsg("Enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.");
       return;
     }
 
@@ -744,6 +752,7 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
                         <p className="font-black text-amber-300 text-lg">
                           ₹{activeBooking.balanceAmount.toLocaleString()}
                         </p>
+                        {nextDueInvoice && <p className="mt-1 text-[11px] text-slate-400">Due by {new Date(nextDueInvoice.dueDate).toLocaleDateString()}</p>}
                       </div>
                       <Button
                         variant="glow"
@@ -1022,9 +1031,14 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
               <label className="block font-bold text-slate-400 mb-1">Mobile</label>
               <input
                 type="tel"
+                inputMode="numeric"
+                maxLength={10}
+                pattern="[6-9][0-9]{9}"
+                title="Enter exactly 10 digits, starting with 6, 7, 8, or 9"
+                placeholder="98765 43210"
                 disabled={!isEditingProfile}
                 value={profileData.phone}
-                onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
+                onChange={(e) => setProfileData({ ...profileData, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })}
                 className={`w-full p-3 rounded-xl border ${isEditingProfile
                     ? "bg-slate-800 border-indigo-500/50 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     : "bg-slate-900 border-slate-800 text-slate-200"

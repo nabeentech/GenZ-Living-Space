@@ -63,6 +63,15 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
   const [newChargeDesc, setNewChargeDesc] = useState("Floor 2 Laundry wash & dry");
   const [isProcessingCheckOut, setIsProcessingCheckOut] = useState(false);
   const [checkOutSuccessMsg, setCheckOutSuccessMsg] = useState("");
+  const [checkOutErrorMsg, setCheckOutErrorMsg] = useState("");
+  const [checkoutCollectedAmount, setCheckoutCollectedAmount] = useState("0");
+  const [checkoutPaymentMethod, setCheckoutPaymentMethod] = useState("cash");
+
+  const [activeBalanceBooking, setActiveBalanceBooking] = useState<any | null>(null);
+  const [balanceCollectionAmount, setBalanceCollectionAmount] = useState("");
+  const [balanceCollectionMethod, setBalanceCollectionMethod] = useState("cash");
+  const [balanceCollectionError, setBalanceCollectionError] = useState("");
+  const [isCollectingBalance, setIsCollectingBalance] = useState(false);
 
   useEffect(() => {
     setGovernmentId(activeCheckInBooking?.guestGovtId || "");
@@ -282,6 +291,52 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
     }
   };
 
+  const openBalanceCollection = (booking: any) => {
+    const invoice = booking.invoices?.find((item: any) => item.status !== "PAID" && item.status !== "CANCELLED" && item.totalAmount > item.paidAmount);
+    if (!invoice) {
+      alert("No open invoice was found for this reservation. Ask Finance to review the balance.");
+      return;
+    }
+    setActiveBalanceBooking({ ...booking, openInvoice: invoice });
+    setBalanceCollectionAmount(Math.max(0, invoice.totalAmount - invoice.paidAmount).toFixed(2).replace(/\.00$/, ""));
+    setBalanceCollectionMethod("cash");
+    setBalanceCollectionError("");
+  };
+
+  const handleCollectResidentBalance = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!activeBalanceBooking) return;
+    setIsCollectingBalance(true);
+    setBalanceCollectionError("");
+    try {
+      const response = await fetch("/api/admin/payments/collect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookingId: activeBalanceBooking.id,
+          invoiceId: activeBalanceBooking.openInvoice.id,
+          amount: Number(balanceCollectionAmount),
+          paymentMethod: balanceCollectionMethod,
+        }),
+      });
+      const json = await response.json();
+      if (!response.ok || !json.success) throw new Error(json.message || "Could not record payment.");
+      setCurrentResidents((current) => current.map((booking) => booking.id === json.data.booking.id ? {
+        ...booking,
+        ...json.data.booking,
+        invoices: booking.invoices.map((invoice: any) => invoice.id === json.data.invoice.id ? json.data.invoice : invoice),
+      } : booking));
+      setActiveBalanceBooking(null);
+    } catch (error: any) {
+      setBalanceCollectionError(error.message || "Could not record payment.");
+    } finally {
+      setIsCollectingBalance(false);
+    }
+  };
+
+  const checkoutExtraTotal = extraCharges.reduce((sum, charge) => sum + charge.amount, 0);
+  const checkoutOutstandingTotal = (activeCheckOutBooking?.balanceAmount || 0) + checkoutExtraTotal;
+
   // Add extra charge at checkout
   const handleAddExtraCharge = () => {
     if (newChargeAmount <= 0) return;
@@ -300,8 +355,14 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
   // Perform Check-out
   const handleConfirmCheckOut = async () => {
     if (!activeCheckOutBooking) return;
+    const amountCollectedNow = Number(checkoutCollectedAmount) || 0;
+    if (amountCollectedNow < 0 || amountCollectedNow > checkoutOutstandingTotal) {
+      setCheckOutErrorMsg("Amount collected must be between ₹0 and the checkout balance.");
+      return;
+    }
     setIsProcessingCheckOut(true);
     setCheckOutSuccessMsg("");
+    setCheckOutErrorMsg("");
 
     try {
       const res = await fetch("/api/checkout", {
@@ -310,6 +371,8 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
         body: JSON.stringify({
           bookingId: activeCheckOutBooking.id,
           additionalCharges: extraCharges,
+          collectedAmount: amountCollectedNow,
+          paymentMethod: checkoutPaymentMethod,
         }),
       });
 
@@ -327,10 +390,11 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
         setActiveCheckOutBooking(null);
         setCheckOutSuccessMsg("");
         setExtraCharges([]);
+        setCheckoutCollectedAmount("0");
         setSearchRef("");
       }, 2000);
     } catch (err: any) {
-      alert(err.message || "Failed to check out");
+      setCheckOutErrorMsg(err.message || "Failed to check out");
     } finally {
       setIsProcessingCheckOut(false);
     }
@@ -491,6 +555,14 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
                   </div>
 
                   <div className="flex items-center gap-3">
+                    {b.balanceAmount > 0 && <div className="text-right">
+                      <div className="text-[10px] font-bold uppercase tracking-wide text-amber-300">Balance due</div>
+                      <div className="font-black text-amber-200">₹{b.balanceAmount.toLocaleString("en-IN")}</div>
+                      {b.invoices?.find((invoice: any) => invoice.status !== "PAID" && invoice.status !== "CANCELLED" && invoice.totalAmount > invoice.paidAmount)?.dueDate && <div className="mt-0.5 text-[10px] text-slate-400">Due {new Date(b.invoices.find((invoice: any) => invoice.status !== "PAID" && invoice.status !== "CANCELLED" && invoice.totalAmount > invoice.paidAmount).dueDate).toLocaleDateString()}</div>}
+                    </div>}
+                    {b.balanceAmount > 0 && <Button variant="outline" size="sm" onClick={() => openBalanceCollection(b)}>
+                      Record payment
+                    </Button>}
                     <Button
                       variant="glow"
                       size="sm"
@@ -538,6 +610,7 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
                       <Badge variant="indigo" size="sm">
                         IN-HOUSE
                       </Badge>
+                      {b.balanceAmount > 0 && <Badge variant="warning" size="sm">₹{b.balanceAmount.toLocaleString("en-IN")} DUE</Badge>}
                       <span className="text-xs text-slate-400 font-medium">
                         Room {b.room.roomNumber} ({b.bed.bedNumber})
                       </span>
@@ -557,6 +630,8 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
                       onClick={() => {
                         setActiveCheckOutBooking(b);
                         setExtraCharges([]);
+                        setCheckoutCollectedAmount("0");
+                        setCheckOutErrorMsg("");
                       }}
                       rightIcon={<LogOut className="w-4 h-4" />}
                     >
@@ -739,7 +814,7 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
                 <strong className="text-indigo-400">
                   {activeCheckOutBooking.bed.bedNumber}
                 </strong>{" "}
-                to the Housekeeping cleaning queue and mark status as CLEANING.
+                to the Housekeeping cleaning queue and mark status as CLEANING. Any unpaid amount stays on the account and appears in Outstanding Balances.
               </p>
             </div>
 
@@ -753,10 +828,14 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
                 <CustomSelect value={newChargeCategory} onValueChange={setNewChargeCategory} options={[{ value: "LAUNDRY", label: "Laundry" }, { value: "FOOD", label: "Cafe / Food" }, { value: "LOST_KEY", label: "Lost Keycard" }, { value: "DAMAGE", label: "Damages" }, { value: "LATE_CHECKOUT", label: "Late Checkout" }, { value: "OTHER", label: "Other" }]} triggerClassName="p-2 rounded-xl bg-slate-900 border border-slate-700 text-xs" />
 
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   placeholder="Amount ₹"
                   value={newChargeAmount || ""}
-                  onChange={(e) => setNewChargeAmount(Number(e.target.value))}
+                  onChange={(e) => {
+                    const [whole = "", fraction = ""] = e.target.value.replace(/[^\d.]/g, "").split(".");
+                    setNewChargeAmount(Number(`${whole.slice(0, 8)}${e.target.value.includes(".") ? `.${fraction.slice(0, 2)}` : ""}`) || 0);
+                  }}
                   className="p-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none"
                 />
 
@@ -774,7 +853,7 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
               {extraCharges.length > 0 && (
                 <div className="space-y-1 pt-2">
                   <span className="text-[11px] font-bold text-slate-400 block">
-                    Tally to be settled:
+                    Added to the account balance:
                   </span>
                   {extraCharges.map((ch, idx) => (
                     <div
@@ -791,6 +870,24 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
               )}
             </div>
 
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs">
+              <div className="flex justify-between text-slate-300"><span>Current balance</span><strong>₹{(activeCheckOutBooking.balanceAmount || 0).toLocaleString("en-IN")}</strong></div>
+              <div className="mt-1 flex justify-between text-slate-300"><span>New checkout charges</span><strong>₹{checkoutExtraTotal.toLocaleString("en-IN")}</strong></div>
+              <div className="mt-2 flex justify-between border-t border-amber-500/20 pt-2 font-bold text-amber-200"><span>Outstanding after checkout</span><strong>₹{checkoutOutstandingTotal.toLocaleString("en-IN")}</strong></div>
+            </div>
+
+            <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-3">
+              <label className="block text-xs font-semibold text-slate-300">Amount collected at checkout (₹, optional)
+                <input type="text" inputMode="decimal" value={checkoutCollectedAmount} onChange={(e) => { const [whole = "", fraction = ""] = e.target.value.replace(/[^\d.]/g, "").split("."); setCheckoutCollectedAmount(`${whole.slice(0, 9)}${e.target.value.includes(".") ? `.${fraction.slice(0, 2)}` : ""}`); }} className="mt-1 block w-full rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-sm text-white" />
+              </label>
+              <p className="mt-1 text-[11px] text-slate-500">Leave at 0 if payment will be collected later; the balance remains visible in Outstanding Balances.</p>
+              {Number(checkoutCollectedAmount) > 0 && <label className="mt-3 block text-xs font-semibold text-slate-300">Payment method
+                <select value={checkoutPaymentMethod} onChange={(e) => setCheckoutPaymentMethod(e.target.value)} className="mt-1 block w-full rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-sm text-white"><option value="cash">Cash</option><option value="upi">UPI / QR</option><option value="card">Card</option><option value="bank_transfer">Bank transfer</option></select>
+              </label>}
+              <div className="mt-2 flex justify-between text-xs font-bold text-amber-200"><span>Balance remaining</span><strong>₹{Math.max(0, checkoutOutstandingTotal - (Number(checkoutCollectedAmount) || 0)).toLocaleString("en-IN")}</strong></div>
+            </div>
+
+            {checkOutErrorMsg && <div role="alert" className="rounded-xl border border-rose-500/30 bg-rose-950/50 p-3 text-xs text-rose-200">{checkOutErrorMsg}</div>}
             {checkOutSuccessMsg && (
               <div className="p-3 rounded-xl bg-emerald-950 border border-emerald-500 text-xs text-emerald-300">
                 {checkOutSuccessMsg}
@@ -817,6 +914,27 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
               </Button>
             </div>
           </div>
+        </Modal>
+      )}
+
+      {activeBalanceBooking && (
+        <Modal
+          isOpen={!!activeBalanceBooking}
+          onClose={() => !isCollectingBalance && setActiveBalanceBooking(null)}
+          title="Record resident payment"
+          description={`Booking ${activeBalanceBooking.bookingReference} · ${activeBalanceBooking.guestName}`}
+        >
+          <form onSubmit={handleCollectResidentBalance} className="space-y-4 py-2">
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs">
+              <div className="flex justify-between text-slate-300"><span>Invoice total</span><strong>₹{activeBalanceBooking.openInvoice.totalAmount.toLocaleString("en-IN")}</strong></div>
+              <div className="mt-1 flex justify-between text-slate-300"><span>Already received</span><strong>₹{activeBalanceBooking.openInvoice.paidAmount.toLocaleString("en-IN")}</strong></div>
+              <div className="mt-2 flex justify-between border-t border-amber-500/20 pt-2 font-bold text-amber-200"><span>Balance</span><strong>₹{(activeBalanceBooking.openInvoice.totalAmount - activeBalanceBooking.openInvoice.paidAmount).toLocaleString("en-IN")}</strong></div>
+            </div>
+            {balanceCollectionError && <div role="alert" className="rounded-xl border border-rose-500/30 bg-rose-950/50 p-3 text-xs text-rose-200">{balanceCollectionError}</div>}
+            <label className="block text-xs font-semibold text-slate-300">Amount received now (₹)<input required type="text" inputMode="decimal" value={balanceCollectionAmount} onChange={(e) => { const [whole = "", fraction = ""] = e.target.value.replace(/[^\d.]/g, "").split("."); setBalanceCollectionAmount(`${whole.slice(0, 9)}${e.target.value.includes(".") ? `.${fraction.slice(0, 2)}` : ""}`); }} className="mt-1 block w-full rounded-xl border border-slate-700 bg-slate-900 p-2.5 text-sm text-white" /></label>
+            <label className="block text-xs font-semibold text-slate-300">Payment method<select value={balanceCollectionMethod} onChange={(e) => setBalanceCollectionMethod(e.target.value)} className="mt-1 block w-full rounded-xl border border-slate-700 bg-slate-900 p-2.5 text-sm text-white"><option value="cash">Cash</option><option value="upi">UPI / QR</option><option value="card">Card</option><option value="bank_transfer">Bank transfer</option></select></label>
+            <div className="flex justify-end gap-2 border-t border-slate-800 pt-3"><Button type="button" variant="outline" onClick={() => setActiveBalanceBooking(null)} disabled={isCollectingBalance}>Cancel</Button><Button type="submit" variant="glow" isLoading={isCollectingBalance}>Save payment</Button></div>
+          </form>
         </Modal>
       )}
     </div>

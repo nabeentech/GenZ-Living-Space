@@ -7,6 +7,7 @@ import { releaseExpiredBookingHolds } from "@/lib/booking-cleanup";
 import { isLongStay } from "@/lib/booking-policy";
 import { generateBookingQRCode } from "@/lib/qr";
 import { createInvoiceWithRetry } from "@/lib/invoice";
+import { isValidIndianMobile } from "@/lib/phone-validation";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,9 @@ export async function POST(req: Request) {
         { success: false, message: "Guest contact details are required" },
         { status: 400 }
       );
+    }
+    if (!isValidIndianMobile(guestPhone)) {
+      return NextResponse.json({ success: false, message: "Enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9." }, { status: 400 });
     }
 
     const checkIn = new Date(checkInDate);
@@ -165,6 +169,13 @@ export async function POST(req: Request) {
 
     // Calculate Central Price
     const rates = getRoomTypePriceRates(room.roomType, room.isAC);
+    const bookingGender = String(user.gender || guestGender || "").toUpperCase();
+    if (!["MALE", "FEMALE", "OTHER"].includes(bookingGender)) {
+      return NextResponse.json({ success: false, message: "Select a valid guest gender before booking." }, { status: 400 });
+    }
+    if (["MALE", "FEMALE"].includes(room.roomType.genderCategory) && bookingGender !== room.roomType.genderCategory) {
+      return NextResponse.json({ success: false, message: `This room category is reserved for ${room.roomType.genderCategory.toLowerCase()} guests.` }, { status: 400 });
+    }
     const pricing = calculateBookingPrice({
       checkInDate: checkIn,
       checkOutDate: checkOut,
@@ -258,7 +269,7 @@ export async function POST(req: Request) {
           paymentStatus: "PENDING",
           guestName: user.name,
           guestEmail: user.email,
-          guestPhone: user.phone || guestPhone,
+          guestPhone,
           guestGender: user.gender || guestGender,
           guestGovtId,
           specialRequests,

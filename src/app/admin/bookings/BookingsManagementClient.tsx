@@ -31,6 +31,16 @@ interface BookingsManagementClientProps {
   hideFinancials?: boolean;
 }
 
+const getWalkInGuestDetails = (raw: string | null | undefined): any[] => {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
 export const BookingsManagementClient: React.FC<BookingsManagementClientProps> = ({
   initialBookings,
   hostels,
@@ -440,6 +450,22 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
                 </span>
               </div>
             </div>
+
+            {getWalkInGuestDetails(selectedBooking.guestDetails).length > 1 && (
+              <div className="space-y-3 rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-300">Other guests</h4>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {getWalkInGuestDetails(selectedBooking.guestDetails).slice(1).map((guest, index) => (
+                    <div key={`${guest.phone}-${index}`} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-xs">
+                      <div className="font-bold text-white">Guest {index + 2}: {guest.name}</div>
+                      <div className="mt-1 text-slate-300">{guest.phone}{guest.email ? ` · ${guest.email}` : ""}</div>
+                      <div className="mt-1 text-slate-400">{guest.gender || "Gender not specified"}{guest.dateOfBirth ? ` · DOB ${new Date(`${guest.dateOfBirth}T12:00:00`).toLocaleDateString()}` : ""}</div>
+                      {guest.govtId && <div className="mt-1 font-mono text-slate-400">ID: {guest.govtId}</div>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Monthly Resident Controls Card for Staff */}
             {selectedBooking.stayType === "MONTHLY" && (

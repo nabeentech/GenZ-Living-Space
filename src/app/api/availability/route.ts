@@ -13,6 +13,12 @@ export async function GET(req: Request) {
     const roomTypeId = searchParams.get("roomTypeId");
     const checkInStr = searchParams.get("checkIn");
     const checkOutStr = searchParams.get("checkOut");
+    const stayType = searchParams.get("stayType") === "MONTHLY" ? "MONTHLY" : "DAILY";
+    const requestedStayType = searchParams.get("stayType");
+
+    if (requestedStayType && !["DAILY", "MONTHLY"].includes(requestedStayType)) {
+      return NextResponse.json({ success: false, message: "stayType must be DAILY or MONTHLY." }, { status: 400 });
+    }
 
     if (!hostelId || !checkInStr || !checkOutStr) {
       return NextResponse.json(
@@ -37,6 +43,7 @@ export async function GET(req: Request) {
       hostelId,
       active: true,
       status: "ACTIVE",
+      hostel: { active: true },
     };
     if (roomTypeId) {
       roomWhere.roomTypeId = roomTypeId;
@@ -49,7 +56,7 @@ export async function GET(req: Request) {
         beds: {
           where: {
             active: true,
-            status: { notIn: ["MAINTENANCE", "BLOCKED"] },
+            status: { notIn: ["MAINTENANCE", "BLOCKED", "CLEANING"] },
           },
         },
       },
@@ -62,10 +69,12 @@ export async function GET(req: Request) {
       where: {
         hostelId,
         AND: [
-          { OR: [
-            { isOpenEnded: true, checkInDate: { lt: checkOut } },
-            { isOpenEnded: false, checkInDate: { lt: checkOut }, checkOutDate: { gt: checkIn } },
-          ] },
+          stayType === "MONTHLY"
+            ? { checkOutDate: { gt: checkIn } }
+            : { OR: [
+                { isOpenEnded: true, checkInDate: { lt: checkOut } },
+                { isOpenEnded: false, checkInDate: { lt: checkOut }, checkOutDate: { gt: checkIn } },
+              ] },
           { OR: [
           { bookingStatus: { in: ["CONFIRMED", "CHECKED_IN"] } },
           {

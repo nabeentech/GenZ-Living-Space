@@ -36,6 +36,11 @@ function getStayDurationText(checkIn: Date | string, checkOut: Date | string, is
 }
 
 export async function createInvoicePdf({ booking, invoice }: { booking: any; invoice: any }): Promise<Buffer> {
+  const invoiceTotal = Number(invoice?.totalAmount ?? booking?.totalAmount ?? 0);
+  const invoicePaid = Number(invoice?.paidAmount ?? booking?.paidAmount ?? 0);
+  const invoiceBalance = Math.max(0, Number(invoice?.balanceDue ?? invoiceTotal - invoicePaid));
+  const invoiceStatus = invoiceBalance === 0 ? "PAID" : invoicePaid > 0 ? "PARTIAL" : "DUE";
+  const invoiceStatusLabel = invoiceStatus === "PAID" ? "PAID IN FULL" : invoiceStatus === "PARTIAL" ? "PARTIALLY PAID" : "PAYMENT DUE";
   const document = new PDFDocument({
     size: "A4",
     margin: 36,
@@ -58,7 +63,7 @@ export async function createInvoicePdf({ booking, invoice }: { booking: any; inv
       inv: invoice?.invoiceNumber || `GZ-${booking.bookingReference}`,
       guest: booking.guestName,
       bed: `${booking.room?.roomNumber || "R"}-${booking.bed?.bedNumber || "B"}`,
-      status: "PAID",
+      status: invoiceStatus,
       date: new Date().toISOString(),
     });
     qrBuffer = await QRCode.toBuffer(qrPayload, {
@@ -109,8 +114,13 @@ export async function createInvoicePdf({ booking, invoice }: { booking: any; inv
 
   // Paid Status Pill
   document.save();
-  document.roundedRect(475, 46, 84, 16, 8).fillAndStroke("#ecfdf5", "#a7f3d0");
-  document.font("Helvetica-Bold").fontSize(7.5).fillColor("#047857").text("PAID IN FULL", 475, 50, { width: 84, align: "center" });
+  const statusPalette = invoiceStatus === "PAID"
+    ? { background: "#ecfdf5", border: "#a7f3d0", text: "#047857" }
+    : invoiceStatus === "PARTIAL"
+      ? { background: "#fffbeb", border: "#fcd34d", text: "#b45309" }
+      : { background: "#fef2f2", border: "#fca5a5", text: "#b91c1c" };
+  document.roundedRect(475, 46, 84, 16, 8).fillAndStroke(statusPalette.background, statusPalette.border);
+  document.font("Helvetica-Bold").fontSize(6.8).fillColor(statusPalette.text).text(invoiceStatusLabel, 475, 50, { width: 84, align: "center" });
   document.restore();
 
   // Metadata items
@@ -367,12 +377,12 @@ export async function createInvoicePdf({ booking, invoice }: { booking: any; inv
   // Highlighted Total Paid Box
   const paidBoxY = summaryY + 68;
   document.save();
-  document.roundedRect(312, paidBoxY, 239, 24, 4).fillAndStroke("#ecfdf5", "#86efac");
+  document.roundedRect(312, paidBoxY, 239, 24, 4).fillAndStroke(statusPalette.background, statusPalette.border);
   document.restore();
 
-  document.font("Helvetica-Bold").fontSize(8).fillColor("#065f46").text("TOTAL AMOUNT PAID:", 320, paidBoxY + 7);
-  document.font("Helvetica-Bold").fontSize(11).fillColor("#047857").text(
-    formatINR(booking.paidAmount || booking.totalAmount || 0),
+  document.font("Helvetica-Bold").fontSize(8).fillColor(statusPalette.text).text("TOTAL AMOUNT PAID:", 320, paidBoxY + 7);
+  document.font("Helvetica-Bold").fontSize(11).fillColor(statusPalette.text).text(
+    formatINR(invoicePaid),
     410,
     paidBoxY + 5,
     { width: 133, align: "right" }
@@ -385,8 +395,8 @@ export async function createInvoicePdf({ booking, invoice }: { booking: any; inv
   document.restore();
 
   const latestPayment = booking.payments?.[0];
-  const gatewayName = latestPayment?.gateway || "Razorpay / UPI";
-  const txnId = latestPayment?.gatewayPaymentId || `TXN-${booking.bookingReference}`;
+  const gatewayName = latestPayment?.gateway || (invoicePaid > 0 ? "Recorded at reception" : "No payment received");
+  const txnId = latestPayment?.gatewayPaymentId || "—";
 
   document.font("Helvetica-Bold").fontSize(7).fillColor("#475569").text("PAYMENT METHOD", 46, paymentBannerY + 5);
   document.font("Helvetica").fontSize(7.5).fillColor("#0f172a").text(gatewayName, 46, paymentBannerY + 15);
@@ -395,10 +405,10 @@ export async function createInvoicePdf({ booking, invoice }: { booking: any; inv
   document.font("Helvetica").fontSize(7.5).fillColor("#0f172a").text(txnId, 175, paymentBannerY + 15);
 
   document.font("Helvetica-Bold").fontSize(7).fillColor("#475569").text("PAYMENT STATUS", 365, paymentBannerY + 5);
-  document.font("Helvetica-Bold").fontSize(7.5).fillColor("#047857").text("CAPTURED & RECONCILED", 365, paymentBannerY + 15);
+  document.font("Helvetica-Bold").fontSize(7.5).fillColor(statusPalette.text).text(invoiceStatusLabel, 365, paymentBannerY + 15, { width: 100 });
 
   document.font("Helvetica-Bold").fontSize(7).fillColor("#475569").text("BALANCE DUE", 475, paymentBannerY + 5);
-  document.font("Helvetica-Bold").fontSize(7.5).fillColor("#0f172a").text("Rs. 0.00 (Nil)", 475, paymentBannerY + 15);
+  document.font("Helvetica-Bold").fontSize(7.5).fillColor(statusPalette.text).text(formatINR(invoiceBalance), 475, paymentBannerY + 15, { width: 84 });
 
   // 8. TERMS & OFFICIAL COMPLIANCE DECLARATIONS (Y: paymentBannerY + 36)
   const termsY = paymentBannerY + 36;

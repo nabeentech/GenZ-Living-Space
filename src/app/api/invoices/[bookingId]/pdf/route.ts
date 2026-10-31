@@ -6,7 +6,7 @@ import { createInvoicePdf } from "@/lib/invoice-pdf";
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ bookingId: string }> }
 ) {
   try {
@@ -15,8 +15,10 @@ export async function GET(
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
 
+    const { bookingId } = await params;
+    const invoiceId = new URL(req.url).searchParams.get("invoiceId");
     const booking = await prisma.booking.findUnique({
-      where: { id: (await params).bookingId },
+      where: { id: bookingId },
       include: {
         hostel: true,
         room: {
@@ -26,12 +28,15 @@ export async function GET(
         },
         bed: true,
         payments: { orderBy: { createdAt: "desc" } },
-        invoices: { orderBy: { issueDate: "desc" }, take: 1 },
+        invoices: { where: invoiceId ? { id: invoiceId } : undefined, orderBy: { issueDate: "desc" }, take: 1 },
       },
     });
 
     if (!booking) {
       return NextResponse.json({ success: false, message: "Booking not found" }, { status: 404 });
+    }
+    if (invoiceId && !booking.invoices.length) {
+      return NextResponse.json({ success: false, message: "Invoice not found for this booking." }, { status: 404 });
     }
 
     const isStaff = hasPermission(user.role, [

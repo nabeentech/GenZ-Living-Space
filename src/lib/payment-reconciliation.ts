@@ -40,7 +40,7 @@ export function createPaymentReconciler(deps: Dependencies) {
     // Completed/review records are already durably reconciled. Consult the
     // provider for every unresolved or legacy FAILED attempt; a historical
     // cleanup failure must not hide money subsequently received.
-    if (["COMPLETED", "REVIEW_REQUIRED"].includes(payment.status) || (paymentMetadata(payment.metadata).initiationRejected === true && payment.status === "FAILED")) {
+    if (["COMPLETED", "REVIEW_REQUIRED", "REFUNDED", "PARTIALLY_REFUNDED"].includes(payment.status) || (paymentMetadata(payment.metadata).initiationRejected === true && payment.status === "FAILED")) {
       const booking = await db.booking.findUniqueOrThrow({ where: { id: payment.bookingId } });
       return { state: payment.status, applied: false, bookingId: booking.id, bookingReference: booking.bookingReference, amount: payment.amount };
     }
@@ -52,6 +52,7 @@ export function createPaymentReconciler(deps: Dependencies) {
       const current = await tx.payment.findUniqueOrThrow({ where: { id: payment.id } });
       const booking = await tx.booking.findUniqueOrThrow({ where: { id: current.bookingId }, include: { invoices: { orderBy: { createdAt: "asc" } } } });
       const result = (state: string, applied = false) => ({ state, applied, bookingId: booking.id, bookingReference: booking.bookingReference, amount: current.amount });
+      if (["REFUNDED", "PARTIALLY_REFUNDED"].includes(current.status)) return result(current.status);
       if (current.status === "COMPLETED") return result("COMPLETED");
       if (current.status === "REVIEW_REQUIRED") return result("REVIEW_REQUIRED");
       if (provider.state !== "COMPLETED") {

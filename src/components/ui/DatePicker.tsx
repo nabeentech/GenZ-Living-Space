@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface DatePickerProps {
@@ -26,10 +27,32 @@ export default function DatePicker({ value, onChange, label, min, className = ""
     return new Date(selected.getFullYear(), selected.getMonth(), 1);
   });
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
+  const [popupPosition, setPopupPosition] = useState({ top: 0, left: 0 });
+
+  const positionPopup = () => {
+    const trigger = triggerRef.current;
+    const popup = popupRef.current;
+    if (!trigger || !popup) return;
+    const triggerRect = trigger.getBoundingClientRect();
+    const popupRect = popup.getBoundingClientRect();
+    const gap = 8;
+    const below = window.innerHeight - triggerRect.bottom;
+    const top = below >= popupRect.height + gap || triggerRect.top < popupRect.height + gap
+      ? triggerRect.bottom + gap
+      : triggerRect.top - popupRect.height - gap;
+    const left = Math.max(8, Math.min(triggerRect.left, window.innerWidth - popupRect.width - 8));
+    setPopupPosition({
+      top: Math.max(8, Math.min(top, window.innerHeight - popupRect.height - 8)),
+      left,
+    });
+  };
 
   useEffect(() => {
     const closeOutside = (event: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      if (!rootRef.current?.contains(target) && !popupRef.current?.contains(target)) setOpen(false);
     };
     const closeEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
@@ -41,6 +64,18 @@ export default function DatePicker({ value, onChange, label, min, className = ""
       document.removeEventListener("keydown", closeEscape);
     };
   }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    positionPopup();
+    const handleViewportChange = () => positionPopup();
+    window.addEventListener("resize", handleViewportChange);
+    window.addEventListener("scroll", handleViewportChange, true);
+    return () => {
+      window.removeEventListener("resize", handleViewportChange);
+      window.removeEventListener("scroll", handleViewportChange, true);
+    };
+  }, [open, visibleMonth]);
 
   const days = useMemo(() => {
     const firstWeekday = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1).getDay();
@@ -58,6 +93,7 @@ export default function DatePicker({ value, onChange, label, min, className = ""
   return (
     <div ref={rootRef} className={`relative ${open ? "z-50" : "z-10"} ${className}`}>
       <button
+        ref={triggerRef}
         type="button"
         aria-haspopup="dialog"
         aria-expanded={open}
@@ -76,7 +112,7 @@ export default function DatePicker({ value, onChange, label, min, className = ""
         </span>
       </button>
 
-      {open && <div role="dialog" aria-label={label ? `${label} calendar` : "Choose date"} className="absolute left-0 top-[calc(100%+0.5rem)] z-[70] w-[min(19.5rem,calc(100vw-2rem))] rounded-2xl border border-slate-700 bg-[#111827] p-3.5 sm:p-4 shadow-2xl shadow-black/90">
+      {open && typeof document !== "undefined" && createPortal(<div ref={popupRef} role="dialog" aria-label={label ? `${label} calendar` : "Choose date"} className="z-[9999] w-[min(19.5rem,calc(100vw-1rem))] overflow-y-auto rounded-2xl border border-slate-700 bg-[#111827] p-3.5 sm:p-4 shadow-2xl shadow-black/90" style={{ position: "fixed", top: popupPosition.top, left: popupPosition.left, maxHeight: "calc(100dvh - 1rem)", visibility: popupPosition.top === 0 && popupPosition.left === 0 ? "hidden" : "visible" }}>
         <div className="mb-2.5 flex items-center justify-between">
           <span className="font-bold text-white text-sm sm:text-base">{visibleMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</span>
           <div className="flex gap-1">
@@ -99,7 +135,7 @@ export default function DatePicker({ value, onChange, label, min, className = ""
           <button type="button" onClick={() => { onChange(""); setOpen(false); }} className="text-xs font-semibold text-slate-400 hover:text-white">Clear</button>
           <button type="button" onClick={() => { const today = dateKey(new Date()); if (!min || today >= min) onChange(today); setOpen(false); }} className="text-xs font-semibold text-indigo-300 hover:text-white">Today</button>
         </div>
-      </div>}
+      </div>, document.body)}
     </div>
   );
 }

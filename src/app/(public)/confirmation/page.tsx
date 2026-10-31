@@ -80,6 +80,9 @@ export default async function ConfirmationPage({
   }
 
   const invoice = booking.invoices[0];
+  const nextDueInvoice = booking.invoices
+    .filter((item) => item.status !== "PAID" && item.status !== "CANCELLED" && item.totalAmount > item.paidAmount)
+    .sort((first, second) => new Date(first.dueDate).getTime() - new Date(second.dueDate).getTime())[0];
   const qrCodeData = booking.qrCodeData?.startsWith("data:image/")
     ? booking.qrCodeData
     : await generateBookingQRCode(booking.bookingReference, booking.id);
@@ -258,11 +261,12 @@ export default async function ConfirmationPage({
                     </div>
                   )}
                   <div className="pt-2 border-t border-slate-800 flex justify-between items-center text-sm font-bold text-white">
-                    <span>Total Paid (PAID IN FULL)</span>
-                    <span className="text-lg font-black text-emerald-400">
-                      ₹{booking.paidAmount.toLocaleString()}
-                    </span>
+                    <span>Booking total</span>
+                    <span className="text-lg font-black text-white">₹{booking.totalAmount.toLocaleString("en-IN")}</span>
                   </div>
+                  <div className="flex justify-between"><span>Amount received</span><span className="font-semibold text-emerald-300">₹{booking.paidAmount.toLocaleString("en-IN")}</span></div>
+                  <div className={`flex justify-between font-bold ${booking.balanceAmount > 0 ? "text-amber-300" : "text-emerald-300"}`}><span>Balance due</span><span>₹{booking.balanceAmount.toLocaleString("en-IN")}</span></div>
+                  {booking.balanceAmount > 0 && nextDueInvoice && <div className="text-right text-[11px] text-slate-400">Due by {new Date(nextDueInvoice.dueDate).toLocaleDateString("en-IN")}</div>}
                 </div>
               </div>
 

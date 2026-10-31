@@ -63,7 +63,7 @@ export async function POST(req: Request) {
 
     if (
       booking.bookingStatus !== "PAYMENT_PENDING" &&
-      !(booking.bookingStatus === "CONFIRMED" && booking.balanceAmount > 0)
+      !( ["CONFIRMED", "CHECKED_IN"].includes(booking.bookingStatus) && booking.balanceAmount > 0)
     ) {
       return NextResponse.json(
         { success: false, message: "This booking is not awaiting payment." },
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
       );
     }
 
-    if (booking.bookingStatus === "CONFIRMED" && booking.balanceAmount <= 0) {
+    if (["CONFIRMED", "CHECKED_IN"].includes(booking.bookingStatus) && booking.balanceAmount <= 0) {
       return NextResponse.json(
         { success: false, message: "This booking is already fully paid." },
         { status: 400 }

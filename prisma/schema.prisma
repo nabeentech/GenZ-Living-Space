@@ -206,6 +206,7 @@ model Booking {
   guestPhone         String
   guestGender        String?
   guestGovtId        String?
+  guestDetails       String?   // JSON array with contact details for every walk-in guest
   
   // QR & Holds
   qrCodeData         String?   // Encoded check-in verification string

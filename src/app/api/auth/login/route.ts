@@ -5,9 +5,10 @@ import { verifyPassword, signToken, COOKIE_NAME } from "@/lib/auth";
 
 export async function POST(req: Request) {
   try {
-    const { email, password } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { email, password } = body;
 
-    if (!email || !password) {
+    if (typeof email !== "string" || typeof password !== "string" || !email.trim() || !password) {
       return NextResponse.json(
         { success: false, message: "Email and password are required" },
         { status: 400 }

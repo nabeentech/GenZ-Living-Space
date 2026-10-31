@@ -63,7 +63,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: "You cannot pay for this booking." }, { status: 403 });
     }
 
-    const expectedAmount = booking.bookingStatus === "CONFIRMED"
+    const isBalancePayment = ["CONFIRMED", "CHECKED_IN"].includes(booking.bookingStatus) && booking.balanceAmount > 0;
+    const expectedAmount = isBalancePayment
       ? booking.balanceAmount
       : booking.totalAmount;
     const isLocalSimulator = process.env.NODE_ENV !== "production" &&
@@ -81,8 +82,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // Handle balance payment for confirmed bookings (e.g., from booking extensions)
-    if (booking.bookingStatus === "CONFIRMED" && booking.balanceAmount > 0) {
+    // Handle balance payments for confirmed or active stays.
+    if (isBalancePayment) {
       // Check if this is an extension payment
       const extension = await prisma.bookingExtension.findFirst({
         where: { bookingId: booking.id, status: "REQUESTED" },
@@ -133,19 +134,18 @@ export async function POST(req: Request) {
         });
 
         // 3. Update Invoice if exists
-        const invoice = await tx.invoice.findFirst({
-          where: { bookingId: booking.id },
-        });
-
-        if (invoice && invoice.status === "PARTIAL") {
-          await tx.invoice.update({
-            where: { id: invoice.id },
-            data: {
-              paidAmount: invoice.paidAmount + booking.balanceAmount,
-              status: "PAID",
-            },
-          });
+        const invoices = await tx.invoice.findMany({ where: { bookingId: booking.id, status: { not: "CANCELLED" } }, orderBy: { createdAt: "asc" } });
+        let remainingPayment = Math.round(booking.balanceAmount * 100);
+        for (const invoice of invoices) {
+          const invoiceDue = Math.max(0, Math.round((invoice.totalAmount - invoice.paidAmount) * 100));
+          const applied = Math.min(remainingPayment, invoiceDue);
+          if (!applied) continue;
+          const paid = Math.round(invoice.paidAmount * 100) + applied;
+          const balance = Math.max(0, Math.round(invoice.totalAmount * 100) - paid);
+          await tx.invoice.update({ where: { id: invoice.id }, data: { paidAmount: paid / 100, balanceDue: balance / 100, status: balance === 0 ? "PAID" : "PARTIAL" } });
+          remainingPayment -= applied;
         }
+        if (remainingPayment > 0) throw new Error("Invoice balances do not match this payment. Ask Finance to reconcile the booking.");
 
         // 4. If extension, mark it as confirmed
         if (extension) {

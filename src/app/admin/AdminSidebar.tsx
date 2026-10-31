@@ -100,7 +100,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ user }) => {
       <aside
         className={`${
           isOpen ? "block" : "hidden"
-        } md:block w-full md:w-64 bg-[#0B0F19] border-r border-slate-800/80 flex flex-col shrink-0 min-h-screen z-30 transition-all`}
+        } md:block w-full md:w-64 bg-[#0B0F19] border-r border-slate-800/80 flex flex-col md:grid md:grid-rows-[auto_minmax(0,1fr)_auto] shrink-0 min-h-screen md:h-screen md:max-h-screen md:min-h-0 md:self-start z-30 transition-all`}
       >
         {/* Brand Header */}
         <div className="p-6 border-b border-slate-800/80">
@@ -135,7 +135,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ user }) => {
         </div>
 
         {/* Navigation Links */}
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+        <nav className="min-h-0 p-3 space-y-1 overflow-y-auto overscroll-y-contain">
           {navItems.map((item) => {
             const isActive = pathname === item.href;
             return (

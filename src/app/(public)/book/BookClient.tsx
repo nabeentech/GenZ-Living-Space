@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { addUtcCalendarDays, calculateBookingPrice, calculateStayBaseAmount, getRoomTypePriceRates } from "@/lib/pricing";
 import BookingAuthModal from "@/components/public/BookingAuthModal";
+import { isValidIndianMobile, normalizeIndianMobileForInput } from "@/lib/phone-validation";
 
 export const ID_OPTIONS = [
   { value: "AADHAAR", label: "Aadhaar Card" },
@@ -329,7 +330,7 @@ export const BookClient: React.FC = () => {
         setCurrentUser(json.user);
         setGuestName(json.user.name || "");
         setGuestEmail(json.user.email || "");
-        setGuestPhone(json.user.phone || "");
+        setGuestPhone(normalizeIndianMobileForInput(json.user.phone));
         setGuestGender(json.user.gender || "MALE");
         if (json.user.govtIdType) {
           setGovtIdType(json.user.govtIdType);
@@ -348,7 +349,7 @@ export const BookClient: React.FC = () => {
     setCurrentUser(user);
     if (user.name) setGuestName(user.name);
     if (user.email) setGuestEmail(user.email);
-    if (user.phone) setGuestPhone(user.phone);
+    if (user.phone) setGuestPhone(normalizeIndianMobileForInput(user.phone));
     if (user.gender) setGuestGender(user.gender);
     if (user.govtIdType) setGovtIdType(user.govtIdType);
     if (user.govtIdNumber) setGuestGovtId(formatGovtId(user.govtIdNumber, user.govtIdType || "AADHAAR"));
@@ -366,7 +367,7 @@ export const BookClient: React.FC = () => {
     async function checkAvail() {
       setIsLoadingAvailability(true);
       try {
-        const url = `/api/availability?hostelId=${activeHostel.id}&checkIn=${checkIn}&checkOut=${checkOut}`;
+        const url = `/api/availability?hostelId=${activeHostel.id}&checkIn=${checkIn}&checkOut=${checkOut}&stayType=${stayType}`;
         const res = await fetch(url);
         const json = await res.json();
         if (json.success && json.data?.rooms) {
@@ -426,7 +427,7 @@ export const BookClient: React.FC = () => {
       }
     }
     checkAvail();
-  }, [activeHostel, checkIn, checkOut, initialRoomTypeParam]);
+  }, [activeHostel, checkIn, checkOut, stayType, initialRoomTypeParam]);
 
   // Selected Room Object
   const selectedRoom = useMemo(
@@ -713,6 +714,10 @@ export const BookClient: React.FC = () => {
     }
     if (!guestName || !guestEmail || !guestPhone) {
       alert("Please fill in your name, email, and mobile number.");
+      return;
+    }
+    if (!isValidIndianMobile(guestPhone)) {
+      setPaymentError("Enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.");
       return;
     }
 
@@ -1374,10 +1379,14 @@ export const BookClient: React.FC = () => {
                       </label>
                       <input
                         type="tel"
+                        inputMode="numeric"
                         required
-                        placeholder="+91 98765 43210"
+                        maxLength={10}
+                        pattern="[6-9][0-9]{9}"
+                        title="Enter exactly 10 digits, starting with 6, 7, 8, or 9"
+                        placeholder="98765 43210"
                         value={guestPhone}
-                        onChange={(e) => setGuestPhone(e.target.value)}
+                        onChange={(e) => setGuestPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
                         className="w-full p-3 rounded-xl bg-slate-900 border border-slate-700 text-sm font-semibold text-white focus:outline-none focus:border-indigo-500"
                       />
                     </div>

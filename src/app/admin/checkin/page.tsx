@@ -34,6 +34,7 @@ export default async function CheckInPage() {
       room: { include: { roomType: true } },
       bed: true,
       additionalCharges: true,
+      invoices: { orderBy: { dueDate: "asc" } },
     },
     orderBy: { checkOutDate: "asc" },
   });

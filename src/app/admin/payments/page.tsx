@@ -40,7 +40,7 @@ export default async function AdminPaymentsPage() {
         </span>
         <h1 className="text-3xl font-black text-white">Payments & Invoices</h1>
         <p className="text-xs text-slate-400 mt-0.5">
-          Review payment gateway transaction signatures, approve customer refunds, and audit tax invoices.
+          Track outstanding balances, record reception payments, review transactions, refunds, and invoices.
         </p>
       </div>
 

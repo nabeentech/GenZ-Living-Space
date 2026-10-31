@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import prisma from "@/lib/prisma";
 import { getSessionUser, signToken, COOKIE_NAME } from "@/lib/auth";
+import { isValidIndianMobile } from "@/lib/phone-validation";
 
 export async function GET() {
   const user = await getSessionUser();
@@ -18,12 +19,12 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
 
-    const { name, phone, gender, govtIdType, govtIdNumber, address, emergencyContact } = await req.json();
+    const { name, phone, gender, govtIdType, govtIdNumber, address, emergencyContact } = await req.json().catch(() => ({}));
 
     // Validate required fields
-    if (!name || !phone) {
+    if (typeof name !== "string" || !name.trim() || name.trim().length > 100 || !isValidIndianMobile(phone)) {
       return NextResponse.json(
-        { success: false, message: "Name and phone are required" },
+        { success: false, message: "Enter a name (up to 100 characters) and a valid 10-digit Indian mobile number." },
         { status: 400 }
       );
     }
@@ -33,7 +34,7 @@ export async function PATCH(req: Request) {
       where: { id: user.id },
       data: {
         name: name.trim(),
-        phone: phone.trim(),
+        phone,
         gender: gender || user.gender,
         govtIdType: govtIdType || user.govtIdType,
         govtIdNumber: govtIdNumber || user.govtIdNumber,
