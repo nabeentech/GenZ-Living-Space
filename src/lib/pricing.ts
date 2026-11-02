@@ -8,6 +8,8 @@ export interface PriceCalculationParams {
   rates?: StayPriceRates;
   securityDeposit?: number;
   maintenanceFee?: number;
+  customDiscountAmount?: number;
+  monthlyRentDiscountAmount?: number;
   coupon?: {
     code: string;
     discountType: string; // "PERCENTAGE" | "FIXED"
@@ -79,6 +81,9 @@ export interface PriceBreakdown {
   maintenanceFee?: number;
   securityDeposit: number;
   discountAmount: number;
+  couponDiscountAmount: number;
+  customDiscountAmount: number;
+  monthlyRentDiscountAmount: number;
   couponCode: string | null;
   totalAmount: number;
 }
@@ -100,6 +105,8 @@ export function calculateBookingPrice(params: PriceCalculationParams): PriceBrea
     },
     securityDeposit: configuredDeposit,
     maintenanceFee: configuredMaintenance,
+    customDiscountAmount: requestedCustomDiscount = 0,
+    monthlyRentDiscountAmount: requestedMonthlyRentDiscount = 0,
     coupon,
   } = params;
 
@@ -124,7 +131,7 @@ export function calculateBookingPrice(params: PriceCalculationParams): PriceBrea
   if (stayType !== "MONTHLY") baseAmount = calculateStayBaseAmount(nights, rates);
 
   // Calculate Coupon Discount on taxable base amount
-  let discountAmount = 0;
+  let couponDiscountAmount = 0;
   let couponCode: string | null = null;
 
   if (coupon) {
@@ -132,18 +139,27 @@ export function calculateBookingPrice(params: PriceCalculationParams): PriceBrea
     if (baseAmount >= minSpend) {
       if (coupon.discountType === "PERCENTAGE") {
         const computed = (baseAmount * coupon.discountValue) / 100;
-        discountAmount = coupon.maxDiscountAmount
+        couponDiscountAmount = coupon.maxDiscountAmount
           ? Math.min(computed, coupon.maxDiscountAmount)
           : computed;
       } else {
-        discountAmount = coupon.discountValue;
+        couponDiscountAmount = coupon.discountValue;
       }
-      discountAmount = Math.min(discountAmount, baseAmount); // Cannot exceed base
-      discountAmount = Math.round(discountAmount);
+      couponDiscountAmount = Math.min(couponDiscountAmount, baseAmount); // Cannot exceed base
+      couponDiscountAmount = Math.round(couponDiscountAmount);
       couponCode = coupon.code;
     }
   }
 
+  const customDiscountAmount = Math.min(
+    Math.max(0, Math.round(Number.isFinite(requestedCustomDiscount) ? requestedCustomDiscount : 0)),
+    Math.max(0, baseAmount - couponDiscountAmount)
+  );
+  const monthlyRentDiscountAmount = Math.min(
+    Math.max(0, Math.round(Number.isFinite(requestedMonthlyRentDiscount) ? requestedMonthlyRentDiscount : 0)),
+    Math.max(0, baseAmount - couponDiscountAmount - customDiscountAmount)
+  );
+  const discountAmount = couponDiscountAmount + customDiscountAmount + monthlyRentDiscountAmount;
   const taxableAmount = Math.max(0, baseAmount - discountAmount);
   // Hospitality GST removed (0%)
   const taxAmount = 0;
@@ -164,6 +180,9 @@ export function calculateBookingPrice(params: PriceCalculationParams): PriceBrea
     maintenanceFee: stayType === "MONTHLY" ? monthlyMaintenance : 0,
     securityDeposit,
     discountAmount,
+    couponDiscountAmount,
+    customDiscountAmount,
+    monthlyRentDiscountAmount,
     couponCode,
     totalAmount,
   };

@@ -60,7 +60,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ user }) => {
     { label: "Housekeeping & Clean", href: "/admin/housekeeping", icon: <Sparkle className="w-4 h-4" />, roles: ["PROPERTY_MANAGER", "HOUSEKEEPING", "SUPER_ADMIN"] },
     { label: "Complaints & Support", href: "/admin/complaints", icon: <HelpCircle className="w-4 h-4" />, roles: ["PROPERTY_MANAGER", "SUPPORT_STAFF", "SUPER_ADMIN"] },
     { label: "Coupons & Promos", href: "/admin/coupons", icon: <Tag className="w-4 h-4" />, roles: ["SUPER_ADMIN"] },
-    { label: "Payments & Invoices", href: "/admin/payments", icon: <CreditCard className="w-4 h-4" />, roles: ["FINANCE", "SUPER_ADMIN"] },
+    { label: "Payments & Invoices", href: "/admin/payments", icon: <CreditCard className="w-4 h-4" />, roles: ["PROPERTY_MANAGER", "FINANCE", "SUPER_ADMIN"] },
     { label: "Reports & Analytics", href: "/admin/reports", icon: <BarChart3 className="w-4 h-4" />, roles: ["FINANCE", "SUPER_ADMIN"] },
     { label: "Gallery Management", href: "/admin/gallery", icon: <ImageIcon className="w-4 h-4" />, roles: ["SUPER_ADMIN", "PROPERTY_MANAGER"] },
     { label: "Website CMS", href: "/admin/cms", icon: <Globe className="w-4 h-4" />, roles: ["SUPER_ADMIN"] },

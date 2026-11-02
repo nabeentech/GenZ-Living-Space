@@ -5,21 +5,24 @@ import WalkInClient from "./WalkInClient";
 export const dynamic = "force-dynamic";
 
 export default async function WalkInPage() {
-  const hostels = await prisma.hostel.findMany({
-    where: { active: true },
-    include: {
-      rooms: {
-        where: { active: true, status: "ACTIVE" },
-        include: {
-          roomType: true,
-          beds: {
-            where: { active: true },
-            orderBy: { bedNumber: "asc" },
+  const [hostels, coupons] = await Promise.all([
+    prisma.hostel.findMany({
+      where: { active: true },
+      include: {
+        rooms: {
+          where: { active: true, status: "ACTIVE" },
+          include: {
+            roomType: true,
+            beds: {
+              where: { active: true },
+              orderBy: { bedNumber: "asc" },
+            },
           },
         },
       },
-    },
-  });
+    }),
+    prisma.coupon.findMany({ where: { active: true }, orderBy: { code: "asc" } }),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -33,7 +36,7 @@ export default async function WalkInPage() {
         </p>
       </div>
 
-      <WalkInClient hostels={hostels} />
+      <WalkInClient hostels={hostels} coupons={coupons} />
     </div>
   );
 }

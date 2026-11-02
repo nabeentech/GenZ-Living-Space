@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import CustomSelect from "@/components/ui/CustomSelect";
@@ -25,6 +25,7 @@ const toLocalDateInput = (date: Date) => {
 
 interface WalkInClientProps {
   hostels: any[];
+  coupons: any[];
 }
 
 interface AdditionalGuest {
@@ -45,7 +46,7 @@ const createAdditionalGuest = (): AdditionalGuest => ({
   dateOfBirth: "",
 });
 
-export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels }) => {
+export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) => {
   const [selectedHostelId, setSelectedHostelId] = useState(hostels[0]?.id || "");
 
   const activeHostel = useMemo(
@@ -98,6 +99,14 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels }) => {
   const [additionalGuests, setAdditionalGuests] = useState<AdditionalGuest[]>([]);
 
   const [priceOverride, setPriceOverride] = useState<number>(0);
+  const [maintenanceFeeOverride, setMaintenanceFeeOverride] = useState<number | null>(null);
+  const [securityDepositOverride, setSecurityDepositOverride] = useState<number | null>(null);
+  const [customDiscountAmount, setCustomDiscountAmount] = useState(0);
+  const [monthlyRentDiscountAmount, setMonthlyRentDiscountAmount] = useState(0);
+  const [monthlyRentDiscountMonths, setMonthlyRentDiscountMonths] = useState(2);
+  const [couponInput, setCouponInput] = useState("");
+  const [appliedCouponCode, setAppliedCouponCode] = useState("");
+  const [couponMessage, setCouponMessage] = useState("");
   const [advanceAmount, setAdvanceAmount] = useState<number>(0);
   const [dueDate, setDueDate] = useState(() => {
     const date = new Date();
@@ -112,6 +121,23 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels }) => {
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
+  useEffect(() => {
+    setMaintenanceFeeOverride(null);
+    setPriceOverride(0);
+  }, [activeRoom?.id, stayType]);
+
+  useEffect(() => {
+    setSecurityDepositOverride(null);
+  }, [activeRoom?.id]);
+
+  const appliedCoupon = coupons.find((coupon: any) => coupon.code === appliedCouponCode) || null;
+  const usableCoupon = appliedCoupon && (!appliedCoupon.applicableHostelId || appliedCoupon.applicableHostelId === selectedHostelId)
+    ? appliedCoupon
+    : null;
+  const configuredMaintenanceFee = activeRoom?.roomType?.maintenanceFee ?? 2000;
+  const effectiveMaintenanceFee = maintenanceFeeOverride ?? configuredMaintenanceFee;
+  const effectiveSecurityDeposit = securityDepositOverride ?? activeRoom?.roomType?.securityDeposit ?? 0;
+
   // Default suggested price
   const calculatedPricing = useMemo(() => {
     if (!activeRoom?.roomType) return null;
@@ -124,10 +150,13 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels }) => {
       rates,
       weeklyDiscountPct: activeRoom.roomType.weeklyDiscountPct,
       monthlyPrice: rates.days30,
-      securityDeposit: activeRoom.roomType.securityDeposit,
-      maintenanceFee: activeRoom.roomType.maintenanceFee,
+      securityDeposit: effectiveSecurityDeposit,
+      maintenanceFee: stayType === "MONTHLY" ? effectiveMaintenanceFee : activeRoom.roomType.maintenanceFee,
+      customDiscountAmount,
+      monthlyRentDiscountAmount: stayType === "MONTHLY" ? monthlyRentDiscountAmount : 0,
+      coupon: usableCoupon,
     });
-  }, [activeRoom, checkIn, effectiveCheckOut, stayType]);
+  }, [activeRoom, checkIn, effectiveCheckOut, stayType, effectiveMaintenanceFee, effectiveSecurityDeposit, customDiscountAmount, monthlyRentDiscountAmount, usableCoupon]);
 
   const suggestedPrice = calculatedPricing?.totalAmount ?? 999;
   const finalAmount = priceOverride > 0 ? priceOverride : suggestedPrice;
@@ -160,6 +189,34 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels }) => {
       changeGuestCount(maxGuests);
       setGuestCountInput(String(maxGuests));
     }
+  };
+
+  const applyCoupon = () => {
+    const code = couponInput.trim().toUpperCase();
+    const coupon = coupons.find((item: any) => item.code === code);
+    const now = Date.now();
+    if (!coupon || !coupon.active || new Date(coupon.startDate).getTime() > now || new Date(coupon.expiryDate).getTime() < now || coupon.usedCount >= coupon.usageLimit) {
+      setAppliedCouponCode("");
+      setCouponMessage("This coupon is invalid, expired, or has reached its usage limit.");
+      setPriceOverride(0);
+      return;
+    }
+    if (coupon.applicableHostelId && coupon.applicableHostelId !== selectedHostelId) {
+      setAppliedCouponCode("");
+      setCouponMessage("This coupon is not valid for the selected property.");
+      setPriceOverride(0);
+      return;
+    }
+    if ((calculatedPricing?.baseAmount || 0) < coupon.minBookingAmount) {
+      setAppliedCouponCode("");
+      setCouponMessage(`This coupon requires a stay rent of at least ₹${coupon.minBookingAmount.toLocaleString("en-IN")}.`);
+      setPriceOverride(0);
+      return;
+    }
+    setAppliedCouponCode(code);
+    setCouponInput(code);
+    setCouponMessage(`Coupon ${code} applied.`);
+    setPriceOverride(0);
   };
 
   const validateGuestDetails = () => {
@@ -202,6 +259,30 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels }) => {
   };
 
   const handleSubmit = async () => {
+    if (stayType === "MONTHLY" && (effectiveMaintenanceFee < 0 || effectiveMaintenanceFee > configuredMaintenanceFee)) {
+      setErrorMsg(`One-time maintenance must be between ₹0 and ₹${configuredMaintenanceFee.toLocaleString("en-IN")}.`);
+      return;
+    }
+    if (stayType === "MONTHLY" && (!Number.isInteger(effectiveSecurityDeposit) || effectiveSecurityDeposit < 0 || effectiveSecurityDeposit > 1000000)) {
+      setErrorMsg("Security deposit must be a whole amount between ₹0 and ₹10,00,000.");
+      return;
+    }
+    if (appliedCouponCode && !usableCoupon) {
+      setErrorMsg("Remove the coupon or select the property it applies to before creating the reservation.");
+      return;
+    }
+    if (customDiscountAmount > Math.max(0, (calculatedPricing?.baseAmount || 0) - (calculatedPricing?.couponDiscountAmount || 0))) {
+      setErrorMsg("Custom discount cannot exceed the remaining stay rent after coupon discount.");
+      return;
+    }
+    if (stayType === "MONTHLY" && monthlyRentDiscountAmount > 0 && (!Number.isInteger(monthlyRentDiscountMonths) || monthlyRentDiscountMonths < 1 || monthlyRentDiscountMonths > 24)) {
+      setErrorMsg("Choose between 1 and 24 discounted monthly billing cycles.");
+      return;
+    }
+    if (monthlyRentDiscountAmount > Math.max(0, (calculatedPricing?.baseAmount || 0) - (calculatedPricing?.couponDiscountAmount || 0) - customDiscountAmount)) {
+      setErrorMsg("The introductory monthly discount cannot exceed the remaining rent after other discounts.");
+      return;
+    }
     if (!selectedBedId) {
       setErrorMsg("Please enter guest name, phone, and select a bed.");
       return;
@@ -244,6 +325,12 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels }) => {
           checkInDate: checkIn,
           checkOutDate: stayType === "MONTHLY" ? null : effectiveCheckOut,
           stayType,
+          maintenanceFeeOverride: stayType === "MONTHLY" ? effectiveMaintenanceFee : null,
+          securityDepositOverride: stayType === "MONTHLY" ? effectiveSecurityDeposit : null,
+          customDiscountAmount,
+          monthlyRentDiscountAmount: stayType === "MONTHLY" ? monthlyRentDiscountAmount : 0,
+          monthlyRentDiscountMonths: stayType === "MONTHLY" && monthlyRentDiscountAmount > 0 ? monthlyRentDiscountMonths : 0,
+          couponCode: usableCoupon?.code || null,
           totalAmount: finalAmount,
           customTotalAmount: priceOverride > 0 ? priceOverride : null,
           advanceAmount,
@@ -582,34 +669,73 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels }) => {
 
         {/* Payment stage: total, amount collected, then remaining balance */}
         {stage === 3 && <div className="space-y-4">
-          <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 text-xs">
-            <h4 className="font-bold uppercase tracking-wider text-indigo-300">Reservation review</h4>
-            <div className="mt-2 grid grid-cols-1 gap-1.5 text-slate-300 sm:grid-cols-2 lg:grid-cols-3">
-              <div>{activeHostel?.name} · {activeRoom?.roomType?.name} · Room {activeRoom?.roomNumber}</div>
-              <div>Floor {activeRoom?.floor} · {SHARING_NAMES[activeRoom?.capacity] || `${activeRoom?.capacity}-Share`} · Bed {availableBeds.find((bed: any) => bed.id === selectedBedId)?.bedNumber}</div>
-              <div>{stayType === "MONTHLY" ? "Monthly · month-to-month" : "Daily / short stay"} · Check-in {checkIn}{stayType === "DAILY" ? ` · Check-out ${effectiveCheckOut}` : " · no planned checkout"} · {guestsCount} guest{guestsCount === 1 ? "" : "s"}</div>
-              <div className="font-semibold text-white">Primary guest: {guestName} · {guestPhone}</div>
+          <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 sm:p-5">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-300">Reservation review</h4>
+            <div className="mt-3 grid grid-cols-1 gap-3 text-xs sm:grid-cols-2 xl:grid-cols-4">
+              <div className="min-w-0"><span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Property & room</span><span className="mt-1 block truncate text-slate-200">{activeHostel?.name} · {activeRoom?.roomType?.name} · {activeRoom?.roomNumber}</span></div>
+              <div><span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Assignment</span><span className="mt-1 block text-slate-200">Floor {activeRoom?.floor} · {SHARING_NAMES[activeRoom?.capacity] || `${activeRoom?.capacity}-Share`} · Bed {availableBeds.find((bed: any) => bed.id === selectedBedId)?.bedNumber}</span></div>
+              <div><span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Stay</span><span className="mt-1 block text-slate-200">{stayType === "MONTHLY" ? "Monthly · no planned checkout" : `Daily · checkout ${effectiveCheckOut}`} · {guestsCount} guest{guestsCount === 1 ? "" : "s"} · from {checkIn}</span></div>
+              <div className="min-w-0"><span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Primary guest</span><span className="mt-1 block truncate font-semibold text-white">{guestName} · {guestPhone}</span></div>
             </div>
           </section>
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+            <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 sm:p-5">
               <div className="text-xs font-bold uppercase tracking-wider text-indigo-300">1. Booking total</div>
               <div className="mt-2 text-2xl font-black text-white">₹{finalAmount.toLocaleString("en-IN")}</div>
-              {calculatedPricing && <div className="mt-3 space-y-1 border-t border-slate-800 pt-3 text-xs text-slate-300">
+              {calculatedPricing && <div className="mt-3 space-y-2 border-t border-slate-800 pt-3 text-xs text-slate-300">
                 <div className="flex justify-between"><span>Stay rent</span><span>₹{calculatedPricing.baseAmount.toLocaleString("en-IN")}</span></div>
-                {calculatedPricing.serviceFee > 0 && <div className="flex justify-between"><span>{calculatedPricing.stayType === "MONTHLY" ? "Monthly maintenance" : "Service fee"}</span><span>₹{calculatedPricing.serviceFee.toLocaleString("en-IN")}</span></div>}
-                {calculatedPricing.securityDeposit > 0 && <div className="flex justify-between"><span>Refundable security deposit</span><span>₹{calculatedPricing.securityDeposit.toLocaleString("en-IN")}</span></div>}
+                {calculatedPricing.stayType === "MONTHLY" ? <div><label className="flex items-center justify-between gap-3"><span>Maintenance <span className="text-slate-500">(one-time)</span></span><span className="flex items-center gap-1">₹<input type="text" inputMode="numeric" maxLength={8} aria-label="One-time maintenance fee" value={effectiveMaintenanceFee} onChange={(e) => { setMaintenanceFeeOverride(Number(e.target.value.replace(/\D/g, "").slice(0, 8))); setPriceOverride(0); }} className="w-32 rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-right text-white" /></span></label>{effectiveMaintenanceFee > configuredMaintenanceFee && <p className="mt-1 text-right text-[11px] text-rose-300">Cannot exceed configured maintenance of ₹{configuredMaintenanceFee.toLocaleString("en-IN")}.</p>}</div> : calculatedPricing.serviceFee > 0 && <div className="flex justify-between"><span>Service fee</span><span>₹{calculatedPricing.serviceFee.toLocaleString("en-IN")}</span></div>}
+                {calculatedPricing.stayType === "MONTHLY" && <div><label className="flex items-center justify-between gap-3"><span>Security deposit <span className="text-slate-500">(refundable)</span></span><span className="flex items-center gap-1">₹<input type="text" inputMode="numeric" maxLength={7} aria-label="Refundable security deposit" value={effectiveSecurityDeposit} onChange={(e) => { setSecurityDepositOverride(Number(e.target.value.replace(/\D/g, "").slice(0, 7))); setPriceOverride(0); }} className="w-32 rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-right text-white" /></span></label><p className="mt-1 text-right text-[11px] text-slate-500">Collected once at check-in and refunded according to the deposit policy.</p></div>}
+                {calculatedPricing.couponDiscountAmount > 0 && <div className="flex justify-between text-emerald-300"><span>Coupon discount{calculatedPricing.couponCode ? ` · ${calculatedPricing.couponCode}` : ""}</span><span>−₹{calculatedPricing.couponDiscountAmount.toLocaleString("en-IN")}</span></div>}
+                {calculatedPricing.customDiscountAmount > 0 && <div className="flex justify-between text-emerald-300"><span>Custom discount</span><span>−₹{calculatedPricing.customDiscountAmount.toLocaleString("en-IN")}</span></div>}
+                {calculatedPricing.monthlyRentDiscountAmount > 0 && <div className="flex justify-between text-emerald-300"><span>Intro discount · month 1 of {monthlyRentDiscountMonths}</span><span>−₹{calculatedPricing.monthlyRentDiscountAmount.toLocaleString("en-IN")}</span></div>}
                 <div className="flex justify-between border-t border-slate-800 pt-1 font-bold text-white"><span>Calculated total</span><span>₹{calculatedPricing.totalAmount.toLocaleString("en-IN")}</span></div>
               </div>}
-              <label className="mt-3 block text-xs font-semibold text-slate-300">Agreed total (₹, optional)
+              <label className="mt-4 block border-t border-slate-800 pt-3 text-xs font-semibold text-slate-300">Final agreed total (₹, optional)
                 <input type="text" inputMode="numeric" maxLength={9} placeholder={`Calculated total: ₹${suggestedPrice.toLocaleString("en-IN")}`} value={priceOverride || ""} onChange={(e) => setPriceOverride(Number(e.target.value.replace(/\D/g, "").slice(0, 9)))} className="mt-1 block w-full rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-sm text-white placeholder:text-slate-500" />
               </label>
-              <p className="mt-1.5 text-[11px] text-slate-500">Leave blank to use the calculated total. A custom total includes all listed charges.</p>
+              <p className="mt-1.5 text-[11px] text-slate-500">Leave blank to use the calculated total. If entered, this is the final amount billed after charges and discounts.</p>
             </section>
 
-            <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-              <div className="text-xs font-bold uppercase tracking-wider text-indigo-300">2. Payment received now</div>
+            <section className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 sm:p-5">
+              <div>
+                <div className="text-xs font-bold uppercase tracking-wider text-indigo-300">2. Discounts</div>
+                <p className="mt-1 text-xs text-slate-500">Apply a coupon or enter an owner-approved discount.</p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300">Coupon code</label>
+                  <div className="mt-1 flex gap-2">
+                    <input type="text" maxLength={40} value={couponInput} onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setAppliedCouponCode(""); setCouponMessage(""); setPriceOverride(0); }} placeholder="Enter coupon code" className="min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-sm text-white placeholder:text-slate-500" />
+                    <Button type="button" variant="outline" size="sm" onClick={applyCoupon}>Apply</Button>
+                    {appliedCouponCode && <Button type="button" variant="ghost" size="sm" onClick={() => { setAppliedCouponCode(""); setCouponInput(""); setCouponMessage("Coupon removed."); setPriceOverride(0); }}>Remove</Button>}
+                  </div>
+                  {couponMessage && <p className={`mt-1 text-[11px] ${appliedCouponCode ? "text-emerald-300" : "text-amber-300"}`} role="status">{couponMessage}</p>}
+                  {appliedCouponCode && !usableCoupon && <p className="mt-1 text-[11px] text-rose-300" role="alert">This coupon does not apply to the selected property. Remove it or choose the eligible property.</p>}
+                </div>
+                <label className="block text-xs font-semibold text-slate-300">Custom discount (₹)
+                  <input type="text" inputMode="numeric" maxLength={9} value={customDiscountAmount || ""} onChange={(e) => { setCustomDiscountAmount(Number(e.target.value.replace(/\D/g, "").slice(0, 9))); setPriceOverride(0); }} placeholder="0" className="mt-1 block w-full rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-sm text-white placeholder:text-slate-500" />
+                  <span className="mt-1 block font-normal text-slate-500">Discounts apply to rent only, not maintenance or deposit.</span>
+                </label>
+              </div>
+              {stayType === "MONTHLY" && <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-3">
+                <div className="text-xs font-semibold text-indigo-200">Introductory monthly rent discount</div>
+                <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                  <label className="block text-xs font-semibold text-slate-300">Discount per month (₹)
+                    <input type="text" inputMode="numeric" maxLength={9} value={monthlyRentDiscountAmount || ""} onChange={(e) => { setMonthlyRentDiscountAmount(Number(e.target.value.replace(/\D/g, "").slice(0, 9))); setPriceOverride(0); }} placeholder="0" className="mt-1 block w-full rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-sm text-white placeholder:text-slate-500" />
+                  </label>
+                  {monthlyRentDiscountAmount > 0 && <label className="block text-xs font-semibold text-slate-300">Discount duration
+                    <CustomSelect value={String(monthlyRentDiscountMonths)} onValueChange={(value) => setMonthlyRentDiscountMonths(Number(value))} options={Array.from({ length: 24 }, (_, index) => ({ value: String(index + 1), label: `${index + 1} month${index === 0 ? "" : "s"}` }))} triggerClassName="mt-1 p-2.5 rounded-xl bg-slate-950 border border-slate-700 text-xs" />
+                  </label>}
+                </div>
+                {monthlyRentDiscountAmount > 0 && <p className="mt-2 text-[11px] text-slate-400">Includes the check-in month. Discount continues on renewals for the selected duration, then rent returns to standard.</p>}
+              </div>}
+              {customDiscountAmount > Math.max(0, (calculatedPricing?.baseAmount || 0) - (calculatedPricing?.couponDiscountAmount || 0)) && <p className="text-xs text-rose-300" role="alert">Custom discount cannot exceed the remaining stay rent after coupon discount.</p>}
+              {stayType === "MONTHLY" && monthlyRentDiscountAmount > Math.max(0, (calculatedPricing?.baseAmount || 0) - (calculatedPricing?.couponDiscountAmount || 0) - customDiscountAmount) && <p className="text-xs text-rose-300" role="alert">Introductory monthly discount cannot exceed the remaining stay rent.</p>}
+
+              <div className="border-t border-slate-800 pt-4">
+              <div className="text-xs font-bold uppercase tracking-wider text-indigo-300">3. Payment received now</div>
               <label className="mt-2 block text-xs font-semibold text-slate-300">Amount collected (₹)
                 <input type="text" inputMode="numeric" maxLength={9} placeholder="0" value={advanceAmount || ""} onChange={(e) => setAdvanceAmount(Number(e.target.value.replace(/\D/g, "").slice(0, 9)))} aria-invalid={advanceAmount > finalAmount} className={`mt-1 block w-full rounded-xl border bg-slate-950 p-2.5 text-sm text-white placeholder:text-slate-500 ${advanceAmount > finalAmount ? "border-rose-500" : "border-slate-700"}`} />
               </label>
@@ -619,13 +745,14 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels }) => {
                 <label className="mb-1 block text-xs font-semibold text-slate-300">Method used for this payment</label>
                 <CustomSelect value={paymentMethod} onValueChange={setPaymentMethod} options={[{ value: "cash", label: "Cash at Reception" }, { value: "upi", label: "UPI / QR Code" }, { value: "card", label: "Credit / Debit Card" }, { value: "bank_transfer", label: "Direct Bank Transfer" }, { value: "offline_prepaid", label: "Pre-Platform / Offline Paid" }]} triggerClassName="p-2.5 rounded-xl bg-slate-950 border border-slate-700 text-xs font-semibold" />
               </div>}
+              </div>
             </section>
           </div>
 
           <section className={`rounded-2xl border p-4 ${remainingAmount > 0 ? "border-amber-500/30 bg-amber-500/5" : "border-emerald-500/30 bg-emerald-500/5"}`}>
             {remainingAmount > 0 ? <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-2">
               <div>
-                <div className="text-xs font-bold uppercase tracking-wider text-amber-200">3. Remaining balance</div>
+                <div className="text-xs font-bold uppercase tracking-wider text-amber-200">4. Remaining balance</div>
                 <div className="mt-1 text-2xl font-black text-amber-300">₹{remainingAmount.toLocaleString("en-IN")}</div>
                 <p className="mt-1 text-[11px] text-slate-400">Set the date the guest agreed to pay this balance.</p>
               </div>

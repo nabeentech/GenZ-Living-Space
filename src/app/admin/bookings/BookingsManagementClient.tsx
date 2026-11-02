@@ -7,6 +7,7 @@ import CustomSelect from "@/components/ui/CustomSelect";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import DatePicker from "@/components/ui/DatePicker";
+import { getRoomTypePriceRates } from "@/lib/pricing";
 import {
   Search,
   Filter,
@@ -86,6 +87,15 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
       return matchHostel && matchStatus && matchSearch;
     });
   }, [bookings, selectedHostel, statusFilter, search]);
+
+  const offlineRenewalQuote = useMemo(() => {
+    const room = selectedBooking?.room;
+    if (!room?.roomType) return null;
+    const baseRent = getRoomTypePriceRates(room.roomType, Boolean(room.isAC)).days30 || selectedBooking.baseAmount;
+    const remainingDiscountCycles = Math.max(0, (selectedBooking.monthlyRentDiscountMonths || 0) - (selectedBooking.monthlyRentDiscountCyclesApplied || 0));
+    const discount = remainingDiscountCycles > 0 ? Math.min(baseRent, selectedBooking.monthlyRentDiscountAmount || 0) : 0;
+    return { baseRent, discount, remainingDiscountCycles, total: baseRent - discount };
+  }, [selectedBooking]);
 
   const handleCancelBooking = async (bookingId: string) => {
     if (!confirm("Are you sure you want to cancel this booking and issue a policy refund?")) {
@@ -508,9 +518,7 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
                       variant="glow"
                       size="sm"
                       onClick={() => {
-                        setOfflineRentAmount(
-                          String(selectedBooking.baseAmount + (selectedBooking.serviceFee || selectedBooking.room?.roomType?.maintenanceFee || 2000))
-                        );
+                        setOfflineRentAmount(offlineRenewalQuote ? String(offlineRenewalQuote.total) : "");
                         setShowOfflineRentModal(true);
                         setOfflineRentMsg("");
                       }}
@@ -691,6 +699,12 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
                   ).toLocaleDateString()}
                 </span>
               </div>
+              {offlineRenewalQuote && <div className="space-y-1 border-t border-slate-800 pt-2">
+                <div className="flex justify-between"><span className="text-slate-400">Monthly rent</span><span>₹{offlineRenewalQuote.baseRent.toLocaleString("en-IN")}</span></div>
+                {offlineRenewalQuote.discount > 0 && <div className="flex justify-between text-emerald-300"><span>Introductory discount · {offlineRenewalQuote.remainingDiscountCycles} cycle{offlineRenewalQuote.remainingDiscountCycles === 1 ? "" : "s"} left</span><span>−₹{offlineRenewalQuote.discount.toLocaleString("en-IN")}</span></div>}
+                <div className="flex justify-between"><span className="text-slate-400">One-time maintenance / deposit</span><span>₹0 · charged at check-in</span></div>
+                <div className="flex justify-between border-t border-slate-800 pt-1 font-bold text-white"><span>Amount due to renew</span><span>₹{offlineRenewalQuote.total.toLocaleString("en-IN")}</span></div>
+              </div>}
             </div>
 
             <div>

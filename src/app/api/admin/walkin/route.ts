@@ -40,6 +40,12 @@ export async function POST(req: Request) {
       checkOutDate,
       stayType = "DAILY",
       customTotalAmount,
+      maintenanceFeeOverride,
+      securityDepositOverride,
+      customDiscountAmount = 0,
+      monthlyRentDiscountAmount = 0,
+      monthlyRentDiscountMonths = 0,
+      couponCode: requestedCouponCode,
       advanceAmount = 0,
       dueDate,
       paymentMethod = "cash",
@@ -79,6 +85,46 @@ export async function POST(req: Request) {
     });
     if (!selectedRoom) return NextResponse.json({ success: false, message: "Selected room is no longer available." }, { status: 409 });
     const rates = getRoomTypePriceRates(selectedRoom.roomType, selectedRoom.isAC);
+    const configuredMaintenance = selectedRoom.roomType.maintenanceFee ?? 2000;
+    const maintenanceFee = stayType === "MONTHLY" && maintenanceFeeOverride !== null && maintenanceFeeOverride !== undefined
+      ? Number(maintenanceFeeOverride)
+      : configuredMaintenance;
+    if (!Number.isInteger(maintenanceFee) || maintenanceFee < 0 || maintenanceFee > configuredMaintenance) {
+      return NextResponse.json({ success: false, message: `One-time maintenance must be between ₹0 and ₹${configuredMaintenance.toLocaleString("en-IN")}.` }, { status: 400 });
+    }
+    const securityDeposit = stayType === "MONTHLY" && securityDepositOverride !== null && securityDepositOverride !== undefined
+      ? Number(securityDepositOverride)
+      : selectedRoom.roomType.securityDeposit ?? 0;
+    if (!Number.isInteger(securityDeposit) || securityDeposit < 0 || securityDeposit > 1000000) {
+      return NextResponse.json({ success: false, message: "Security deposit must be a whole amount between ₹0 and ₹10,00,000." }, { status: 400 });
+    }
+    const manualDiscount = Number(customDiscountAmount);
+    if (!Number.isInteger(manualDiscount) || manualDiscount < 0) {
+      return NextResponse.json({ success: false, message: "Enter a valid custom discount amount." }, { status: 400 });
+    }
+    const introductoryMonthlyDiscount = Number(monthlyRentDiscountAmount);
+    const introductoryDiscountMonths = Number(monthlyRentDiscountMonths);
+    if (!Number.isInteger(introductoryMonthlyDiscount) || introductoryMonthlyDiscount < 0 || !Number.isInteger(introductoryDiscountMonths) || introductoryDiscountMonths < 0 || introductoryDiscountMonths > 24) {
+      return NextResponse.json({ success: false, message: "Enter a valid introductory monthly discount and duration." }, { status: 400 });
+    }
+    if (stayType !== "MONTHLY" && (introductoryMonthlyDiscount > 0 || introductoryDiscountMonths > 0)) {
+      return NextResponse.json({ success: false, message: "Introductory monthly discounts are only available for monthly stays." }, { status: 400 });
+    }
+    if ((introductoryMonthlyDiscount > 0 && introductoryDiscountMonths < 1) || (introductoryMonthlyDiscount === 0 && introductoryDiscountMonths > 0)) {
+      return NextResponse.json({ success: false, message: "Choose a discount amount and a duration together." }, { status: 400 });
+    }
+    const normalizedCouponCode = typeof requestedCouponCode === "string" ? requestedCouponCode.trim().toUpperCase() : "";
+    let couponRecord: any = null;
+    if (normalizedCouponCode) {
+      couponRecord = await prisma.coupon.findUnique({ where: { code: normalizedCouponCode } });
+      const now = new Date();
+      if (!couponRecord || !couponRecord.active || couponRecord.startDate > now || couponRecord.expiryDate < now || couponRecord.usedCount >= couponRecord.usageLimit) {
+        return NextResponse.json({ success: false, message: "This coupon is invalid, expired, or has reached its usage limit." }, { status: 400 });
+      }
+      if (couponRecord.applicableHostelId && couponRecord.applicableHostelId !== hostelId) {
+        return NextResponse.json({ success: false, message: "This coupon is not valid for the selected property." }, { status: 400 });
+      }
+    }
     const pricing = calculateBookingPrice({
       checkInDate: checkIn,
       checkOutDate: checkOut,
@@ -86,16 +132,28 @@ export async function POST(req: Request) {
       rates,
       weeklyDiscountPct: selectedRoom.roomType.weeklyDiscountPct,
       monthlyPrice: rates.days30,
-      securityDeposit: selectedRoom.roomType.securityDeposit,
-      maintenanceFee: selectedRoom.roomType.maintenanceFee,
+      securityDeposit,
+      maintenanceFee,
+      customDiscountAmount: manualDiscount,
+      monthlyRentDiscountAmount: introductoryMonthlyDiscount,
+      coupon: couponRecord,
       stayType,
     });
+    if (normalizedCouponCode && pricing.couponCode !== normalizedCouponCode) {
+      return NextResponse.json({ success: false, message: `This coupon requires a stay rent of at least ₹${couponRecord.minBookingAmount.toLocaleString("en-IN")}.` }, { status: 400 });
+    }
+    if (pricing.customDiscountAmount !== Math.round(manualDiscount)) {
+      return NextResponse.json({ success: false, message: "Custom discount cannot exceed the remaining stay rent after coupon discount." }, { status: 400 });
+    }
+    if (pricing.monthlyRentDiscountAmount !== introductoryMonthlyDiscount) {
+      return NextResponse.json({ success: false, message: "Introductory monthly discount cannot exceed the remaining stay rent after other discounts." }, { status: 400 });
+    }
     const customAmount = customTotalAmount === null || customTotalAmount === undefined || customTotalAmount === "" ? null : Number(customTotalAmount);
     const amount = customAmount === null ? pricing.totalAmount : customAmount;
     const minimumCharges = pricing.serviceFee + pricing.securityDeposit;
     const recordedBaseAmount = customAmount === null
       ? pricing.baseAmount
-      : amount - pricing.serviceFee - pricing.securityDeposit - pricing.taxAmount;
+      : amount - pricing.serviceFee - pricing.securityDeposit - pricing.taxAmount + pricing.discountAmount;
     if (!Number.isFinite(amount) || amount <= 0) {
       return NextResponse.json({ success: false, message: "Booking amount must be greater than zero." }, { status: 400 });
     }
@@ -232,6 +290,20 @@ export async function POST(req: Request) {
         throw Object.assign(new Error("The selected bed is not currently available. Refresh the room list and choose another bed."), { status: 409 });
       }
 
+      if (couponRecord) {
+        const couponClaim = await tx.coupon.updateMany({
+          where: {
+            id: couponRecord.id,
+            active: true,
+            startDate: { lte: now },
+            expiryDate: { gte: now },
+            usedCount: { lt: couponRecord.usageLimit },
+          },
+          data: { usedCount: { increment: 1 } },
+        });
+        if (couponClaim.count !== 1) throw Object.assign(new Error("This coupon has just expired or reached its usage limit. Remove it and try again."), { status: 400 });
+      }
+
       let customer = await tx.user.findUnique({ where: { email: emailToUse } });
       if (!customer) {
         const tempPassword = crypto.randomBytes(16).toString("hex");
@@ -268,6 +340,11 @@ export async function POST(req: Request) {
           serviceFee: pricing.serviceFee,
           securityDeposit: pricing.securityDeposit,
           discountAmount: pricing.discountAmount,
+          customDiscountAmount: pricing.customDiscountAmount,
+          monthlyRentDiscountAmount: pricing.monthlyRentDiscountAmount,
+          monthlyRentDiscountMonths: introductoryDiscountMonths,
+          monthlyRentDiscountCyclesApplied: pricing.monthlyRentDiscountAmount > 0 ? 1 : 0,
+          couponCode: pricing.couponCode,
           totalAmount: amount,
           paidAmount,
           balanceAmount,
@@ -332,6 +409,8 @@ export async function POST(req: Request) {
         serviceFee: pricing.serviceFee,
         securityDeposit: pricing.securityDeposit,
         discountAmount: pricing.discountAmount,
+        customDiscountAmount: pricing.customDiscountAmount,
+        monthlyRentDiscountAmount: pricing.monthlyRentDiscountAmount,
         totalAmount: amount,
         paidAmount,
         balanceDue: balanceAmount,
@@ -354,6 +433,11 @@ export async function POST(req: Request) {
         paidAmount,
         balanceAmount,
         dueDate: balanceAmount > 0 ? due.toISOString() : null,
+        maintenanceFee: pricing.maintenanceFee,
+        securityDeposit: pricing.securityDeposit,
+        customDiscountAmount: pricing.customDiscountAmount,
+        monthlyRentDiscountAmount: pricing.monthlyRentDiscountAmount,
+        monthlyRentDiscountMonths: introductoryDiscountMonths,
         autoCheckIn,
       },
     });

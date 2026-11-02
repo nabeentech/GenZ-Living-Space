@@ -172,6 +172,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, UserPermissions> = {
       "beds",
       "rooms",
       "pricing",
+      "payments",
       "checkin",
       "walkin",
       "bookings",

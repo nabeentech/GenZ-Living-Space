@@ -42,6 +42,7 @@ export async function GET(
       ROLES.SUPER_ADMIN,
       ROLES.PROPERTY_MANAGER,
       ROLES.RECEPTIONIST,
+      ROLES.FINANCE,
     ]);
 
     if (!isStaff && booking.customerId !== user.id) {
@@ -64,8 +65,9 @@ export async function GET(
 
     const rates = getRoomTypePriceRates(booking.room.roomType, booking.room.isAC);
     const baseRent = rates.days30 || booking.baseAmount;
-    const maintenanceFee = (booking.room.roomType as any).maintenanceFee || booking.serviceFee || 2000;
-    const totalMonthlyRent = baseRent + maintenanceFee;
+    const remainingDiscountCycles = Math.max(0, booking.monthlyRentDiscountMonths - booking.monthlyRentDiscountCyclesApplied);
+    const nextCycleDiscount = remainingDiscountCycles > 0 ? Math.min(baseRent, booking.monthlyRentDiscountAmount) : 0;
+    const totalMonthlyRent = baseRent - nextCycleDiscount;
 
     return NextResponse.json({
       success: true,
@@ -82,7 +84,9 @@ export async function GET(
         isDue,
         rates: {
           baseRent,
-          maintenanceFee,
+          maintenanceFee: 0,
+          monthlyRentDiscountAmount: nextCycleDiscount,
+          remainingDiscountCycles,
           taxAmount: 0,
           totalMonthlyRent,
         },
@@ -127,6 +131,7 @@ export async function POST(
       ROLES.SUPER_ADMIN,
       ROLES.PROPERTY_MANAGER,
       ROLES.RECEPTIONIST,
+      ROLES.FINANCE,
     ]);
 
     if (!isStaff && booking.customerId !== user.id) {
@@ -147,8 +152,9 @@ export async function POST(
 
     const rates = getRoomTypePriceRates(booking.room.roomType, booking.room.isAC);
     const baseRent = rates.days30 || booking.baseAmount;
-    const maintenanceFee = (booking.room.roomType as any).maintenanceFee || booking.serviceFee || 2000;
-    const defaultRenewalAmount = baseRent + maintenanceFee;
+    const remainingDiscountCycles = Math.max(0, booking.monthlyRentDiscountMonths - booking.monthlyRentDiscountCyclesApplied);
+    const monthlyRentDiscountAmount = remainingDiscountCycles > 0 ? Math.min(baseRent, booking.monthlyRentDiscountAmount) : 0;
+    const defaultRenewalAmount = baseRent - monthlyRentDiscountAmount;
 
     // FLOW 1: OFFLINE PAYMENT (Staff collection at reception)
     if (method === "OFFLINE") {
@@ -159,8 +165,15 @@ export async function POST(
       const paymentMode = body.paymentMode || "CASH"; // CASH, UPI, CARD, BANK_TRANSFER
       const paidAmount = Number(body.amount) || defaultRenewalAmount;
       const notes = body.notes || "";
+      if (!Number.isFinite(paidAmount) || paidAmount !== defaultRenewalAmount) {
+        throw new PaymentFlowError(`Collect the full monthly rent of ₹${defaultRenewalAmount.toLocaleString("en-IN")} to renew this cycle.`, 400);
+      }
 
       const result = await prisma.$transaction(async (tx) => {
+        const current = await tx.booking.findUnique({ where: { id: booking.id } });
+        if (!current || current.checkOutDate.getTime() !== currentCheckOut.getTime() || current.bookingStatus !== booking.bookingStatus) {
+          throw new PaymentFlowError("This rent cycle has already changed. Refresh the booking and try again.");
+        }
         // 1. Advance booking checkOutDate and financial totals
         const updatedBooking = await tx.booking.update({
           where: { id: booking.id },
@@ -168,28 +181,43 @@ export async function POST(
             checkOutDate: cycleEnd,
             totalAmount: booking.totalAmount + paidAmount,
             paidAmount: booking.paidAmount + paidAmount,
-            paymentStatus: "PAID",
+            paymentStatus: booking.balanceAmount > 0 ? "PARTIAL" : "PAID",
+            monthlyRentDiscountCyclesApplied: { increment: monthlyRentDiscountAmount > 0 ? 1 : 0 },
           },
           include: { hostel: true, room: true, bed: true },
         });
 
-        // 2. Create paid Invoice for this cycle
-        const invoice = await createInvoiceWithRetry(tx, {
-          bookingId: booking.id,
-          customerId: booking.customerId,
-          hostelId: booking.hostelId,
-          issueDate: new Date(),
-          dueDate: cycleStart,
-          baseAmount: baseRent,
-          serviceFee: maintenanceFee,
-          taxAmount: 0,
-          securityDeposit: 0,
-          discountAmount: 0,
-          totalAmount: paidAmount,
-          paidAmount: paidAmount,
-          balanceDue: 0,
-          status: "PAID",
+        // Reuse a due invoice if the resident already started an online
+        // renewal attempt for this same cycle; never create a duplicate bill.
+        const existingDueInvoice = await tx.invoice.findFirst({
+          where: { bookingId: booking.id, dueDate: cycleStart, status: { in: ["DUE", "PARTIAL"] } },
+          orderBy: { createdAt: "desc" },
         });
+        if (existingDueInvoice && Math.round((existingDueInvoice.totalAmount - existingDueInvoice.paidAmount) * 100) !== Math.round(paidAmount * 100)) {
+          throw new PaymentFlowError("The rent invoice amount has changed. Refresh the schedule and reconcile the invoice before collecting.", 409);
+        }
+        const invoice = existingDueInvoice
+          ? await tx.invoice.update({
+              where: { id: existingDueInvoice.id },
+              data: { paidAmount, balanceDue: 0, status: "PAID" },
+            })
+          : await createInvoiceWithRetry(tx, {
+              bookingId: booking.id,
+              customerId: booking.customerId,
+              hostelId: booking.hostelId,
+              issueDate: new Date(),
+              dueDate: cycleStart,
+              baseAmount: baseRent,
+              serviceFee: 0,
+              taxAmount: 0,
+              securityDeposit: 0,
+              discountAmount: monthlyRentDiscountAmount,
+              monthlyRentDiscountAmount,
+              totalAmount: paidAmount,
+              paidAmount: paidAmount,
+              balanceDue: 0,
+              status: "PAID",
+            });
 
         // 3. Create completed Payment record
         await tx.payment.create({
@@ -209,6 +237,7 @@ export async function POST(
               cycleStart: cycleStart.toISOString(),
               cycleEnd: cycleEnd.toISOString(),
               invoiceNumber: invoice.invoiceNumber,
+              monthlyRentDiscountAmount,
               notes,
             }),
           },
@@ -239,6 +268,7 @@ export async function POST(
           amount: paidAmount,
           newCheckOut: cycleEnd.toISOString(),
           invoiceNumber: result.invoice.invoiceNumber,
+          monthlyRentDiscountAmount,
           notes,
         },
       });
@@ -276,10 +306,11 @@ export async function POST(
         issueDate: new Date(),
         dueDate: cycleStart,
         baseAmount: baseRent,
-        serviceFee: maintenanceFee,
+        serviceFee: 0,
         taxAmount: 0,
         securityDeposit: 0,
-        discountAmount: 0,
+        discountAmount: monthlyRentDiscountAmount,
+        monthlyRentDiscountAmount,
         totalAmount: paymentAmount,
         paidAmount: 0,
         balanceDue: paymentAmount,
@@ -306,7 +337,8 @@ export async function POST(
             invoiceNumber: invoice.invoiceNumber,
             invoiceId: invoice.id,
             baseRent,
-            maintenanceFee,
+            maintenanceFee: 0,
+            monthlyRentDiscountAmount,
             totalMonthlyRent: paymentAmount,
           }),
         },

@@ -722,6 +722,9 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
                       >
                         Pay Next Month Rent (PhonePe)
                       </Button>
+                      {(activeBooking.monthlyRentDiscountMonths || 0) > (activeBooking.monthlyRentDiscountCyclesApplied || 0) && (activeBooking.monthlyRentDiscountAmount || 0) > 0 && <p className="text-xs text-emerald-300">
+                        Your next rent includes a ₹{activeBooking.monthlyRentDiscountAmount.toLocaleString("en-IN")} introductory discount. {activeBooking.monthlyRentDiscountMonths - activeBooking.monthlyRentDiscountCyclesApplied} discounted cycle{activeBooking.monthlyRentDiscountMonths - activeBooking.monthlyRentDiscountCyclesApplied === 1 ? "" : "s"} remaining.
+                      </p>}
                     </div>
                   )}
                 </div>

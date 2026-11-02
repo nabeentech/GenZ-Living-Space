@@ -191,6 +191,10 @@ model Booking {
   serviceFee         Float     @default(0.0)
   securityDeposit    Float     @default(0.0)
   discountAmount     Float     @default(0.0)
+  customDiscountAmount Float   @default(0.0)
+  monthlyRentDiscountAmount Float @default(0.0)
+  monthlyRentDiscountMonths Int @default(0)
+  monthlyRentDiscountCyclesApplied Int @default(0)
   couponCode         String?
   totalAmount        Float
   paidAmount         Float     @default(0.0)
@@ -285,6 +289,8 @@ model Invoice {
   serviceFee         Float    @default(0.0)
   securityDeposit    Float    @default(0.0)
   discountAmount     Float    @default(0.0)
+  customDiscountAmount Float  @default(0.0)
+  monthlyRentDiscountAmount Float @default(0.0)
   totalAmount        Float
   paidAmount         Float
   balanceDue         Float    @default(0.0)

@@ -1,0 +1,2 @@
+ALTER TABLE "Booking" ADD COLUMN "customDiscountAmount" REAL NOT NULL DEFAULT 0.0;
+ALTER TABLE "Invoice" ADD COLUMN "customDiscountAmount" REAL NOT NULL DEFAULT 0.0;

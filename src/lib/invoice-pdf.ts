@@ -248,8 +248,8 @@ export async function createInvoicePdf({ booking, invoice }: { booking: any; inv
   if (booking.serviceFee && booking.serviceFee > 0) {
     const isMonthly = booking.stayType === "MONTHLY";
     rows.push({
-      name: isMonthly ? "Community & Maintenance Fee" : "Service & Platform Fee",
-      sub: isMonthly ? "High-speed Wi-Fi, Housekeeping, Power Backup" : "Standard Facilities & Booking Support",
+      name: isMonthly ? "Maintenance (One-time)" : "Service & Platform Fee",
+      sub: isMonthly ? "One-time maintenance charge collected at check-in" : "Standard Facilities & Booking Support",
       plan: "Fixed",
       type: "Fee",
       amount: booking.serviceFee,
@@ -276,13 +276,37 @@ export async function createInvoicePdf({ booking, invoice }: { booking: any; inv
     });
   }
 
-  if (booking.discountAmount && booking.discountAmount > 0) {
+  const invoiceDiscountTotal = Number(invoice?.discountAmount ?? booking.discountAmount ?? 0);
+  const customDiscount = Number(invoice?.customDiscountAmount ?? booking.customDiscountAmount ?? 0);
+  const monthlyRentDiscount = Number(invoice?.monthlyRentDiscountAmount ?? 0);
+  const couponDiscount = Math.max(0, invoiceDiscountTotal - customDiscount - monthlyRentDiscount);
+  if (couponDiscount > 0) {
     rows.push({
-      name: `Special Promotional Discount`,
-      sub: booking.couponCode ? `Coupon applied: ${booking.couponCode}` : "Promotional discount applied",
+      name: "Coupon Discount",
+      sub: booking.couponCode ? `Coupon applied: ${booking.couponCode}` : "Coupon promotion applied",
       plan: "Offer",
       type: "Discount",
-      amount: -booking.discountAmount,
+      amount: -couponDiscount,
+      isDiscount: true,
+    });
+  }
+  if (customDiscount > 0) {
+    rows.push({
+      name: "Custom Walk-in Discount",
+      sub: "Discount approved by property staff",
+      plan: "Offer",
+      type: "Discount",
+      amount: -customDiscount,
+      isDiscount: true,
+    });
+  }
+  if (monthlyRentDiscount > 0) {
+    rows.push({
+      name: "Introductory Monthly Rent Discount",
+      sub: "Time-limited rent promotion",
+      plan: "Offer",
+      type: "Discount",
+      amount: -monthlyRentDiscount,
       isDiscount: true,
     });
   }
@@ -368,10 +392,10 @@ export async function createInvoicePdf({ booking, invoice }: { booking: any; inv
     document.font("Helvetica-Bold").fontSize(7.5).fillColor("#0f172a").text(formatINR(booking.securityDeposit), 445, totalLineY, { width: 102, align: "right" });
   }
 
-  if (booking.discountAmount && booking.discountAmount > 0) {
+  if (invoiceDiscountTotal > 0) {
     totalLineY += 12;
-    document.font("Helvetica").fontSize(7.5).fillColor("#059669").text("Promotional Discount:", 316, totalLineY);
-    document.font("Helvetica-Bold").fontSize(7.5).fillColor("#059669").text(`- ${formatINR(booking.discountAmount)}`, 445, totalLineY, { width: 102, align: "right" });
+    document.font("Helvetica").fontSize(7.5).fillColor("#059669").text("Total Discounts:", 316, totalLineY);
+    document.font("Helvetica-Bold").fontSize(7.5).fillColor("#059669").text(`- ${formatINR(invoiceDiscountTotal)}`, 445, totalLineY, { width: 102, align: "right" });
   }
 
   // Highlighted Total Paid Box

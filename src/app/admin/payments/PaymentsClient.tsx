@@ -5,20 +5,23 @@ import Link from "next/link";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
-import { CreditCard, CheckCircle2, XCircle, Printer, Download, AlertCircle } from "lucide-react";
+import { CreditCard, CheckCircle2, XCircle, Printer, Download, AlertCircle, CalendarClock, IndianRupee } from "lucide-react";
 
 interface PaymentsClientProps {
   initialPayments: any[];
   initialRefunds: any[];
   invoices: any[];
+  rentDues: any[];
 }
 
 export const PaymentsClient: React.FC<PaymentsClientProps> = ({
   initialPayments,
   initialRefunds,
   invoices,
+  rentDues: initialRentDues,
 }) => {
-  const [activeTab, setActiveTab] = useState<"due" | "payments" | "refunds" | "invoices">("due");
+  const [activeTab, setActiveTab] = useState<"rent" | "due" | "payments" | "refunds" | "invoices">("rent");
+  const [rentDues, setRentDues] = useState(initialRentDues);
   const [payments, setPayments] = useState(initialPayments);
   const [refunds, setRefunds] = useState(initialRefunds);
   const [invoiceRows, setInvoiceRows] = useState(invoices);
@@ -28,13 +31,73 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
   const [collectionMethod, setCollectionMethod] = useState("cash");
   const [collectionError, setCollectionError] = useState("");
   const [collectionSuccess, setCollectionSuccess] = useState("");
+  const [rentCollection, setRentCollection] = useState<any | null>(null);
+  const [rentMethod, setRentMethod] = useState("CASH");
+  const [rentError, setRentError] = useState("");
+  const [rentProcessing, setRentProcessing] = useState(false);
 
   const dueInvoices = invoiceRows.filter((invoice) =>
     invoice.status !== "CANCELLED" &&
     !["CANCELLED", "REFUNDED"].includes(invoice.booking?.bookingStatus) &&
+    !(invoice.booking?.stayType === "MONTHLY" && new Date(invoice.dueDate).toISOString().slice(0, 10) === new Date(invoice.booking.checkOutDate).toISOString().slice(0, 10)) &&
     Math.round((invoice.totalAmount - invoice.paidAmount) * 100) > 0
   );
   const outstandingTotal = dueInvoices.reduce((sum, invoice) => sum + Math.max(0, invoice.totalAmount - invoice.paidAmount), 0);
+
+  const indiaDateKey = (date: Date) => new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(date);
+  const todayKey = indiaDateKey(new Date());
+  const getRentStatus = (dueDate: string | Date) => {
+    const dueKey = indiaDateKey(new Date(dueDate));
+    if (dueKey < todayKey) return "overdue";
+    if (dueKey === todayKey) return "due";
+    const today = new Date(`${todayKey}T00:00:00+05:30`).getTime();
+    const due = new Date(`${dueKey}T00:00:00+05:30`).getTime();
+    return (due - today) / 86400000 <= 7 ? "due-soon" : "upcoming";
+  };
+  const rentStatusCounts = rentDues.reduce((counts: Record<string, number>, row) => {
+    const status = getRentStatus(row.dueDate);
+    counts[status] = (counts[status] || 0) + 1;
+    return counts;
+  }, {});
+  const upcomingRentTotal = rentDues.reduce((sum, row) => sum + (row.invoicePaid ? 0 : row.amountDue), 0);
+
+  const handleMonthlyRent = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!rentCollection) return;
+    setRentProcessing(true);
+    setRentError("");
+    try {
+      const response = await fetch(`/api/bookings/${rentCollection.bookingId}/monthly-rent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ method: "OFFLINE", amount: rentCollection.amountDue, paymentMode: rentMethod }),
+      });
+      const json = await response.json();
+      if (!response.ok || !json.success) throw new Error(json.message || "Could not record rent payment.");
+      const updatedBooking = json.data.updatedBooking;
+      const nextDiscount = updatedBooking.monthlyRentDiscountCyclesApplied < updatedBooking.monthlyRentDiscountMonths
+        ? Math.min(rentCollection.baseRent, updatedBooking.monthlyRentDiscountAmount)
+        : 0;
+      setRentDues((rows) => rows.map((row) => row.bookingId === rentCollection.bookingId ? {
+        ...row,
+        dueDate: updatedBooking.checkOutDate,
+        discount: nextDiscount,
+        amountDue: rentCollection.baseRent - nextDiscount,
+        invoiceId: null,
+        invoiceStatus: null,
+        invoicePaid: false,
+      } : row));
+      setRentCollection(null);
+      setCollectionSuccess(json.message);
+      setActiveTab("rent");
+    } catch (error: any) {
+      setRentError(error.message || "Could not record rent payment.");
+    } finally {
+      setRentProcessing(false);
+    }
+  };
 
   const openCollection = (invoice: any) => {
     setCollectingInvoice(invoice);
@@ -116,6 +179,12 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
       {/* Tabs */}
       <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
         <button
+          onClick={() => setActiveTab("rent")}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition ${activeTab === "rent" ? "bg-indigo-600 text-white shadow-glow" : "text-slate-400 hover:text-white"}`}
+        >
+          Rent dues ({rentDues.length})
+        </button>
+        <button
           onClick={() => setActiveTab("due")}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition ${activeTab === "due" ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20" : "text-slate-400 hover:text-white"}`}
         >
@@ -154,6 +223,55 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
       </div>
 
       {collectionSuccess && <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/60 p-3 text-sm text-emerald-200">{collectionSuccess}</div>}
+
+      {activeTab === "rent" && (
+        <section className="space-y-5">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {[
+              { label: "Monthly stays", value: rentDues.length, tone: "text-white" },
+              { label: "Upcoming rent total", value: `₹${upcomingRentTotal.toLocaleString("en-IN")}`, tone: "text-indigo-200" },
+              { label: "Due today / next 7 days", value: (rentStatusCounts.due || 0) + (rentStatusCounts["due-soon"] || 0), tone: "text-amber-200" },
+              { label: "Overdue", value: rentStatusCounts.overdue || 0, tone: "text-rose-300" },
+            ].map((item) => <div key={item.label} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{item.label}</div>
+              <div className={`mt-2 text-2xl font-black ${item.tone}`}>{item.value}</div>
+            </div>)}
+          </div>
+          <div className="overflow-hidden rounded-3xl border border-slate-800 bg-[#111827]/80">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 p-5">
+              <div>
+                <h3 className="text-lg font-bold text-white">Monthly rent schedule</h3>
+                <p className="mt-1 text-xs text-slate-400">Next rent due date for each active monthly resident. Rent shown includes any introductory monthly discount still applicable.</p>
+              </div>
+              <span className="rounded-full border border-indigo-500/20 bg-indigo-500/10 px-3 py-1.5 text-[11px] font-semibold text-indigo-200"><CalendarClock className="mr-1.5 inline h-3.5 w-3.5" /> Refreshed from active stays</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[900px] text-left text-xs text-slate-300">
+                <thead className="border-b border-slate-800 bg-slate-900/80 font-semibold uppercase tracking-wider text-slate-400"><tr>
+                  <th className="p-3.5">Resident</th><th className="p-3.5">Property / room</th><th className="p-3.5">Next rent due</th><th className="p-3.5">Monthly rent</th><th className="p-3.5">Discount</th><th className="p-3.5">Amount due</th><th className="p-3.5 text-right">Action</th>
+                </tr></thead>
+                <tbody className="divide-y divide-slate-800">
+                  {rentDues.length === 0 ? <tr><td colSpan={7} className="p-12 text-center"><IndianRupee className="mx-auto mb-2 h-6 w-6 text-slate-600" /><div className="font-semibold text-slate-300">No active monthly stays</div><div className="mt-1 text-slate-500">New rent dates will appear here when a monthly resident is checked in.</div></td></tr> : rentDues.map((row) => {
+                    const status = getRentStatus(row.dueDate);
+                    const statusText = row.invoicePaid ? "Invoice paid" : status === "overdue" ? "Overdue" : status === "due" ? "Due today" : status === "due-soon" ? "Due within 7 days" : "Upcoming";
+                    const statusClass = row.invoicePaid ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200" : status === "overdue" ? "border-rose-500/30 bg-rose-500/10 text-rose-200" : status === "upcoming" ? "border-indigo-500/30 bg-indigo-500/10 text-indigo-200" : "border-amber-500/30 bg-amber-500/10 text-amber-200";
+                    return <tr key={row.bookingId} className="hover:bg-slate-900/50">
+                      <td className="p-3.5"><span className="block font-semibold text-white">{row.guestName}</span><span className="mt-1 block font-mono text-[10px] text-slate-500">{row.bookingReference} · {row.guestPhone}</span></td>
+                      <td className="p-3.5"><span className="block text-white">{row.hostelName}</span><span className="mt-1 block text-[10px] text-slate-500">{row.roomName} · {row.roomType} · {row.bedLabel}</span></td>
+                      <td className="p-3.5"><span className="block text-slate-200">{new Date(row.dueDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "2-digit", month: "short", year: "numeric" })}</span><span className={`mt-1 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${statusClass}`}>{statusText}</span>{row.invoiceId && !row.invoicePaid && <span className="mt-1 block text-[10px] text-amber-300">Invoice issued · collection here will settle it</span>}{row.invoicePaid && <span className="mt-1 block text-[10px] text-emerald-300">Check whether the stay extension completed</span>}</td>
+                      <td className="p-3.5">₹{row.baseRent.toLocaleString("en-IN")}</td>
+                      <td className="p-3.5 text-emerald-300">{row.discount ? `−₹${row.discount.toLocaleString("en-IN")}` : "—"}</td>
+                      <td className="p-3.5 font-black text-amber-200">₹{row.amountDue.toLocaleString("en-IN")}</td>
+                      <td className="p-3.5 text-right">{row.invoicePaid ? <span className="text-xs text-emerald-300">Paid</span> : status === "upcoming" ? <span className="text-[11px] text-slate-500">Available within 7 days</span> : <Button size="sm" variant="outline" disabled={row.amountDue <= 0} onClick={() => { setRentCollection(row); setRentMethod("CASH"); setRentError(""); }}>Record & extend</Button>}</td>
+                    </tr>;
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <p className="text-[11px] text-slate-500">Rent due dates follow the current stay end date. Each collection creates a payment and invoice, then extends the stay by one 30-day cycle. If a stay is several cycles overdue, collect each displayed cycle in turn. Security deposit and one-time maintenance are excluded.</p>
+        </section>
+      )}
 
       {activeTab === "due" && (
         <div className="glass-panel space-y-4 overflow-hidden rounded-3xl border border-amber-500/20 bg-[#111827]/80 p-5 sm:p-7">
@@ -402,6 +520,22 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
             <label className="block text-xs font-semibold text-slate-300">Amount received now (₹)<input required type="text" inputMode="decimal" value={collectionAmount} onChange={(e) => { const [whole = "", fraction = ""] = e.target.value.replace(/[^\d.]/g, "").split("."); setCollectionAmount(`${whole.slice(0, 9)}${e.target.value.includes(".") ? `.${fraction.slice(0, 2)}` : ""}`); }} className="mt-1 block w-full rounded-xl border border-slate-700 bg-slate-900 p-2.5 text-sm text-white" /></label>
             <label className="block text-xs font-semibold text-slate-300">Payment method<select value={collectionMethod} onChange={(e) => setCollectionMethod(e.target.value)} className="mt-1 block w-full rounded-xl border border-slate-700 bg-slate-900 p-2.5 text-sm text-white"><option value="cash">Cash</option><option value="upi">UPI / QR</option><option value="card">Card</option><option value="bank_transfer">Bank transfer</option></select></label>
             <div className="flex justify-end gap-2 border-t border-slate-800 pt-3"><Button type="button" variant="outline" onClick={() => setCollectingInvoice(null)} disabled={!!processingId}>Cancel</Button><Button type="submit" variant="glow" isLoading={!!processingId}>Save payment</Button></div>
+          </form>
+        </Modal>
+      )}
+
+      {rentCollection && (
+        <Modal isOpen={!!rentCollection} onClose={() => rentProcessing ? undefined : setRentCollection(null)} title="Record monthly rent" description={`${rentCollection.guestName} · ${rentCollection.bookingReference}`}>
+          <form onSubmit={handleMonthlyRent} className="space-y-4 py-2">
+            <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-4 text-sm">
+              <div className="flex justify-between text-slate-300"><span>Rent due</span><strong>₹{rentCollection.baseRent.toLocaleString("en-IN")}</strong></div>
+              {rentCollection.discount > 0 && <div className="mt-1 flex justify-between text-emerald-300"><span>Introductory discount</span><strong>−₹{rentCollection.discount.toLocaleString("en-IN")}</strong></div>}
+              <div className="mt-2 flex justify-between border-t border-indigo-500/20 pt-2 font-bold text-white"><span>Collect now</span><strong>₹{rentCollection.amountDue.toLocaleString("en-IN")}</strong></div>
+              <p className="mt-2 text-[11px] text-slate-400">Saving this payment will extend the stay by 30 days.</p>
+            </div>
+            {rentError && <div role="alert" className="rounded-xl border border-rose-500/30 bg-rose-950/50 p-3 text-xs text-rose-200">{rentError}</div>}
+            <label className="block text-xs font-semibold text-slate-300">Payment method<select value={rentMethod} onChange={(e) => setRentMethod(e.target.value)} className="mt-1 block w-full rounded-xl border border-slate-700 bg-slate-900 p-2.5 text-sm text-white"><option value="CASH">Cash</option><option value="UPI">UPI / QR</option><option value="CARD">Card</option><option value="BANK_TRANSFER">Bank transfer</option></select></label>
+            <div className="flex justify-end gap-2 border-t border-slate-800 pt-3"><Button type="button" variant="outline" onClick={() => setRentCollection(null)} disabled={rentProcessing}>Cancel</Button><Button type="submit" variant="glow" isLoading={rentProcessing}>Record payment & extend</Button></div>
           </form>
         </Modal>
       )}

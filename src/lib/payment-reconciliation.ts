@@ -99,7 +99,10 @@ export function createPaymentReconciler(deps: Dependencies) {
       if (rent) {
         const invoice = booking.invoices.find(item => item.id === meta.invoiceId);
         if (!invoice || invoice.status === "PAID" || Math.round(invoice.totalAmount * 100) !== expectedPaise) throw new PaymentFlowError("Rent invoice does not match this cycle payment");
-        await tx.booking.update({ where: { id: booking.id }, data: { checkOutDate: cycleEnd!, paidAmount, totalAmount, balanceAmount, paymentStatus } });
+        await tx.booking.update({ where: { id: booking.id }, data: {
+          checkOutDate: cycleEnd!, paidAmount, totalAmount, balanceAmount, paymentStatus,
+          monthlyRentDiscountCyclesApplied: { increment: invoice.monthlyRentDiscountAmount > 0 ? 1 : 0 },
+        } });
         await tx.invoice.update({ where: { id: invoice.id }, data: { status: "PAID", paidAmount: current.amount, balanceDue: 0 } });
         await tx.bookingExtension.create({ data: { bookingId: booking.id, originalCheckOut: booking.checkOutDate, newCheckOut: cycleEnd!, additionalAmount: current.amount, status: "CONFIRMED" } });
       } else {
