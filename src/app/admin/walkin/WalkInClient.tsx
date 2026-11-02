@@ -201,8 +201,7 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels }) => {
     setStage((current) => Math.min(3, current + 1));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     if (!selectedBedId) {
       setErrorMsg("Please enter guest name, phone, and select a bed.");
       return;
@@ -318,7 +317,7 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels }) => {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={(event) => event.preventDefault()} className="space-y-6">
         {stage === 1 && <div className="space-y-5">
         {/* Property and four-step room assignment */}
         <div className="space-y-4 p-4 sm:p-5 rounded-2xl bg-slate-900/60 border border-slate-800">
@@ -645,7 +644,7 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels }) => {
 
         <div className="flex justify-between border-t border-slate-800 pt-4">
           <Button type="button" variant="outline" size="md" disabled={stage === 1 || isSubmitting} onClick={() => { setErrorMsg(""); setStage((current) => Math.max(1, current - 1)); }}>Back</Button>
-          {stage < 3 ? <Button type="button" variant="glow" size="lg" onClick={continueToNextStage}>Continue</Button> : <Button type="submit" variant="glow" size="lg" isLoading={isSubmitting} rightIcon={<UserPlus className="w-4 h-4" />}>Create Walk-In & Issue Keycard</Button>}
+          {stage < 3 ? <Button type="button" variant="glow" size="lg" onClick={continueToNextStage}>Continue</Button> : <Button type="button" variant="glow" size="lg" isLoading={isSubmitting} onClick={() => void handleSubmit()} rightIcon={<UserPlus className="w-4 h-4" />}>Create Walk-In & Issue Keycard</Button>}
         </div>
       </form>
     </div>
