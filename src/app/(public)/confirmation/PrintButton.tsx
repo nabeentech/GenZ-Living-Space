@@ -24,20 +24,13 @@ export const PrintButton: React.FC<PrintButtonProps> = ({ bookingId }) => {
     }
   }, []);
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   return (
     <div className="flex flex-wrap items-center justify-center gap-2">
-      <Button
-        variant="glow"
-        size="sm"
-        onClick={handlePrint}
-        leftIcon={<Printer className="w-4 h-4" />}
-      >
-        Print Invoice
-      </Button>
+      <a href={`/api/invoices/${bookingId}/pdf?print=1`} target="_blank" rel="noreferrer">
+        <Button variant="glow" size="sm" leftIcon={<Printer className="w-4 h-4" />}>
+          Print Invoice
+        </Button>
+      </a>
       <a href={`/api/invoices/${bookingId}/pdf`} download>
         <Button variant="outline" size="sm" leftIcon={<Download className="w-4 h-4" />}>
           Download PDF

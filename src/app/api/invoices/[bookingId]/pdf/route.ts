@@ -16,7 +16,9 @@ export async function GET(
     }
 
     const { bookingId } = await params;
-    const invoiceId = new URL(req.url).searchParams.get("invoiceId");
+    const searchParams = new URL(req.url).searchParams;
+    const invoiceId = searchParams.get("invoiceId");
+    const openForPrinting = searchParams.get("print") === "1";
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
@@ -59,7 +61,7 @@ export async function GET(
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${invoice.invoiceNumber}.pdf"`,
+        "Content-Disposition": `${openForPrinting ? "inline" : "attachment"}; filename="${invoice.invoiceNumber}.pdf"`,
         "Cache-Control": "private, no-store",
       },
     });
