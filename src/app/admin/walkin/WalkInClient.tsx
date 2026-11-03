@@ -10,7 +10,6 @@ import { SHARING_NAMES } from "@/lib/room-types";
 import {
   UserPlus,
   Calendar,
-  CheckCircle2,
   Bed as BedIcon,
   CreditCard,
   Sparkles,
@@ -118,7 +117,6 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [stage, setStage] = useState(1);
-  const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
@@ -304,7 +302,6 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
 
     setIsSubmitting(true);
     setErrorMsg("");
-    setSuccessMsg("");
 
     try {
       const res = await fetch("/api/admin/walkin", {
@@ -345,17 +342,11 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
         throw new Error(json.message || "Failed to create walk-in");
       }
 
-      setSuccessMsg(json.message);
-      setGuestName("");
-      setGuestPhone("");
-      setGuestEmail("");
-      setGuestGovtId("");
-      setGuestDateOfBirth("");
-      setAdditionalGuests([]);
-      setTimeout(() => {
-        setSuccessMsg("");
-        window.location.reload();
-      }, 2500);
+      const bookingReference = json.data?.bookingReference;
+      if (!bookingReference) {
+        throw new Error("Booking created, but its confirmation page could not be opened. Find it in Bookings Management.");
+      }
+      window.location.assign(`/confirmation?bookingRef=${encodeURIComponent(bookingReference)}`);
     } catch (err: any) {
       setErrorMsg(err.message || "Submission failed");
     } finally {
@@ -371,13 +362,6 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
           Issue immediate keycard and assign vacant bed for arriving guest.
         </p>
       </div>
-
-      {successMsg && (
-        <div className="p-4 rounded-2xl bg-emerald-950/80 border border-emerald-500 text-xs text-emerald-300 font-semibold flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 shrink-0" />
-          <span>{successMsg}</span>
-        </div>
-      )}
 
       {errorMsg && (
         <div className="p-4 rounded-2xl bg-rose-950/80 border border-rose-500 text-xs text-rose-300 font-semibold">
@@ -446,7 +430,10 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
                   setSelectedFloor(firstRoom ? String(firstRoom.floor) : "");
                   selectRoom(firstRoom);
                 }}
-                options={roomTypes.map((type: any) => ({ value: type.id, label: type.name }))}
+                options={roomTypes.map((type: any) => ({
+                  value: type.id,
+                  label: SHARING_NAMES[type.totalBeds] || type.name,
+                }))}
                 triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs"
               />
             </div>
