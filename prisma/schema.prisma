@@ -158,7 +158,7 @@ model Bed {
   roomId            String
   hostelId          String
   bedNumber         String   // e.g. "Bed A", "Pod 1"
-  tier              String   @default("LOWER_BUNK") // LOWER_BUNK, UPPER_BUNK, SINGLE, DOUBLE
+  tier              String   @default("SINGLE") // SINGLE or DOUBLE occupancy capacity
   status            String   @default("AVAILABLE") // AVAILABLE, RESERVED, OCCUPIED, MAINTENANCE, CLEANING, BLOCKED
   currentOccupantId String?
   active            Boolean  @default(true)

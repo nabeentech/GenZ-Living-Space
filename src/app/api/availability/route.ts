@@ -102,7 +102,7 @@ export async function GET(req: Request) {
         return {
           id: bed.id,
           bedNumber: bed.bedNumber,
-          tier: bed.tier,
+          tier: bed.tier === "DOUBLE" ? "DOUBLE" : "SINGLE",
           isAvailable: !isBooked,
           status: isBooked ? "RESERVED" : bed.status,
         };

@@ -149,23 +149,23 @@ Room 102 (AC)
 ### Triple Sharing (3 beds per room)
 ```
 Room 121 (Non-AC)
-├─ Bed 1 (LOWER_BUNK)
-├─ Bed 2 (LOWER_BUNK)
-└─ Bed 3 (UPPER_BUNK)
+├─ Bed 1
+├─ Bed 2
+└─ Bed 3
 
 Room 122 (AC)
-├─ Bed 1 (LOWER_BUNK)
-├─ Bed 2 (LOWER_BUNK)
-└─ Bed 3 (UPPER_BUNK)
+├─ Bed 1
+├─ Bed 2
+└─ Bed 3
 ```
 
 ### Private Creator Studio (1 bed per room)
 ```
 Room 131 (Non-AC)
-└─ Single Bed (SINGLE)
+└─ Bed 1
 
 Room 132 (AC)
-└─ Single Bed (SINGLE)
+└─ Bed 1
 ```
 
 ## Statistics

@@ -99,22 +99,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           const bedsToAdd = Array.from({ length: capacity - currentBedCount }, (_, offset) => {
             const index = currentBedCount + offset;
             let bedNumber: string;
-            let tier: string;
+            let tier = "SINGLE";
             if (capacity === 1) {
-              bedNumber = "King Bed";
+              bedNumber = "Bed 1";
               tier = "DOUBLE";
             } else if (capacity === 2) {
-              bedNumber = index === 0 ? "Bed Left" : "Bed Right";
-              tier = "SINGLE";
-            } else if (capacity <= 4) {
-              bedNumber = `Bed ${"ABCDEFGH"[index]}`;
-              tier = index % 2 === 0 ? "LOWER_BUNK" : "UPPER_BUNK";
-            } else if (capacity <= 6) {
-              bedNumber = `Pod ${index + 1}`;
-              tier = index < 3 ? "LOWER_BUNK" : "UPPER_BUNK";
+              bedNumber = `Bed ${index + 1}`;
             } else {
               bedNumber = `Bed ${index + 1}`;
-              tier = index < Math.ceil(capacity / 2) ? "LOWER_BUNK" : "UPPER_BUNK";
             }
             return { roomId: id, hostelId: currentRoom.hostelId, bedNumber, tier, status: "AVAILABLE" };
           });

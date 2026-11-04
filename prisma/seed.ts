@@ -370,20 +370,16 @@ async function main() {
         // Create beds for this room
         for (let bedIndex = 1; bedIndex <= roomConfig.capacity; bedIndex++) {
           let bedNumber: string = `Bed ${bedIndex}`;
-          let tier: string = "LOWER_BUNK";
+          let tier: string = "SINGLE";
 
           if (roomConfig.capacity === 1) {
-            bedNumber = "Single Bed";
+            bedNumber = "Bed 1";
             tier = "SINGLE";
           } else if (roomConfig.capacity === 2) {
             bedNumber = bedIndex === 1 ? "Bed 1" : "Bed 2";
             tier = "SINGLE";
-          } else if (roomConfig.capacity === 3) {
+          } else {
             bedNumber = `Bed ${bedIndex}`;
-            tier = bedIndex <= 2 ? "LOWER_BUNK" : "UPPER_BUNK";
-          } else if (roomConfig.capacity === 4) {
-            bedNumber = `Bed ${bedIndex}`;
-            tier = bedIndex <= 2 ? "LOWER_BUNK" : "UPPER_BUNK";
           }
 
           await prisma.bed.create({

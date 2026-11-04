@@ -105,7 +105,7 @@ CREATE TABLE "Bed" (
     "roomId" TEXT NOT NULL,
     "hostelId" TEXT NOT NULL,
     "bedNumber" TEXT NOT NULL,
-    "tier" TEXT NOT NULL DEFAULT 'LOWER_BUNK',
+    "tier" TEXT NOT NULL DEFAULT 'SINGLE',
     "status" TEXT NOT NULL DEFAULT 'AVAILABLE',
     "currentOccupantId" TEXT,
     "active" BOOLEAN NOT NULL DEFAULT true,

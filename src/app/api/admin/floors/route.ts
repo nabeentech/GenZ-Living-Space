@@ -101,8 +101,8 @@ export async function POST(req: NextRequest) {
           data: {
             roomId: newRoom.id,
             hostelId,
-            bedNumber: `Bed ${bedLetters[bedIndex]}`,
-            tier: bedIndex % 2 === 0 ? "LOWER_BUNK" : "UPPER_BUNK",
+            bedNumber: `Bed ${bedIndex + 1}`,
+            tier: "SINGLE",
             status: "AVAILABLE",
           },
         });

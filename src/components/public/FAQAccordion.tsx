@@ -14,7 +14,7 @@ export const FAQAccordion: React.FC = () => {
   const faqs: FAQItem[] = [
     {
       q: "How does the booking and bed allocation work?",
-      a: "You select your desired property from our 4 locations, pick your dates, choose a room type (e.g. 4-Bed Dorm or Private Studio), and choose your preferred bed (lower bunk, upper bunk, or private). When you checkout, a 15-minute temporary hold reserves your bed so no one else can book it while you finalize payment.",
+      a: "You select your desired property from our 4 locations, pick your dates, choose a room type (e.g. 4-Bed Dorm or Private Studio), and choose an available numbered bed. When you checkout, a 15-minute temporary hold reserves your bed so no one else can book it while you finalize payment.",
     },
     {
       q: "Can I stay for monthly or long-term durations?",

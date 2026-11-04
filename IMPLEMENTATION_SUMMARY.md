@@ -62,7 +62,7 @@ Successfully implemented a comprehensive hostel booking system with AC/Non-AC ro
 2. **`prisma/seed.ts`**
    - Configured all 40 rooms with correct pricing and capacity
    - Set every even-numbered room as AC, odd-numbered as Non-AC
-   - Creates beds with proper tier assignments (LOWER_BUNK, UPPER_BUNK, SINGLE)
+   - Creates numbered beds (Bed 1, Bed 2, etc.)
 
 3. **`src/app/api/availability/route.ts`**
    - Added `isAC` field to availability response

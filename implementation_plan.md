@@ -64,7 +64,7 @@ Build a complete, production-ready hostel booking and hostel management web appl
 * **Multi-Step Checkout Flow (`/book`)**:
   * Step 1: Stay dates & Stay duration (Daily, Weekly, Monthly with custom tier rates)
   * Step 2: Room & Gender category (Male, Female, Mixed, Private)
-  * Step 3: Interactive Bed Picker (Lower Bunk, Upper Bunk, Window, Private)
+  * Step 3: Interactive numbered bed picker (Bed 1, Bed 2, etc.)
   * Step 4: Guest information & Government ID collection
   * Step 5: Coupon code engine with instant price breakdown (Base + 12% GST + Service Fee + Refundable Deposit - Discount)
   * Step 6: 15-minute temporary bed hold lock during payment session

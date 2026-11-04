@@ -591,12 +591,6 @@ export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels, canEd
           <div className="space-y-4 py-2">
             <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2 text-xs">
               <div className="flex justify-between">
-                <span className="text-slate-400">Tier:</span>
-                <span className="font-bold text-white">
-                  {selectedBed.tier.replace("_", " ")}
-                </span>
-              </div>
-              <div className="flex justify-between">
                 <span className="text-slate-400">Current Status:</span>
                 <Badge
                   variant={

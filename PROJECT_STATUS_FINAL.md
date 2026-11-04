@@ -146,7 +146,7 @@ AC Distribution: Even numbers = AC, Odd numbers = Non-AC
 
 ### Seed Script
 - Dynamically generates 200 rooms across 5 floors
-- Creates all beds with proper tier types (SINGLE, LOWER_BUNK, UPPER_BUNK)
+- Creates all beds with numbered labels (Bed 1, Bed 2, etc.)
 - Assigns AC status based on room number parity
 - Completes in ~1-2 seconds
 - File: `prisma/seed.ts`

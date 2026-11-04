@@ -1269,9 +1269,6 @@ export const BookClient: React.FC = () => {
                             <span className="font-extrabold text-sm block">
                               {bed.bedNumber}
                             </span>
-                            <span className="text-[10px] uppercase font-bold opacity-80">
-                              {bed.tier.replace("_", " ")}
-                            </span>
                           </div>
 
                           <Badge
@@ -1299,7 +1296,7 @@ export const BookClient: React.FC = () => {
                   <div className="p-4 rounded-2xl bg-indigo-950/40 border border-indigo-500/20 flex items-center gap-3 text-xs text-indigo-300">
                     <ShieldCheck className="w-4 h-4 text-indigo-400 shrink-0" />
                     <span>
-                      You have selected <strong className="text-white">{selectedBed?.bedNumber}</strong> ({selectedBed?.tier?.replace("_", " ")}) in <strong className="text-white">Room {selectedRoom?.roomNumber}</strong> ({getSharingCategoryName(selectedRoom)}). This bed will be reserved exclusively for your stay.
+                      You have selected <strong className="text-white">{selectedBed?.bedNumber}</strong> in <strong className="text-white">Room {selectedRoom?.roomNumber}</strong> ({getSharingCategoryName(selectedRoom)}). This bed will be reserved exclusively for your stay.
                     </span>
                   </div>
 
@@ -1628,7 +1625,7 @@ export const BookClient: React.FC = () => {
                   <div className="flex justify-between">
                     <span className="text-slate-400">Assigned Bed</span>
                     <span className="font-semibold text-indigo-400">
-                      {selectedBed ? `${selectedBed.bedNumber} (${selectedBed.tier?.replace("_", " ")})` : "Select in Step 2"}
+                      {selectedBed ? selectedBed.bedNumber : "Select in Step 2"}
                     </span>
                   </div>
                 </div>

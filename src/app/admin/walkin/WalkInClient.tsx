@@ -244,7 +244,7 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
     }
     if (stage === 2) {
       if (!/^(?:[1-9]|10)$/.test(guestCountInput) || !Number.isInteger(guestsCount) || guestsCount < 1 || guestsCount > maxGuestsForSelectedBed) {
-        setErrorMsg(`This selected bed can accommodate up to ${maxGuestsForSelectedBed} guest${maxGuestsForSelectedBed === 1 ? "" : "s"}. Select a Double bed for two guests.`);
+        setErrorMsg(`This selected bed can accommodate up to ${maxGuestsForSelectedBed} guest${maxGuestsForSelectedBed === 1 ? "" : "s"}. Select a bed with capacity for two guests.`);
         return;
       }
       const guestError = validateGuestDetails();
@@ -478,7 +478,7 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
                   ? [{ value: "", label: "No beds in this room", disabled: true }]
                   : availableBeds.map((bed: any) => ({
                       value: bed.id,
-                      label: `${bed.bedNumber} (${bed.tier?.replace("_", " ")}${bed.status !== "AVAILABLE" ? ` • ${bed.status}` : " • Vacant"})`,
+                      label: `${bed.bedNumber}${bed.status !== "AVAILABLE" ? ` • ${bed.status}` : " • Vacant"}`,
                       disabled: bed.status !== "AVAILABLE",
                     }))}
                 triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-bold text-emerald-400"
@@ -554,7 +554,7 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
                 if (count > maxGuestsForSelectedBed) {
                   setGuestCountInput(String(maxGuestsForSelectedBed));
                   changeGuestCount(maxGuestsForSelectedBed);
-                  setErrorMsg(`This selected bed can accommodate up to ${maxGuestsForSelectedBed} guest${maxGuestsForSelectedBed === 1 ? "" : "s"}. Select a Double bed for two guests.`);
+                  setErrorMsg(`This selected bed can accommodate up to ${maxGuestsForSelectedBed} guest${maxGuestsForSelectedBed === 1 ? "" : "s"}. Select a bed with capacity for two guests.`);
                   return;
                 }
                 setGuestCountInput(digits);
@@ -569,7 +569,7 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
               aria-describedby="guest-count-hint"
               className="w-full rounded-xl border border-slate-700 bg-slate-900 p-2.5 text-xs text-white focus:outline-none"
             />
-            <span id="guest-count-hint" className="mt-1 block text-[10px] text-slate-500">This {selectedBed?.tier === "DOUBLE" ? "Double bed can accommodate up to 2 guests" : "bed accommodates 1 guest"}. Select a Double bed to register two people together.</span>
+            <span id="guest-count-hint" className="mt-1 block text-[10px] text-slate-500">This bed can accommodate up to {maxGuestsForSelectedBed} guest{maxGuestsForSelectedBed === 1 ? "" : "s"}. Select a bed with capacity for two guests to register two people together.</span>
           </div>
 
           <div>

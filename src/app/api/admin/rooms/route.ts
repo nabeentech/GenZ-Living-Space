@@ -112,22 +112,14 @@ export async function POST(req: NextRequest) {
 
       const beds = Array.from({ length: capacity }, (_, i) => {
         let bedNumber: string;
-        let tier: string;
+        let tier = "SINGLE";
         if (capacity === 1) {
-          bedNumber = "King Bed";
+          bedNumber = "Bed 1";
           tier = "DOUBLE";
         } else if (capacity === 2) {
-          bedNumber = i === 0 ? "Bed Left" : "Bed Right";
-          tier = "SINGLE";
-        } else if (capacity <= 4) {
-          bedNumber = `Bed ${"ABCDEFGH"[i]}`;
-          tier = i % 2 === 0 ? "LOWER_BUNK" : "UPPER_BUNK";
-        } else if (capacity <= 6) {
-          bedNumber = `Pod ${i + 1}`;
-          tier = i < 3 ? "LOWER_BUNK" : "UPPER_BUNK";
+          bedNumber = `Bed ${i + 1}`;
         } else {
           bedNumber = `Bed ${i + 1}`;
-          tier = i < Math.ceil(capacity / 2) ? "LOWER_BUNK" : "UPPER_BUNK";
         }
         return { roomId: room.id, hostelId, bedNumber, tier, status: "AVAILABLE" };
       });

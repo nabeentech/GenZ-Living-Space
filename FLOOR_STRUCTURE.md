@@ -93,15 +93,15 @@ Room Layout:
 ### Triple Sharing (3 beds)
 ```
 Room Layout:
-├─ Bed 1 (LOWER_BUNK)
-├─ Bed 2 (LOWER_BUNK)
-└─ Bed 3 (UPPER_BUNK)
+├─ Bed 1
+├─ Bed 2
+└─ Bed 3
 ```
 
 ### Private Creator Studio (1 bed)
 ```
 Room Layout:
-└─ Single Bed (SINGLE tier)
+└─ Bed 1
 ```
 
 ## Pricing (Same Across All Floors)
@@ -136,7 +136,7 @@ Room Layout:
 
 **Bed Records:** 400+ total
 - Status: AVAILABLE
-- Tier Types: SINGLE, LOWER_BUNK, UPPER_BUNK
+- Beds are identified by numbered labels (Bed 1, Bed 2, etc.).
 - Bed Numbers: Numbered per room type
 
 **Room Type Records:** 3 total
