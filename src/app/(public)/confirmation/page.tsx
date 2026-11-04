@@ -80,6 +80,7 @@ export default async function ConfirmationPage({
   }
 
   const invoice = booking.invoices[0];
+  const isAdmin = user.role !== ROLES.CUSTOMER;
   const nextDueInvoice = booking.invoices
     .filter((item) => item.status !== "PAID" && item.status !== "CANCELLED" && item.totalAmount > item.paidAmount)
     .sort((first, second) => new Date(first.dueDate).getTime() - new Date(second.dueDate).getTime())[0];
@@ -116,16 +117,18 @@ export default async function ConfirmationPage({
 
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
               <PrintButton bookingId={booking.id} />
-              <Link href="/dashboard">
+              <Link href={isAdmin ? "/admin" : "/dashboard"}>
                 <Button variant="outline" size="sm">
-                  View in My Dashboard
+                  {isAdmin ? "Admin Dashboard" : "View in My Dashboard"}
                 </Button>
               </Link>
-              <Link href="/">
-                <Button variant="secondary" size="sm">
-                  Return to Home
-                </Button>
-              </Link>
+              {!isAdmin && (
+                <Link href="/">
+                  <Button variant="secondary" size="sm">
+                    Return to Home
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
 
