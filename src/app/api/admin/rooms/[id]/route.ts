@@ -25,10 +25,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     const body = await req.json();
-    const { genderCategory, status, capacity, isAC } = body;
+    const { genderCategory, status, capacity, isAC, roomTypeId, variant } = body;
 
     // Validate inputs
-    if (!genderCategory && !status && capacity === undefined && isAC === undefined) {
+    if (
+      !genderCategory &&
+      !status &&
+      capacity === undefined &&
+      isAC === undefined &&
+      !roomTypeId &&
+      !variant
+    ) {
       return NextResponse.json(
         { success: false, message: "No fields to update" },
         { status: 400 }
@@ -90,9 +97,23 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     const updatedRoom = await prisma.$transaction(async (tx) => {
-      if (capacity !== undefined) {
+      const targetCapacity = capacity !== undefined ? capacity : currentRoom.capacity;
+
+      if (roomTypeId) {
+        const rt = await tx.roomType.findUnique({ where: { id: roomTypeId } });
+        if (!rt) {
+          throw new Error("Specified room type does not exist");
+        }
+        updateData.roomTypeId = roomTypeId;
+      } else if (variant === "TYPE_1" || variant === "TYPE_2") {
+        const rt = await getRoomTypeForCapacity(tx, targetCapacity, variant);
+        updateData.roomTypeId = rt.id;
+      } else if (capacity !== undefined) {
         const roomType = await getRoomTypeForCapacity(tx, capacity);
         updateData.roomTypeId = roomType.id;
+      }
+
+      if (capacity !== undefined) {
         const currentBedCount = currentRoom.beds.length;
 
         if (capacity > currentBedCount) {
@@ -124,6 +145,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return tx.room.update({
         where: { id },
         data: updateData,
+        include: {
+          beds: true,
+          roomType: true,
+        },
       });
     });
 

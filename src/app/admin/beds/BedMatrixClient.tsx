@@ -496,7 +496,7 @@ export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels, canEd
                           <span>{room.building}</span>
                           <span>•</span>
                           <Badge variant="default" size="sm">
-                            {SHARING_NAMES[room.capacity] || room.roomType.name}
+                            {room.roomType?.name || SHARING_NAMES[room.capacity]}
                           </Badge>
                         </div>
                       </div>
@@ -676,7 +676,7 @@ export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels, canEd
           isOpen={!!selectedRoom}
           onClose={() => setSelectedRoom(null)}
           title={`Edit Room — ${selectedRoom.roomNumber}`}
-          description={`Floor ${selectedRoom.floor} • ${selectedRoom.building} • ${SHARING_NAMES[selectedRoom.capacity] || selectedRoom.roomType.name}`}
+          description={`Floor ${selectedRoom.floor} • ${selectedRoom.building} • ${selectedRoom.roomType?.name || SHARING_NAMES[selectedRoom.capacity]}`}
         >
           <div className="space-y-4 py-2">
             <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2 text-xs">
@@ -686,7 +686,7 @@ export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels, canEd
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Room Type:</span>
-                <span className="font-bold text-white">{SHARING_NAMES[selectedRoom.capacity] || selectedRoom.roomType.name}</span>
+                <span className="font-bold text-white">{selectedRoom.roomType?.name || SHARING_NAMES[selectedRoom.capacity]}</span>
               </div>
             </div>
 

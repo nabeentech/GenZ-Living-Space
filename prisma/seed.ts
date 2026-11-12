@@ -153,23 +153,21 @@ async function main() {
 
   console.log("Amenities created.");
 
-  // 3. Create Room Types (Only 4 types with separate AC/Non-AC pricing)
-  const twinSharingPod = await prisma.roomType.create({
+  // 3. Create Room Types (Including Type 1 Ventilated and Type 2 Non-Ventilated for 2-share and 3-share)
+  const twinSharingType1 = await prisma.roomType.create({
     data: {
-      name: "Double Sharing",
-      slug: "double-sharing",
-      description: "Shared between only two residents. Features two single beds, dedicated work desks, high-speed Ethernet ports, and attached balcony.",
+      name: "Double Sharing (Type 1 - Ventilated)",
+      slug: "double-sharing-type-1",
+      description: "Shared between only two residents. Features two single beds, dedicated work desks, high-speed Ethernet ports, and attached balcony/window opening.",
       totalBeds: 2,
       genderCategory: "MIXED",
       securityDeposit: 4000,
       basePrice: 1099,
-      // Non-AC Pricing
       pricePerDayNonAC: 1099,
       price7DaysNonAC: 7090,
       price10DaysNonAC: 10190,
       price15DaysNonAC: 15285,
       price30DaysNonAC: 23999,
-      // AC Pricing
       pricePerDayAC: 1299,
       price7DaysAC: 8392,
       price10DaysAC: 11991,
@@ -182,22 +180,46 @@ async function main() {
     },
   });
 
-  const tripleSharingRoom = await prisma.roomType.create({
+  const twinSharingType2 = await prisma.roomType.create({
     data: {
-      name: "Triple Sharing",
-      slug: "triple-sharing",
-      description: "Perfect for groups of three. Features three comfortable beds with individual reading lamps, charging sockets, and shared lockers.",
+      name: "Double Sharing (Type 2 - Non-Ventilated)",
+      slug: "double-sharing-type-2",
+      description: "Shared between two residents. Quiet interior pod room without direct outdoor window, fully climate-controlled, cozy and pocket-friendly.",
+      totalBeds: 2,
+      genderCategory: "MIXED",
+      securityDeposit: 4000,
+      basePrice: 999,
+      pricePerDayNonAC: 999,
+      price7DaysNonAC: 6390,
+      price10DaysNonAC: 9190,
+      price15DaysNonAC: 13785,
+      price30DaysNonAC: 21999,
+      pricePerDayAC: 1199,
+      price7DaysAC: 7692,
+      price10DaysAC: 10991,
+      price15DaysAC: 16486,
+      price30DaysAC: 25999,
+      images: JSON.stringify([
+        "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=800&auto=format&fit=crop&q=80",
+      ]),
+      amenities: JSON.stringify(["Work Desks", "Cozy Pods", "Climate Control", "En-Suite Bath"]),
+    },
+  });
+
+  const tripleSharingType1 = await prisma.roomType.create({
+    data: {
+      name: "Triple Sharing (Type 1 - Ventilated)",
+      slug: "triple-sharing-type-1",
+      description: "Perfect for groups of three. Features three comfortable beds with individual reading lamps, charging sockets, and outdoor window for fresh ventilation.",
       totalBeds: 3,
       genderCategory: "MIXED",
       securityDeposit: 2500,
       basePrice: 499,
-      // Non-AC Pricing
       pricePerDayNonAC: 499,
       price7DaysNonAC: 3293,
       price10DaysNonAC: 4490,
       price15DaysNonAC: 6735,
       price30DaysNonAC: 11499,
-      // AC Pricing
       pricePerDayAC: 599,
       price7DaysAC: 3842,
       price10DaysAC: 5390,
@@ -207,6 +229,32 @@ async function main() {
         "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800&auto=format&fit=crop&q=80",
       ]),
       amenities: JSON.stringify(["Reading Lamp", "Charging Socket", "Locker", "Linen Included"]),
+    },
+  });
+
+  const tripleSharingType2 = await prisma.roomType.create({
+    data: {
+      name: "Triple Sharing (Type 2 - Non-Ventilated)",
+      slug: "triple-sharing-type-2",
+      description: "Comfortable triple-sharing room. Quiet interior setup with climate control, reading lamps, charging sockets, and personal lockers.",
+      totalBeds: 3,
+      genderCategory: "MIXED",
+      securityDeposit: 2500,
+      basePrice: 449,
+      pricePerDayNonAC: 449,
+      price7DaysNonAC: 2993,
+      price10DaysNonAC: 4090,
+      price15DaysNonAC: 6135,
+      price30DaysNonAC: 10499,
+      pricePerDayAC: 549,
+      price7DaysAC: 3492,
+      price10DaysAC: 4890,
+      price15DaysAC: 7385,
+      price30DaysAC: 12499,
+      images: JSON.stringify([
+        "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=800&auto=format&fit=crop&q=80",
+      ]),
+      amenities: JSON.stringify(["Reading Lamp", "Charging Socket", "Locker", "Climate Control"]),
     },
   });
 
@@ -326,10 +374,10 @@ async function main() {
     
     for (let floorNum = 1; floorNum <= 5; floorNum++) {
       const floorRooms = [
-        // Twin Sharing Pod Rooms (X01-X15) - 2 beds each
+        // Twin Sharing Pod Rooms (X01-X15) - 2 beds each (Type 1 Ventilated and Type 2 Non-Ventilated)
         ...Array.from({ length: 15 }, (_, i) => ({
           num: (floorNum * 100) + 1 + i,
-          type: twinSharingPod,
+          type: i % 2 === 0 ? twinSharingType1 : twinSharingType2,
           capacity: 2,
         })),
         // Four Sharing Pod Rooms (X16-X20) - 4 beds each
@@ -338,10 +386,10 @@ async function main() {
           type: fourSharingPod,
           capacity: 4,
         })),
-        // Triple Sharing Rooms (X21-X30) - 3 beds each
+        // Triple Sharing Rooms (X21-X30) - 3 beds each (Type 1 Ventilated and Type 2 Non-Ventilated)
         ...Array.from({ length: 10 }, (_, i) => ({
           num: (floorNum * 100) + 21 + i,
-          type: tripleSharingRoom,
+          type: i % 2 === 0 ? tripleSharingType1 : tripleSharingType2,
           capacity: 3,
         })),
         // Private Creator Studio Rooms (X31-X40) - 1 bed each

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { DollarSign, Save, AlertCircle, CheckCircle, Wind, Snowflake } from "lucide-react";
 import Button from "@/components/ui/Button";
-import { SHARING_NAMES, SHARING_DESCRIPTIONS } from "@/lib/room-types";
+import { SHARING_NAMES, SHARING_DESCRIPTIONS, getRoomVariantInfo } from "@/lib/room-types";
 
 interface PricingTierGridProps {
   roomTypeId: string;
@@ -120,7 +120,7 @@ export default function PricingManagementClient({ canEdit = true }: { canEdit?: 
       const roomType = roomTypes.find((rt) => rt.id === roomTypeId);
       if (!roomType) return;
 
-      const displayName = SHARING_NAMES[roomType.totalBeds] || roomType.name;
+      const displayName = roomType.name || SHARING_NAMES[roomType.totalBeds] || "Room Type";
 
       const pricingFields = [
         "pricePerDayNonAC", "price7DaysNonAC", "price10DaysNonAC", "price15DaysNonAC", "price30DaysNonAC",
@@ -195,8 +195,9 @@ export default function PricingManagementClient({ canEdit = true }: { canEdit?: 
 
       <div className="space-y-4">
         {roomTypes.map((roomType) => {
-          const displayName = SHARING_NAMES[roomType.totalBeds] || roomType.name;
-          const displayDesc = SHARING_DESCRIPTIONS[roomType.totalBeds] || roomType.description;
+          const displayName = roomType.name || SHARING_NAMES[roomType.totalBeds] || "Room Type";
+          const displayDesc = roomType.description || SHARING_DESCRIPTIONS[roomType.totalBeds] || "";
+          const variantInfo = getRoomVariantInfo(roomType);
 
           return (
             <div
@@ -211,7 +212,20 @@ export default function PricingManagementClient({ canEdit = true }: { canEdit?: 
                 className="p-6 cursor-pointer hover:bg-slate-800/30 transition flex items-center justify-between"
               >
                 <div>
-                  <h3 className="font-bold text-white text-xl">{displayName}</h3>
+                  <div className="flex items-center gap-2.5">
+                    <h3 className="font-bold text-white text-xl">{displayName}</h3>
+                    {(roomType.totalBeds === 2 || roomType.totalBeds === 3) && (
+                      <span
+                        className={`text-xs px-2.5 py-0.5 rounded-full font-semibold border ${
+                          variantInfo.isVentilated
+                            ? "bg-teal-500/10 text-teal-300 border-teal-500/30"
+                            : "bg-amber-500/10 text-amber-300 border-amber-500/30"
+                        }`}
+                      >
+                        {variantInfo.badgeText}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-slate-400 mt-2">{displayDesc}</p>
                   <p className="text-xs text-slate-500 mt-1">Capacity: {roomType.totalBeds} bed(s)</p>
                 </div>

@@ -77,8 +77,8 @@ export async function PATCH(
       message: "Room type pricing updated successfully",
       data: {
         ...updatedRoomType,
-        name: SHARING_NAMES[updatedRoomType.totalBeds] || updatedRoomType.name,
-        description: SHARING_DESCRIPTIONS[updatedRoomType.totalBeds] || updatedRoomType.description,
+        name: updatedRoomType.name || SHARING_NAMES[updatedRoomType.totalBeds] || "Room Type",
+        description: updatedRoomType.description || SHARING_DESCRIPTIONS[updatedRoomType.totalBeds] || "",
       },
     });
   } catch (error: any) {

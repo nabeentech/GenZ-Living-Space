@@ -6,7 +6,7 @@ import Badge from "@/components/ui/Badge";
 import CustomSelect from "@/components/ui/CustomSelect";
 import DatePicker from "@/components/ui/DatePicker";
 import { addUtcCalendarDays, calculateBookingPrice, getRoomTypePriceRates } from "@/lib/pricing";
-import { SHARING_NAMES } from "@/lib/room-types";
+import { SHARING_NAMES, getRoomVariantInfo } from "@/lib/room-types";
 import {
   UserPlus,
   Calendar,
@@ -430,10 +430,21 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
                   setSelectedFloor(firstRoom ? String(firstRoom.floor) : "");
                   selectRoom(firstRoom);
                 }}
-                options={roomTypes.map((type: any) => ({
-                  value: type.id,
-                  label: SHARING_NAMES[type.totalBeds] || type.name,
-                }))}
+                options={roomTypes
+                  .slice()
+                  .sort((a: any, b: any) => (a.totalBeds || 0) - (b.totalBeds || 0) || a.name.localeCompare(b.name))
+                  .map((type: any) => {
+                    const variant = getRoomVariantInfo(type);
+                    const isMulti = type.totalBeds === 2 || type.totalBeds === 3;
+                    let label = type.name || SHARING_NAMES[type.totalBeds] || "Room Type";
+                    if (isMulti && !label.includes("Type")) {
+                      label = `${SHARING_NAMES[type.totalBeds] || label} · ${variant.shortLabel} (${variant.isVentilated ? "Ventilated" : "Non-Ventilated"})`;
+                    }
+                    return {
+                      value: type.id,
+                      label,
+                    };
+                  })}
                 triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs"
               />
             </div>
@@ -456,7 +467,15 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
               <CustomSelect
                 value={activeRoom?.id || ""}
                 onValueChange={(value) => selectRoom(roomsForFloor.find((room: any) => room.id === value))}
-                options={roomsForFloor.map((room: any) => ({ value: room.id, label: `${room.roomNumber} · ${room.isAC ? "AC" : "Non-AC"}` }))}
+                options={roomsForFloor.map((room: any) => {
+                  const variant = getRoomVariantInfo(room);
+                  const isMulti = room.capacity === 2 || room.capacity === 3;
+                  const variantLabel = isMulti ? ` · ${variant.shortLabel}` : "";
+                  return {
+                    value: room.id,
+                    label: `${room.roomNumber}${variantLabel} · ${room.isAC ? "AC" : "Non-AC"}`,
+                  };
+                })}
                 triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs"
               />
             </div>
@@ -487,7 +506,7 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
           </div>
 
           <p className="text-xs text-slate-400">
-            {activeRoom ? `${SHARING_NAMES[activeRoom.capacity] || `${activeRoom.capacity}-Share`} · ${activeRoom.isAC ? "AC" : "Non-AC"} · ${availableBeds.filter((bed: any) => bed.status === "AVAILABLE").length} beds available` : "Select a room type, floor, and room number to choose a bed."}
+            {activeRoom ? `${activeRoom.roomType?.name || SHARING_NAMES[activeRoom.capacity] || `${activeRoom.capacity}-Share`} · ${activeRoom.isAC ? "AC" : "Non-AC"} · ${availableBeds.filter((bed: any) => bed.status === "AVAILABLE").length} beds available` : "Select a room type, floor, and room number to choose a bed."}
           </p>
         </div>
 
@@ -660,7 +679,7 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
             <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-300">Reservation review</h4>
             <div className="mt-3 grid grid-cols-1 gap-3 text-xs sm:grid-cols-2 xl:grid-cols-4">
               <div className="min-w-0"><span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Property & room</span><span className="mt-1 block truncate text-slate-200">{activeHostel?.name} · {activeRoom?.roomType?.name} · {activeRoom?.roomNumber}</span></div>
-              <div><span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Assignment</span><span className="mt-1 block text-slate-200">Floor {activeRoom?.floor} · {SHARING_NAMES[activeRoom?.capacity] || `${activeRoom?.capacity}-Share`} · Bed {availableBeds.find((bed: any) => bed.id === selectedBedId)?.bedNumber}</span></div>
+              <div><span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Assignment</span><span className="mt-1 block text-slate-200">Floor {activeRoom?.floor} · {activeRoom?.roomType?.name || SHARING_NAMES[activeRoom?.capacity] || `${activeRoom?.capacity}-Share`} · Bed {availableBeds.find((bed: any) => bed.id === selectedBedId)?.bedNumber}</span></div>
               <div><span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Stay</span><span className="mt-1 block text-slate-200">{stayType === "MONTHLY" ? "Monthly · no planned checkout" : `Daily · checkout ${effectiveCheckOut}`} · {guestsCount} guest{guestsCount === 1 ? "" : "s"} · from {checkIn}</span></div>
               <div className="min-w-0"><span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Primary guest</span><span className="mt-1 block truncate font-semibold text-white">{guestName} · {guestPhone}</span></div>
             </div>

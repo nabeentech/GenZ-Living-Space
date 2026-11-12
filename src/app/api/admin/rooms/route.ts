@@ -16,10 +16,11 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Fetch all rooms with their beds
+    // Fetch all rooms with their beds and roomType
     const rooms = await prisma.room.findMany({
       include: {
         beds: true,
+        roomType: true,
       },
       orderBy: [{ floor: "asc" }, { roomNumber: "asc" }],
     });

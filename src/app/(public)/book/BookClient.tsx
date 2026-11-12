@@ -31,6 +31,7 @@ import {
 import { addUtcCalendarDays, calculateBookingPrice, calculateStayBaseAmount, getRoomTypePriceRates } from "@/lib/pricing";
 import BookingAuthModal from "@/components/public/BookingAuthModal";
 import { isValidIndianMobile, normalizeIndianMobileForInput } from "@/lib/phone-validation";
+import { getRoomVariantInfo } from "@/lib/room-types";
 
 export const ID_OPTIONS = [
   { value: "AADHAAR", label: "Aadhaar Card" },
@@ -174,11 +175,18 @@ export function formatGovtId(raw: string, idType: string, isDeleting: boolean = 
 
 export const getSharingCategoryName = (room: any): string => {
   if (!room) return "Single Sharing";
-  if (room.capacity === 1 || /single|studio|private|1/i.test(room.roomType?.name || "")) return "Single Sharing";
-  if (room.capacity === 2 || /twin|double|2/i.test(room.roomType?.name || "")) return "Double Sharing";
-  if (room.capacity === 3 || /triple|3/i.test(room.roomType?.name || "")) return "Triple Sharing";
-  if (room.capacity === 4 || /quad|four|4/i.test(room.roomType?.name || "")) return "Four Sharing";
-  return room.roomType?.name || "Single Sharing";
+  const cap = room.capacity || room.roomType?.totalBeds;
+  if (cap === 1) return "Single Sharing";
+  if (cap === 2) return "Double Sharing";
+  if (cap === 3) return "Triple Sharing";
+  if (cap === 4) return "Four Sharing";
+
+  const name = room.roomType?.name || "";
+  if (/triple/i.test(name)) return "Triple Sharing";
+  if (/twin|double/i.test(name)) return "Double Sharing";
+  if (/quad|four/i.test(name)) return "Four Sharing";
+  if (/single|studio|private/i.test(name)) return "Single Sharing";
+  return name || "Single Sharing";
 };
 
 export const BookClient: React.FC = () => {
@@ -274,6 +282,7 @@ export const BookClient: React.FC = () => {
   // Room Filters & Search
   const [filterFloor, setFilterFloor] = useState<number | "all">("all");
   const [filterAC, setFilterAC] = useState<"ac" | "non-ac" | "all">("all");
+  const [filterVariant, setFilterVariant] = useState<"all" | "TYPE_1" | "TYPE_2">("all");
   const [selectedCategoryTab, setSelectedCategoryTab] = useState<string>("all");
   const [roomSearchQuery, setRoomSearchQuery] = useState<string>("");
 
@@ -474,12 +483,6 @@ export const BookClient: React.FC = () => {
     }
   };
 
-  // Rooms of the same category for Step 2 switching
-  const roomsOfSameCategory = useMemo(() => {
-    if (!selectedRoom) return [];
-    const cat = getSharingCategoryName(selectedRoom);
-    return roomsData.filter((r) => getSharingCategoryName(r) === cat);
-  }, [roomsData, selectedRoom]);
 
   // Distinct category list and counts ordered: Single Sharing, Double Sharing, Triple Sharing, Four Sharing
   const categoriesList = useMemo(() => {
@@ -543,6 +546,15 @@ export const BookClient: React.FC = () => {
     };
   }, [roomsData]);
 
+  // Counts by room variant (Type 1 Ventilated vs Type 2 Non-Ventilated)
+  const variantCounts = useMemo(() => {
+    return {
+      all: roomsData.length,
+      type1: roomsData.filter((r) => getRoomVariantInfo(r).variant === "TYPE_1").length,
+      type2: roomsData.filter((r) => getRoomVariantInfo(r).variant === "TYPE_2").length,
+    };
+  }, [roomsData]);
+
   // Filtered rooms list
   const filteredRoomsList = useMemo(() => {
     let list = roomsData;
@@ -559,6 +571,11 @@ export const BookClient: React.FC = () => {
         if (filterAC === "non-ac") return r.isAC === false;
         return true;
       });
+    }
+
+    // Filter by Room Variant (Ventilation)
+    if (filterVariant !== "all") {
+      list = list.filter((r) => getRoomVariantInfo(r).variant === filterVariant);
     }
 
     // Filter by Category tab ("Double share", "Triple share", "Single share")
@@ -580,7 +597,7 @@ export const BookClient: React.FC = () => {
     }
 
     return list;
-  }, [roomsData, filterFloor, filterAC, selectedCategoryTab, roomSearchQuery]);
+  }, [roomsData, filterFloor, filterAC, filterVariant, selectedCategoryTab, roomSearchQuery]);
 
   // Total available beds in current filtered list
   const filteredAvailableBedsCount = useMemo(() => {
@@ -615,12 +632,14 @@ export const BookClient: React.FC = () => {
   const hasActiveFilters =
     filterFloor !== "all" ||
     filterAC !== "all" ||
+    filterVariant !== "all" ||
     selectedCategoryTab !== "all" ||
     Boolean(roomSearchQuery.trim());
 
   const handleResetFilters = () => {
     setFilterFloor("all");
     setFilterAC("all");
+    setFilterVariant("all");
     setSelectedCategoryTab("all");
     setRoomSearchQuery("");
   };
@@ -920,133 +939,122 @@ export const BookClient: React.FC = () => {
 
                   {/* Rooms Available */}
                   <div className="space-y-4 pt-4 border-t border-slate-800">
-                    {/* Search & Category Pills */}
+                    {/* Clean Room Filters */}
                     <div className="space-y-3">
-                      {/* Search Bar */}
-                      <div className="flex items-center gap-2">
-                        <div className="relative flex-1">
-                          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                          <input
-                            type="text"
-                            placeholder="Search by room number, floor, or category (e.g. 101, Floor 2)..."
-                            value={roomSearchQuery}
-                            onChange={(e) => setRoomSearchQuery(e.target.value)}
-                            className="w-full pl-10 pr-12 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
-                          />
-                          {roomSearchQuery && (
-                            <button
-                              onClick={() => setRoomSearchQuery("")}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-white"
-                            >
-                              Clear
-                            </button>
-                          )}
-                        </div>
-                        {hasActiveFilters && (
+                      {/* Sharing Category Tabs */}
+                      <div className="flex items-center gap-2 overflow-x-auto pb-1 custom-scrollbar">
+                        <button
+                          type="button"
+                          onClick={() => handleSelectCategoryTab("all")}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold shrink-0 transition ${
+                            selectedCategoryTab === "all"
+                              ? "bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-400"
+                              : "bg-slate-900/90 text-slate-300 hover:bg-slate-800 border border-slate-800"
+                          }`}
+                        >
+                          All Rooms
+                        </button>
+                        {categoriesList.map((cat) => (
                           <button
-                            onClick={handleResetFilters}
-                            className="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition border border-slate-700 shrink-0"
+                            type="button"
+                            key={cat.name}
+                            onClick={() => handleSelectCategoryTab(cat.name)}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold shrink-0 transition ${
+                              selectedCategoryTab === cat.name
+                                ? "bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-400"
+                                : "bg-slate-900/90 text-slate-300 hover:bg-slate-800 border border-slate-800"
+                            }`}
                           >
-                            <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
-                            Reset
+                            {cat.name}
                           </button>
-                        )}
+                        ))}
                       </div>
 
-                      {/* Category Pills: Single share, Double share, Triple share, Four share */}
-                      {categoriesList.length > 0 && (
-                        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs custom-scrollbar">
-                          <button
-                            onClick={() => handleSelectCategoryTab("all")}
-                            className={`px-3 py-1.5 rounded-lg font-semibold shrink-0 transition ${selectedCategoryTab === "all"
-                                ? "bg-indigo-600 text-white shadow-sm"
-                                : "bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800"
-                              }`}
-                          >
-                            All Categories ({roomsData.length})
-                          </button>
-                          {categoriesList.map((cat) => (
-                            <button
-                              key={cat.name}
-                              onClick={() => handleSelectCategoryTab(cat.name)}
-                              className={`px-3 py-1.5 rounded-lg font-semibold shrink-0 transition ${selectedCategoryTab === cat.name
-                                  ? "bg-indigo-600 text-white shadow-sm"
-                                  : "bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800"
-                                }`}
-                            >
-                              {cat.name} ({cat.count})
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Filter Options (Floor & AC) */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {/* Floor Filter */}
-                        <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-                            Floor
-                          </label>
-                          <div className="flex gap-1.5 overflow-x-auto pb-0.5 custom-scrollbar">
-                            <button
-                              onClick={() => setFilterFloor("all")}
-                              className={`flex-1 min-w-[42px] py-1.5 px-2 rounded-lg text-xs font-semibold text-center transition ${filterFloor === "all"
-                                  ? "bg-indigo-600 text-white"
-                                  : "bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800"
-                                }`}
-                            >
-                              All
-                            </button>
-                            {floorCounts.floors.map(({ floor }) => (
+                      {/* Preference Bar: Climate & Ventilation neatly side-by-side */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900/50 border border-slate-800/80 rounded-xl px-4 py-2.5">
+                        <div className="flex flex-wrap items-center gap-4 text-xs">
+                          {/* Climate (AC) */}
+                          <div className="flex items-center gap-2">
+                            <span className="text-slate-400 font-semibold text-[11px] uppercase tracking-wider">Climate:</span>
+                            <div className="inline-flex rounded-lg bg-slate-950 p-0.5 border border-slate-800">
                               <button
-                                key={floor}
-                                onClick={() => setFilterFloor(floor)}
-                                className={`flex-1 min-w-[36px] py-1.5 px-2 rounded-lg text-xs font-semibold text-center transition ${filterFloor === floor
-                                    ? "bg-indigo-600 text-white"
-                                    : "bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800"
-                                  }`}
+                                type="button"
+                                onClick={() => setFilterAC("all")}
+                                className={`px-3 py-1 rounded-md text-xs font-bold transition ${
+                                  filterAC === "all" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-white"
+                                }`}
                               >
-                                {floor}
+                                All
                               </button>
-                            ))}
+                              <button
+                                type="button"
+                                onClick={() => setFilterAC("ac")}
+                                className={`px-3 py-1 rounded-md text-xs font-bold transition flex items-center gap-1 ${
+                                  filterAC === "ac" ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white"
+                                }`}
+                              >
+                                🌬️ AC
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setFilterAC("non-ac")}
+                                className={`px-3 py-1 rounded-md text-xs font-bold transition flex items-center gap-1 ${
+                                  filterAC === "non-ac" ? "bg-orange-600 text-white" : "text-slate-400 hover:text-white"
+                                }`}
+                              >
+                                ⚡ Non-AC
+                              </button>
+                            </div>
                           </div>
+
+                          {/* Ventilation (Only shown when 2-share or 3-share or all is selected) */}
+                          {(selectedCategoryTab === "all" || selectedCategoryTab === "Double Sharing" || selectedCategoryTab === "Triple Sharing") && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-slate-400 font-semibold text-[11px] uppercase tracking-wider">Room Style:</span>
+                              <div className="inline-flex rounded-lg bg-slate-950 p-0.5 border border-slate-800">
+                                <button
+                                  type="button"
+                                  onClick={() => setFilterVariant("all")}
+                                  className={`px-3 py-1 rounded-md text-xs font-bold transition ${
+                                    filterVariant === "all" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-white"
+                                  }`}
+                                >
+                                  All
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setFilterVariant("TYPE_1")}
+                                  className={`px-3 py-1 rounded-md text-xs font-bold transition flex items-center gap-1 ${
+                                    filterVariant === "TYPE_1" ? "bg-teal-600 text-white" : "text-slate-400 hover:text-white"
+                                  }`}
+                                >
+                                  🌤️ Ventilated
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setFilterVariant("TYPE_2")}
+                                  className={`px-3 py-1 rounded-md text-xs font-bold transition flex items-center gap-1 ${
+                                    filterVariant === "TYPE_2" ? "bg-amber-600 text-white" : "text-slate-400 hover:text-white"
+                                  }`}
+                                >
+                                  🛋️ Standard
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
 
-                        {/* AC Filter */}
-                        <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-                            AC Preference
-                          </label>
-                          <div className="flex gap-1.5">
-                            <button
-                              onClick={() => setFilterAC("all")}
-                              className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold transition ${filterAC === "all"
-                                  ? "bg-indigo-600 text-white"
-                                  : "bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800"
-                                }`}
-                            >
-                              All ({acCounts.all})
-                            </button>
-                            <button
-                              onClick={() => setFilterAC("ac")}
-                              className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold transition ${filterAC === "ac"
-                                  ? "bg-indigo-600 text-white"
-                                  : "bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800"
-                                }`}
-                            >
-                              🌬️ AC ({acCounts.ac})
-                            </button>
-                            <button
-                              onClick={() => setFilterAC("non-ac")}
-                              className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold transition ${filterAC === "non-ac"
-                                  ? "bg-indigo-600 text-white"
-                                  : "bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800"
-                                }`}
-                            >
-                              ⚡ Non-AC ({acCounts["non-ac"]})
-                            </button>
-                          </div>
-                        </div>
+                        {/* Reset button if any filter is active */}
+                        {hasActiveFilters && (
+                          <button
+                            type="button"
+                            onClick={handleResetFilters}
+                            className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 transition"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            Reset Filters
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -1123,6 +1131,17 @@ export const BookClient: React.FC = () => {
                                               <Badge variant={r.isAC ? "cyan" : "coral"} size="sm">
                                                 {r.isAC ? "🌬️ AC" : "⚡ Non-AC"}
                                               </Badge>
+                                              {(r.capacity === 2 || r.capacity === 3) && (
+                                                <span
+                                                  className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
+                                                    getRoomVariantInfo(r).isVentilated
+                                                      ? "bg-teal-500/10 text-teal-300 border-teal-500/30"
+                                                      : "bg-amber-500/10 text-amber-300 border-amber-500/30"
+                                                  }`}
+                                                >
+                                                  {getRoomVariantInfo(r).badgeText}
+                                                </span>
+                                              )}
                                               {isSelected && (
                                                 <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-300 bg-indigo-500/20 border border-indigo-500/40 px-2 py-0.5 rounded-full">
                                                   <CheckCircle2 className="w-3 h-3 text-indigo-400" />
@@ -1198,6 +1217,17 @@ export const BookClient: React.FC = () => {
                         <Badge variant="indigo" size="sm">
                           {getSharingCategoryName(selectedRoom)}
                         </Badge>
+                        {(selectedRoom?.capacity === 2 || selectedRoom?.capacity === 3) && (
+                          <span
+                            className={`text-xs px-2.5 py-0.5 rounded-full font-bold border ${
+                              getRoomVariantInfo(selectedRoom).isVentilated
+                                ? "bg-teal-500/10 text-teal-300 border-teal-500/30"
+                                : "bg-amber-500/10 text-amber-300 border-amber-500/30"
+                            }`}
+                          >
+                            {getRoomVariantInfo(selectedRoom).badgeText}
+                          </span>
+                        )}
                         <Badge variant={selectedRoom?.isAC ? "cyan" : "coral"} size="sm">
                           {selectedRoom?.isAC ? "🌬️ AC" : "⚡ Non-AC"}
                         </Badge>
@@ -1211,42 +1241,9 @@ export const BookClient: React.FC = () => {
                       onClick={() => setStep(1)}
                       className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 self-start sm:self-center"
                     >
-                      <ArrowLeft className="w-3.5 h-3.5" /> Change Room Type
+                      <ArrowLeft className="w-3.5 h-3.5" /> Change Room
                     </button>
                   </div>
-
-                  {/* Rooms of the SAME type switcher */}
-                  {roomsOfSameCategory.length > 1 && (
-                    <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-slate-200">
-                          Available Rooms ({getSharingCategoryName(selectedRoom)}):
-                        </span>
-                        <span className="text-[11px] text-slate-400">
-                          {roomsOfSameCategory.filter((r) => r.hasAvailability).length} of {roomsOfSameCategory.length} rooms open
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 overflow-x-auto pb-1 custom-scrollbar">
-                        {roomsOfSameCategory.map((rm) => (
-                          <button
-                            key={rm.id}
-                            type="button"
-                            onClick={() => setSelectedRoomId(rm.id)}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 ${
-                              rm.id === selectedRoomId
-                                ? "bg-indigo-600 text-white shadow-glow ring-2 ring-indigo-400"
-                                : rm.hasAvailability
-                                ? "bg-slate-800/90 text-slate-300 hover:bg-slate-700 border border-slate-700"
-                                : "bg-slate-950/40 text-slate-600 border border-slate-800/60 cursor-not-allowed opacity-50"
-                            }`}
-                            disabled={!rm.hasAvailability}
-                          >
-                            Room {rm.roomNumber} (Floor {rm.floor}) • {rm.totalAvailableBeds} beds
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
 
                   {/* Bed Grid */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">
