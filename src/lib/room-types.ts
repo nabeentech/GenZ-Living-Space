@@ -18,8 +18,8 @@ export const SHARING_SLUGS: Record<number, string> = {
 
 export const SHARING_DESCRIPTIONS: Record<number, string> = {
   1: "Ultra-luxe private sanctuary for solo builders or founders. Includes king-size bed, private work nook, smart TV, and designer bath.",
-  2: "Shared between two residents. Available in Type 1 (Ventilated with Window/Balcony) and Type 2 (Non-Ventilated Cozy Pods).",
-  3: "Shared between three residents. Available in Type 1 (Ventilated with Window) and Type 2 (Non-Ventilated Interior).",
+  2: "Shared between two residents. Available in Ventilated (with Window/Balcony) and Standard (Cozy Pods).",
+  3: "Shared between three residents. Available in Ventilated (with Window) and Standard (Interior).",
   4: "Shared room with 4 beds.",
 };
 
@@ -37,7 +37,7 @@ export interface RoomVariantDetails {
   isVentilated: boolean;
 }
 
-/** Determine whether a room or room type is Type 1 (Ventilated) or Type 2 (Non-Ventilated) */
+/** Determine whether a room or room type is Ventilated or Standard */
 export function getRoomVariantInfo(roomOrType?: {
   roomType?: { name?: string; slug?: string } | null;
   name?: string;
@@ -47,21 +47,21 @@ export function getRoomVariantInfo(roomOrType?: {
   const name = rt?.name || "";
   const slug = rt?.slug || "";
 
-  const isType2 = /type-?2|non-?ventilated/i.test(slug) || /type\s*2|non-?ventilated/i.test(name);
-  if (isType2) {
+  const isStandard = /standard|type-?2|non-?ventilated/i.test(slug) || /standard|type\s*2|non-?ventilated/i.test(name);
+  if (isStandard) {
     return {
       variant: "TYPE_2",
-      name: "Type 2 · Non-Ventilated",
-      shortLabel: "Type 2",
-      badgeText: "🛋️ Non-Ventilated",
+      name: "Standard",
+      shortLabel: "Standard",
+      badgeText: "🛋️ Standard",
       isVentilated: false,
     };
   }
 
   return {
     variant: "TYPE_1",
-    name: "Type 1 · Ventilated",
-    shortLabel: "Type 1",
+    name: "Ventilated",
+    shortLabel: "Ventilated",
     badgeText: "🌤️ Ventilated",
     isVentilated: true,
   };
@@ -105,7 +105,7 @@ export async function getRoomTypeForCapacity(db: Db, capacity: number, variant: 
   // Otherwise fallback to create default
   const daily = Math.max(299, Math.round(1499 / capacity));
   const acDaily = Math.round(daily * 1.2);
-  const variantInfo = variant === "TYPE_2" ? "Type 2 - Non-Ventilated" : "Type 1 - Ventilated";
+  const variantInfo = variant === "TYPE_2" ? "Standard" : "Ventilated";
 
   return db.roomType.create({
     data: {

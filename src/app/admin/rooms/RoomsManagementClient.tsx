@@ -158,7 +158,7 @@ export const RoomsManagementClient: React.FC<RoomsManagementClientProps> = ({ ca
     [rooms]
   );
 
-  // Switch Room Variant (Type 1 Ventilated vs Type 2 Non-Ventilated)
+  // Switch Room Variant (Ventilated vs Standard)
   const setRoomVariant = useCallback(
     async (roomId: string, targetVariant: RoomVariant) => {
       try {
@@ -190,7 +190,7 @@ export const RoomsManagementClient: React.FC<RoomsManagementClientProps> = ({ ca
           )
         );
 
-        const targetLabel = targetVariant === "TYPE_1" ? "Type 1 (Ventilated)" : "Type 2 (Non-Ventilated)";
+        const targetLabel = targetVariant === "TYPE_1" ? "Ventilated" : "Standard";
         setToast({
           message: `Room ${rooms.find((r) => r.id === roomId)?.roomNumber} set to ${targetLabel}`,
           type: "success",
@@ -250,7 +250,7 @@ export const RoomsManagementClient: React.FC<RoomsManagementClientProps> = ({ ca
       <div>
         <h1 className="text-3xl font-bold text-white mb-2">Room Management</h1>
         <p className="text-slate-400">
-          Configure room sharing, Type 1 (Ventilated) vs Type 2 (Non-Ventilated), and AC/Non-AC status. Changes save instantly.
+          Configure room sharing, Ventilated vs Standard, and AC/Non-AC status. Changes save instantly.
         </p>
       </div>
 
@@ -322,7 +322,7 @@ export const RoomsManagementClient: React.FC<RoomsManagementClientProps> = ({ ca
                   filterVariant === "TYPE_1" ? "bg-teal-600 text-white font-bold" : "text-teal-400 hover:text-teal-300"
                 }`}
               >
-                <Sun className="w-3 h-3" /> Type 1 (Ventilated)
+                <Sun className="w-3 h-3" /> Ventilated
               </button>
               <button
                 onClick={() => setFilterVariant("TYPE_2")}
@@ -330,7 +330,7 @@ export const RoomsManagementClient: React.FC<RoomsManagementClientProps> = ({ ca
                   filterVariant === "TYPE_2" ? "bg-amber-600 text-white font-bold" : "text-amber-400 hover:text-amber-300"
                 }`}
               >
-                <Home className="w-3 h-3" /> Type 2 (Non-Ventilated)
+                <Home className="w-3 h-3" /> Standard
               </button>
             </div>
           </div>
@@ -449,7 +449,7 @@ export const RoomsManagementClient: React.FC<RoomsManagementClientProps> = ({ ca
                           </div>
                         </div>
 
-                        {/* Room Type Selector (Type 1 vs Type 2) */}
+                        {/* Room Type Selector (Ventilated vs Standard) */}
                         {isMultiShare && (
                           <div className="bg-slate-900/80 rounded-lg p-2.5 mb-3 border border-slate-800">
                             <div className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mb-2 flex items-center justify-between">
@@ -469,7 +469,7 @@ export const RoomsManagementClient: React.FC<RoomsManagementClientProps> = ({ ca
                                 } disabled:opacity-50`}
                               >
                                 <Sun className="w-3.5 h-3.5 text-teal-400" />
-                                <span>Type 1 · Ventilated</span>
+                                <span>Ventilated</span>
                               </button>
                               <button
                                 disabled={!canEdit || isUpdating}
@@ -481,7 +481,7 @@ export const RoomsManagementClient: React.FC<RoomsManagementClientProps> = ({ ca
                                 } disabled:opacity-50`}
                               >
                                 <Home className="w-3.5 h-3.5 text-amber-400" />
-                                <span>Type 2 · Non-Vent.</span>
+                                <span>Standard</span>
                               </button>
                             </div>
                           </div>
@@ -548,7 +548,7 @@ export const RoomsManagementClient: React.FC<RoomsManagementClientProps> = ({ ca
           <div className="flex items-center gap-3">
             <Sun className="w-6 h-6 text-teal-400" />
             <div>
-              <p className="text-xs text-teal-300 font-semibold">Type 1 (Ventilated)</p>
+              <p className="text-xs text-teal-300 font-semibold">Ventilated Rooms</p>
               <p className="text-2xl font-black text-white">
                 {rooms.filter((r) => getRoomVariantInfo(r).variant === "TYPE_1").length}
               </p>
@@ -560,7 +560,7 @@ export const RoomsManagementClient: React.FC<RoomsManagementClientProps> = ({ ca
           <div className="flex items-center gap-3">
             <Home className="w-6 h-6 text-amber-400" />
             <div>
-              <p className="text-xs text-amber-300 font-semibold">Type 2 (Non-Ventilated)</p>
+              <p className="text-xs text-amber-300 font-semibold">Standard Rooms</p>
               <p className="text-2xl font-black text-white">
                 {rooms.filter((r) => getRoomVariantInfo(r).variant === "TYPE_2").length}
               </p>

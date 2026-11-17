@@ -437,8 +437,8 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
                     const variant = getRoomVariantInfo(type);
                     const isMulti = type.totalBeds === 2 || type.totalBeds === 3;
                     let label = type.name || SHARING_NAMES[type.totalBeds] || "Room Type";
-                    if (isMulti && !label.includes("Type")) {
-                      label = `${SHARING_NAMES[type.totalBeds] || label} · ${variant.shortLabel} (${variant.isVentilated ? "Ventilated" : "Non-Ventilated"})`;
+                    if (isMulti && !label.includes("Ventilated") && !label.includes("Standard")) {
+                      label = `${SHARING_NAMES[type.totalBeds] || label} (${variant.shortLabel})`;
                     }
                     return {
                       value: type.id,

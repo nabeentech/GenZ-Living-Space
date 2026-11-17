@@ -153,10 +153,10 @@ async function main() {
 
   console.log("Amenities created.");
 
-  // 3. Create Room Types (Including Type 1 Ventilated and Type 2 Non-Ventilated for 2-share and 3-share)
+  // 3. Create Room Types (Including Ventilated and Standard for 2-share and 3-share)
   const twinSharingType1 = await prisma.roomType.create({
     data: {
-      name: "Double Sharing (Type 1 - Ventilated)",
+      name: "Double Sharing (Ventilated)",
       slug: "double-sharing-type-1",
       description: "Shared between only two residents. Features two single beds, dedicated work desks, high-speed Ethernet ports, and attached balcony/window opening.",
       totalBeds: 2,
@@ -182,7 +182,7 @@ async function main() {
 
   const twinSharingType2 = await prisma.roomType.create({
     data: {
-      name: "Double Sharing (Type 2 - Non-Ventilated)",
+      name: "Double Sharing (Standard)",
       slug: "double-sharing-type-2",
       description: "Shared between two residents. Quiet interior pod room without direct outdoor window, fully climate-controlled, cozy and pocket-friendly.",
       totalBeds: 2,
@@ -208,7 +208,7 @@ async function main() {
 
   const tripleSharingType1 = await prisma.roomType.create({
     data: {
-      name: "Triple Sharing (Type 1 - Ventilated)",
+      name: "Triple Sharing (Ventilated)",
       slug: "triple-sharing-type-1",
       description: "Perfect for groups of three. Features three comfortable beds with individual reading lamps, charging sockets, and outdoor window for fresh ventilation.",
       totalBeds: 3,
@@ -234,7 +234,7 @@ async function main() {
 
   const tripleSharingType2 = await prisma.roomType.create({
     data: {
-      name: "Triple Sharing (Type 2 - Non-Ventilated)",
+      name: "Triple Sharing (Standard)",
       slug: "triple-sharing-type-2",
       description: "Comfortable triple-sharing room. Quiet interior setup with climate control, reading lamps, charging sockets, and personal lockers.",
       totalBeds: 3,
@@ -374,7 +374,7 @@ async function main() {
     
     for (let floorNum = 1; floorNum <= 5; floorNum++) {
       const floorRooms = [
-        // Twin Sharing Pod Rooms (X01-X15) - 2 beds each (Type 1 Ventilated and Type 2 Non-Ventilated)
+        // Twin Sharing Pod Rooms (X01-X15) - 2 beds each (Ventilated and Standard)
         ...Array.from({ length: 15 }, (_, i) => ({
           num: (floorNum * 100) + 1 + i,
           type: i % 2 === 0 ? twinSharingType1 : twinSharingType2,
@@ -386,7 +386,7 @@ async function main() {
           type: fourSharingPod,
           capacity: 4,
         })),
-        // Triple Sharing Rooms (X21-X30) - 3 beds each (Type 1 Ventilated and Type 2 Non-Ventilated)
+        // Triple Sharing Rooms (X21-X30) - 3 beds each (Ventilated and Standard)
         ...Array.from({ length: 10 }, (_, i) => ({
           num: (floorNum * 100) + 21 + i,
           type: i % 2 === 0 ? tripleSharingType1 : tripleSharingType2,
