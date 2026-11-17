@@ -17,17 +17,20 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
 
   // Filter and sort customers
   const filteredCustomers = useMemo(() => {
-    let result = customers.filter((customer) =>
-      customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.phone.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const term = searchTerm.trim().toLowerCase();
+    let result = customers.filter((customer) => {
+      if (!term) return true;
+      const name = (customer.name || "").toLowerCase();
+      const email = (customer.email || "").toLowerCase();
+      const phone = (customer.phone || "").toLowerCase();
+      return name.includes(term) || email.includes(term) || phone.includes(term);
+    });
 
     // Sort customers
     if (sortBy === "name") {
-      result.sort((a, b) => a.name.localeCompare(b.name));
+      result.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     } else if (sortBy === "bookings") {
-      result.sort((a, b) => b.bookings.length - a.bookings.length);
+      result.sort((a, b) => (b.bookings?.length || 0) - (a.bookings?.length || 0));
     } else {
       result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }
@@ -112,7 +115,7 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
               </div>
               <div className="text-right">
                 <div className="text-2xl font-black text-indigo-400">
-                  {customer.bookings.length}
+                  {customer.bookings?.length || 0}
                 </div>
                 <div className="text-[10px] text-slate-400 uppercase font-bold">Bookings</div>
               </div>
@@ -122,7 +125,7 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
             <div className="space-y-1.5 text-xs">
               <div className="flex items-center gap-2 text-slate-400 group-hover:text-slate-300 transition">
                 <Mail className="w-3 h-3 shrink-0" />
-                <span className="truncate">{customer.email}</span>
+                <span className="truncate">{customer.email || "No email"}</span>
               </div>
               {customer.phone && (
                 <div className="flex items-center gap-2 text-slate-400 group-hover:text-slate-300 transition">
@@ -136,15 +139,15 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
             <div className="pt-2 border-t border-slate-800 grid grid-cols-3 gap-2">
               <div className="text-center">
                 <div className="text-sm font-bold text-white">
-                  {new Date(customer.createdAt).toLocaleDateString("en-IN", {
+                  {customer.createdAt ? new Date(customer.createdAt).toLocaleDateString("en-IN", {
                     day: "2-digit",
                     month: "short",
                     year: "2-digit",
-                  })}
+                  }) : "—"}
                 </div>
                 <div className="text-[9px] text-slate-500 uppercase font-bold">Joined</div>
               </div>
-              {customer.bookings[0] && (
+              {customer.bookings?.[0] && (
                 <div className="text-center">
                   <div className="text-sm font-bold text-indigo-300">
                     {new Date(customer.bookings[0].checkInDate).toLocaleDateString("en-IN", {
@@ -157,7 +160,7 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
               )}
               <div className="text-center">
                 <div className="text-sm font-bold text-emerald-300">
-                  {customer.bookings.filter((b: any) => b.bookingStatus === "CHECKED_OUT").length}
+                  {customer.bookings?.filter((b: any) => b.bookingStatus === "CHECKED_OUT").length || 0}
                 </div>
                 <div className="text-[9px] text-slate-500 uppercase font-bold">Completed</div>
               </div>
@@ -242,27 +245,27 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
             {/* Booking Statistics */}
             <div className="grid grid-cols-3 gap-3">
               <div className="p-3 rounded-xl bg-indigo-950 border border-indigo-500/30 text-center">
-                <div className="text-xl font-bold text-indigo-300">{selectedCustomer.bookings.length}</div>
+                <div className="text-xl font-bold text-indigo-300">{selectedCustomer.bookings?.length || 0}</div>
                 <div className="text-xs text-slate-400 mt-1">Total Bookings</div>
               </div>
               <div className="p-3 rounded-xl bg-emerald-950 border border-emerald-500/30 text-center">
                 <div className="text-xl font-bold text-emerald-300">
-                  {selectedCustomer.bookings.filter((b: any) => b.bookingStatus === "CHECKED_OUT").length}
+                  {selectedCustomer.bookings?.filter((b: any) => b.bookingStatus === "CHECKED_OUT").length || 0}
                 </div>
                 <div className="text-xs text-slate-400 mt-1">Completed</div>
               </div>
               <div className="p-3 rounded-xl bg-blue-950 border border-blue-500/30 text-center">
                 <div className="text-xl font-bold text-blue-300">
-                  {selectedCustomer.bookings.filter((b: any) => 
+                  {selectedCustomer.bookings?.filter((b: any) => 
                     b.bookingStatus === "CHECKED_IN" || b.bookingStatus === "CONFIRMED"
-                  ).length}
+                  ).length || 0}
                 </div>
                 <div className="text-xs text-slate-400 mt-1">Active</div>
               </div>
             </div>
 
             {/* Recent Bookings */}
-            {selectedCustomer.bookings.length > 0 && (
+            {(selectedCustomer.bookings?.length || 0) > 0 && (
               <div className="space-y-2">
                 <h4 className="text-sm font-bold text-indigo-300 uppercase tracking-wider">Recent Bookings</h4>
                 <div className="space-y-2 max-h-96 overflow-y-auto">
