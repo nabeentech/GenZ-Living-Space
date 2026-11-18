@@ -1028,7 +1028,11 @@ export const BookClient: React.FC = () => {
                                     filterVariant === "TYPE_1" ? "bg-teal-600 text-white" : "text-slate-400 hover:text-white"
                                   }`}
                                 >
-                                  🌤️ Ventilated
+                                  {selectedCategoryTab === "Triple Sharing"
+                                    ? "✨ Spacious"
+                                    : selectedCategoryTab === "Double Sharing"
+                                    ? "🌤️ Ventilated"
+                                    : "🌤️ Ventilated / ✨ Spacious"}
                                 </button>
                                 <button
                                   type="button"

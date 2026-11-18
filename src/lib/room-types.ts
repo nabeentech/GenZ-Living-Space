@@ -19,7 +19,7 @@ export const SHARING_SLUGS: Record<number, string> = {
 export const SHARING_DESCRIPTIONS: Record<number, string> = {
   1: "Ultra-luxe private sanctuary for solo builders or founders. Includes king-size bed, private work nook, smart TV, and designer bath.",
   2: "Shared between two residents. Available in Ventilated (with Window/Balcony) and Standard (Cozy Pods).",
-  3: "Shared between three residents. Available in Ventilated (with Window) and Standard (Interior).",
+  3: "Shared between three residents. Available in Spacious (Extra Room & Comfort) and Standard (Cozy Pods).",
   4: "Shared room with 4 beds.",
 };
 
@@ -35,17 +35,26 @@ export interface RoomVariantDetails {
   shortLabel: string;
   badgeText: string;
   isVentilated: boolean;
+  isSpacious?: boolean;
 }
 
-/** Determine whether a room or room type is Ventilated or Standard */
+/** Determine whether a room or room type is Ventilated / Spacious or Standard */
 export function getRoomVariantInfo(roomOrType?: {
-  roomType?: { name?: string; slug?: string } | null;
+  capacity?: number;
+  totalBeds?: number;
+  roomType?: { name?: string; slug?: string; totalBeds?: number } | null;
   name?: string;
   slug?: string;
 } | null): RoomVariantDetails {
   const rt = roomOrType && "roomType" in roomOrType && roomOrType.roomType ? roomOrType.roomType : roomOrType;
   const name = rt?.name || "";
   const slug = rt?.slug || "";
+
+  const capacity =
+    (roomOrType && "capacity" in roomOrType && typeof roomOrType.capacity === "number" ? roomOrType.capacity : undefined) ??
+    (roomOrType && "totalBeds" in roomOrType && typeof roomOrType.totalBeds === "number" ? roomOrType.totalBeds : undefined) ??
+    (roomOrType && "roomType" in roomOrType && roomOrType.roomType && typeof roomOrType.roomType.totalBeds === "number" ? roomOrType.roomType.totalBeds : undefined) ??
+    (/triple|3-?share|3-?bed/i.test(slug) || /triple|3-?share|3-?bed/i.test(name) ? 3 : 2);
 
   const isStandard = /standard|type-?2|non-?ventilated/i.test(slug) || /standard|type\s*2|non-?ventilated/i.test(name);
   if (isStandard) {
@@ -55,15 +64,30 @@ export function getRoomVariantInfo(roomOrType?: {
       shortLabel: "Standard",
       badgeText: "🛋️ Standard",
       isVentilated: false,
+      isSpacious: false,
     };
   }
 
+  // 3-share TYPE_1 is "Spacious"
+  if (capacity === 3 || /triple|3-?share|3-?bed/i.test(slug) || /triple|3-?share|3-?bed/i.test(name)) {
+    return {
+      variant: "TYPE_1",
+      name: "Spacious",
+      shortLabel: "Spacious",
+      badgeText: "✨ Spacious",
+      isVentilated: true,
+      isSpacious: true,
+    };
+  }
+
+  // 2-share (and default) TYPE_1 is "Ventilated"
   return {
     variant: "TYPE_1",
     name: "Ventilated",
     shortLabel: "Ventilated",
     badgeText: "🌤️ Ventilated",
     isVentilated: true,
+    isSpacious: false,
   };
 }
 
@@ -105,7 +129,12 @@ export async function getRoomTypeForCapacity(db: Db, capacity: number, variant: 
   // Otherwise fallback to create default
   const daily = Math.max(299, Math.round(1499 / capacity));
   const acDaily = Math.round(daily * 1.2);
-  const variantInfo = variant === "TYPE_2" ? "Standard" : "Ventilated";
+  const variantInfo =
+    variant === "TYPE_2"
+      ? "Standard"
+      : capacity === 3
+      ? "Spacious"
+      : "Ventilated";
 
   return db.roomType.create({
     data: {

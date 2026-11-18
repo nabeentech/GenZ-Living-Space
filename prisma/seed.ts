@@ -208,9 +208,9 @@ async function main() {
 
   const tripleSharingType1 = await prisma.roomType.create({
     data: {
-      name: "Triple Sharing (Ventilated)",
+      name: "Triple Sharing (Spacious)",
       slug: "triple-sharing-type-1",
-      description: "Perfect for groups of three. Features three comfortable beds with individual reading lamps, charging sockets, and outdoor window for fresh ventilation.",
+      description: "Perfect for groups of three. Features three comfortable beds with extra living space, personal lockers, individual reading lamps, and charging sockets.",
       totalBeds: 3,
       genderCategory: "MIXED",
       securityDeposit: 2500,
@@ -228,7 +228,7 @@ async function main() {
       images: JSON.stringify([
         "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800&auto=format&fit=crop&q=80",
       ]),
-      amenities: JSON.stringify(["Reading Lamp", "Charging Socket", "Locker", "Linen Included"]),
+      amenities: JSON.stringify(["Reading Lamp", "Charging Socket", "Locker", "Linen Included", "Extra Space"]),
     },
   });
 

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Wind, Zap, AlertCircle, Search, Loader2, CheckCircle2, X, Sun, Home } from "lucide-react";
+import { Wind, Zap, AlertCircle, Search, Loader2, CheckCircle2, X, Sun, Home, Sparkles } from "lucide-react";
 import Badge from "@/components/ui/Badge";
 import { SHARING_NAMES, getRoomVariantInfo, RoomVariant } from "@/lib/room-types";
 
@@ -190,9 +190,14 @@ export const RoomsManagementClient: React.FC<RoomsManagementClientProps> = ({ ca
           )
         );
 
-        const targetLabel = targetVariant === "TYPE_1" ? "Ventilated" : "Standard";
+        const targetRoom = rooms.find((r) => r.id === roomId);
+        const isThreeShare = targetRoom?.capacity === 3;
+        const targetLabel =
+          targetVariant === "TYPE_1"
+            ? (isThreeShare ? "Spacious" : "Ventilated")
+            : "Standard";
         setToast({
-          message: `Room ${rooms.find((r) => r.id === roomId)?.roomNumber} set to ${targetLabel}`,
+          message: `Room ${targetRoom?.roomNumber} set to ${targetLabel}`,
           type: "success",
         });
       } catch (err: any) {
@@ -322,7 +327,7 @@ export const RoomsManagementClient: React.FC<RoomsManagementClientProps> = ({ ca
                   filterVariant === "TYPE_1" ? "bg-teal-600 text-white font-bold" : "text-teal-400 hover:text-teal-300"
                 }`}
               >
-                <Sun className="w-3 h-3" /> Ventilated
+                <Sun className="w-3 h-3" /> Ventilated / Spacious
               </button>
               <button
                 onClick={() => setFilterVariant("TYPE_2")}
@@ -468,8 +473,12 @@ export const RoomsManagementClient: React.FC<RoomsManagementClientProps> = ({ ca
                                     : "bg-slate-950/70 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700"
                                 } disabled:opacity-50`}
                               >
-                                <Sun className="w-3.5 h-3.5 text-teal-400" />
-                                <span>Ventilated</span>
+                                {room.capacity === 3 ? (
+                                  <Sparkles className="w-3.5 h-3.5 text-teal-400" />
+                                ) : (
+                                  <Sun className="w-3.5 h-3.5 text-teal-400" />
+                                )}
+                                <span>{room.capacity === 3 ? "Spacious" : "Ventilated"}</span>
                               </button>
                               <button
                                 disabled={!canEdit || isUpdating}
@@ -548,7 +557,7 @@ export const RoomsManagementClient: React.FC<RoomsManagementClientProps> = ({ ca
           <div className="flex items-center gap-3">
             <Sun className="w-6 h-6 text-teal-400" />
             <div>
-              <p className="text-xs text-teal-300 font-semibold">Ventilated Rooms</p>
+              <p className="text-xs text-teal-300 font-semibold">Ventilated / Spacious Rooms</p>
               <p className="text-2xl font-black text-white">
                 {rooms.filter((r) => getRoomVariantInfo(r).variant === "TYPE_1").length}
               </p>
