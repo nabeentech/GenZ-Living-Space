@@ -270,6 +270,55 @@ async function main() {
     console.log("✓ Four Sharing updated/verified.");
   }
 
+  // 7. Distribute rooms if Standard rooms have 0 inventory
+  const finalDoubleType2 = await prisma.roomType.findFirst({ where: { slug: "double-sharing-type-2" } });
+  if (finalDoubleType2) {
+    const double2Count = await prisma.room.count({ where: { roomTypeId: finalDoubleType2.id } });
+    if (double2Count === 0) {
+      const doubleRooms = await prisma.room.findMany({
+        where: { capacity: 2 },
+        orderBy: { roomNumber: "asc" },
+      });
+      let assigned = 0;
+      for (let i = 0; i < doubleRooms.length; i++) {
+        if (i % 2 === 1) {
+          await prisma.room.update({
+            where: { id: doubleRooms[i].id },
+            data: { roomTypeId: finalDoubleType2.id },
+          });
+          assigned++;
+        }
+      }
+      console.log(`✓ Assigned ${assigned} rooms to Double Sharing (Standard).`);
+    } else {
+      console.log(`✓ 2-share rooms verified (${double2Count} Standard rooms exist).`);
+    }
+  }
+
+  const finalTripleType2 = await prisma.roomType.findFirst({ where: { slug: "triple-sharing-type-2" } });
+  if (finalTripleType2) {
+    const triple2Count = await prisma.room.count({ where: { roomTypeId: finalTripleType2.id } });
+    if (triple2Count === 0) {
+      const tripleRooms = await prisma.room.findMany({
+        where: { capacity: 3 },
+        orderBy: { roomNumber: "asc" },
+      });
+      let assigned = 0;
+      for (let i = 0; i < tripleRooms.length; i++) {
+        if (i % 2 === 1) {
+          await prisma.room.update({
+            where: { id: tripleRooms[i].id },
+            data: { roomTypeId: finalTripleType2.id },
+          });
+          assigned++;
+        }
+      }
+      console.log(`✓ Assigned ${assigned} rooms to Triple Sharing (Standard).`);
+    } else {
+      console.log(`✓ 3-share rooms verified (${triple2Count} Standard rooms exist).`);
+    }
+  }
+
   console.log("\n--- Final Room Types in DB ---");
   const all = await prisma.roomType.findMany({
     where: { active: true },
