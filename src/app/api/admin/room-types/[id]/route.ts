@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
+import { canUserEdit } from "@/lib/permissions";
 import { SHARING_NAMES, SHARING_DESCRIPTIONS } from "@/lib/room-types";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,13 @@ export async function PATCH(
     if (!user || !["SUPER_ADMIN", "PROPERTY_MANAGER", "FINANCE"].includes(user.role)) {
       return NextResponse.json(
         { success: false, message: "Unauthorized" },
+        { status: 403 }
+      );
+    }
+
+    if (!canUserEdit(user)) {
+      return NextResponse.json(
+        { success: false, message: "You have view-only access and cannot modify room pricing." },
         { status: 403 }
       );
     }

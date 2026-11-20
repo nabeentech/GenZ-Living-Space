@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSessionUser, hasPermission, ROLES } from "@/lib/auth";
+import { canUserEdit } from "@/lib/permissions";
 import { logAuditAction } from "@/lib/audit";
 import { isLongStay } from "@/lib/booking-policy";
 
@@ -18,6 +19,9 @@ export async function POST(
     }
     if (user.role !== ROLES.CUSTOMER && !hasPermission(user.role, [ROLES.SUPER_ADMIN, ROLES.PROPERTY_MANAGER, ROLES.RECEPTIONIST, ROLES.FINANCE])) {
       return NextResponse.json({ success: false, message: "Forbidden" }, { status: 403 });
+    }
+    if (user.role !== ROLES.CUSTOMER && !canUserEdit(user)) {
+      return NextResponse.json({ success: false, message: "You have view-only access and cannot cancel bookings." }, { status: 403 });
     }
 
     const { id: bookingId } = await params;

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSessionUser, hasPermission, ROLES } from "@/lib/auth";
-import { canAccessModule } from "@/lib/permissions";
+import { canAccessModule, canUserEdit } from "@/lib/permissions";
 import { logAuditAction } from "@/lib/audit";
 import { createInvoiceWithRetry } from "@/lib/invoice";
 
@@ -11,6 +11,13 @@ export async function POST(req: Request) {
     if (!user || (!canAccessModule(user, "checkin") && !canAccessModule(user, "reception"))) {
       return NextResponse.json(
         { success: false, message: "Unauthorized. Staff access required." },
+        { status: 403 }
+      );
+    }
+
+    if (!canUserEdit(user)) {
+      return NextResponse.json(
+        { success: false, message: "You have view-only access and cannot check in guests." },
         { status: 403 }
       );
     }

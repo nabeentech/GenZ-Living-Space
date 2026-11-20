@@ -2,7 +2,7 @@ import React from "react";
 import prisma from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
-import { canAccessModule } from "@/lib/permissions";
+import { canAccessModule, canUserEdit, getFirstAllowedAdminRoute } from "@/lib/permissions";
 import { getRoomTypePriceRates } from "@/lib/pricing";
 import PaymentsClient from "./PaymentsClient";
 
@@ -10,7 +10,11 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminPaymentsPage() {
   const user = await getSessionUser();
-  if (!user || !canAccessModule(user, "payments")) redirect("/admin");
+  if (!user || !canAccessModule(user, "payments")) {
+    redirect(getFirstAllowedAdminRoute(user));
+  }
+
+  const canEdit = canUserEdit(user);
 
   const payments = await prisma.payment.findMany({
     include: {
@@ -105,6 +109,7 @@ export default async function AdminPaymentsPage() {
         initialRefunds={refunds}
         invoices={invoices}
         rentDues={rentDues}
+        canEdit={canEdit}
       />
     </div>
   );

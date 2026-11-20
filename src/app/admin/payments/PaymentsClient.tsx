@@ -12,6 +12,7 @@ interface PaymentsClientProps {
   initialRefunds: any[];
   invoices: any[];
   rentDues: any[];
+  canEdit?: boolean;
 }
 
 export const PaymentsClient: React.FC<PaymentsClientProps> = ({
@@ -19,6 +20,7 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
   initialRefunds,
   invoices,
   rentDues: initialRentDues,
+  canEdit = true,
 }) => {
   const [activeTab, setActiveTab] = useState<"rent" | "due" | "payments" | "refunds" | "invoices">("rent");
   const [rentDues, setRentDues] = useState(initialRentDues);
@@ -65,7 +67,7 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
 
   const handleMonthlyRent = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!rentCollection) return;
+    if (!canEdit || !rentCollection) return;
     setRentProcessing(true);
     setRentError("");
     try {
@@ -100,6 +102,7 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
   };
 
   const openCollection = (invoice: any) => {
+    if (!canEdit) return;
     setCollectingInvoice(invoice);
     setCollectionAmount((invoice.totalAmount - invoice.paidAmount).toFixed(2).replace(/\.00$/, ""));
     setCollectionMethod("cash");
@@ -109,7 +112,7 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
 
   const handleCollectBalance = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!collectingInvoice) return;
+    if (!canEdit || !collectingInvoice) return;
     setProcessingId(collectingInvoice.id);
     setCollectionError("");
     try {
@@ -146,6 +149,7 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
   };
 
   const handleRefundAction = async (refundId: string, action: "APPROVE" | "REJECT" | "MARK_PROCESSED") => {
+    if (!canEdit) return;
     if (action === "MARK_PROCESSED" && !window.confirm("Confirm the refund has actually been sent to the guest outside the system?")) return;
     setProcessingId(refundId);
     try {
@@ -262,7 +266,7 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
                       <td className="p-3.5">₹{row.baseRent.toLocaleString("en-IN")}</td>
                       <td className="p-3.5 text-emerald-300">{row.discount ? `−₹${row.discount.toLocaleString("en-IN")}` : "—"}</td>
                       <td className="p-3.5 font-black text-amber-200">₹{row.amountDue.toLocaleString("en-IN")}</td>
-                      <td className="p-3.5 text-right">{row.invoicePaid ? <span className="text-xs text-emerald-300">Paid</span> : status === "upcoming" ? <span className="text-[11px] text-slate-500">Available within 7 days</span> : <Button size="sm" variant="outline" disabled={row.amountDue <= 0} onClick={() => { setRentCollection(row); setRentMethod("CASH"); setRentError(""); }}>Record & extend</Button>}</td>
+                      <td className="p-3.5 text-right">{row.invoicePaid ? <span className="text-xs text-emerald-300">Paid</span> : status === "upcoming" ? <span className="text-[11px] text-slate-500">Available within 7 days</span> : canEdit ? <Button size="sm" variant="outline" disabled={row.amountDue <= 0} onClick={() => { setRentCollection(row); setRentMethod("CASH"); setRentError(""); }}>Record & extend</Button> : <span className="text-xs text-slate-500 font-mono">View Only</span>}</td>
                     </tr>;
                   })}
                 </tbody>
@@ -296,7 +300,7 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
                     <td className="p-3">₹{invoice.totalAmount.toLocaleString("en-IN")}</td>
                     <td className="p-3 text-emerald-300">₹{invoice.paidAmount.toLocaleString("en-IN")}</td>
                     <td className="p-3 font-black text-amber-300">₹{balance.toLocaleString("en-IN")}</td>
-                    <td className="p-3 text-right"><Button size="sm" variant="glow" disabled={processingId === invoice.id} onClick={() => openCollection(invoice)}>Record payment</Button></td>
+                    <td className="p-3 text-right">{canEdit ? <Button size="sm" variant="glow" disabled={processingId === invoice.id} onClick={() => openCollection(invoice)}>Record payment</Button> : <span className="text-xs text-slate-500 font-mono">View Only</span>}</td>
                   </tr>;
                 })}
               </tbody>
@@ -408,7 +412,9 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
                         </Badge>
                       </td>
                       <td className="p-3.5 text-right">
-                        {r.status === "REQUESTED" ? (
+                        {!canEdit ? (
+                          <span className="text-xs text-slate-500 font-mono">View Only</span>
+                        ) : r.status === "REQUESTED" ? (
                           <div className="flex items-center justify-end gap-2">
                             <Button
                               variant="secondary"
@@ -508,7 +514,7 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
         </div>
       )}
 
-      {collectingInvoice && (
+      {canEdit && collectingInvoice && (
         <Modal isOpen={!!collectingInvoice} onClose={() => processingId ? undefined : setCollectingInvoice(null)} title="Record balance payment" description={`Booking ${collectingInvoice.booking?.bookingReference} · ${collectingInvoice.booking?.guestName}`}>
           <form onSubmit={handleCollectBalance} className="space-y-4 py-2">
             <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs">
@@ -524,7 +530,7 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
         </Modal>
       )}
 
-      {rentCollection && (
+      {canEdit && rentCollection && (
         <Modal isOpen={!!rentCollection} onClose={() => rentProcessing ? undefined : setRentCollection(null)} title="Record monthly rent" description={`${rentCollection.guestName} · ${rentCollection.bookingReference}`}>
           <form onSubmit={handleMonthlyRent} className="space-y-4 py-2">
             <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-4 text-sm">

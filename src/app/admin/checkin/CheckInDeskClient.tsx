@@ -25,11 +25,13 @@ import {
 interface CheckInDeskClientProps {
   expectedCheckIns: any[];
   currentResidents: any[];
+  canEdit?: boolean;
 }
 
 export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
   expectedCheckIns: initialExpected,
   currentResidents: initialResidents,
+  canEdit = true,
 }) => {
   const [expectedCheckIns, setExpectedCheckIns] = useState(initialExpected);
   const [currentResidents, setCurrentResidents] = useState(initialResidents);
@@ -99,9 +101,9 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
 
     if (found) {
       setLookupResult(found);
-      if (found.bookingStatus === "CONFIRMED") {
+      if (canEdit && found.bookingStatus === "CONFIRMED") {
         setActiveCheckInBooking(found);
-      } else if (found.bookingStatus === "CHECKED_IN") {
+      } else if (canEdit && found.bookingStatus === "CHECKED_IN") {
         setActiveCheckOutBooking(found);
       }
     } else {
@@ -112,9 +114,9 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
 
         if (json.success && json.data) {
           setLookupResult(json.data);
-          if (json.data.bookingStatus === "CONFIRMED") {
+          if (canEdit && json.data.bookingStatus === "CONFIRMED") {
             setActiveCheckInBooking(json.data);
-          } else if (json.data.bookingStatus === "CHECKED_IN") {
+          } else if (canEdit && json.data.bookingStatus === "CHECKED_IN") {
             setActiveCheckOutBooking(json.data);
           }
         } else {
@@ -292,6 +294,7 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
   };
 
   const openBalanceCollection = (booking: any) => {
+    if (!canEdit) return;
     const invoice = booking.invoices?.find((item: any) => item.status !== "PAID" && item.status !== "CANCELLED" && item.totalAmount > item.paidAmount);
     if (!invoice) {
       alert("No open invoice was found for this reservation. Ask Finance to review the balance.");
@@ -305,7 +308,7 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
 
   const handleCollectResidentBalance = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!activeBalanceBooking) return;
+    if (!canEdit || !activeBalanceBooking) return;
     setIsCollectingBalance(true);
     setBalanceCollectionError("");
     try {
@@ -560,17 +563,25 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
                       <div className="font-black text-amber-200">₹{b.balanceAmount.toLocaleString("en-IN")}</div>
                       {b.invoices?.find((invoice: any) => invoice.status !== "PAID" && invoice.status !== "CANCELLED" && invoice.totalAmount > invoice.paidAmount)?.dueDate && <div className="mt-0.5 text-[10px] text-slate-400">Due {new Date(b.invoices.find((invoice: any) => invoice.status !== "PAID" && invoice.status !== "CANCELLED" && invoice.totalAmount > invoice.paidAmount).dueDate).toLocaleDateString()}</div>}
                     </div>}
-                    {b.balanceAmount > 0 && <Button variant="outline" size="sm" onClick={() => openBalanceCollection(b)}>
-                      Record payment
-                    </Button>}
-                    <Button
-                      variant="glow"
-                      size="sm"
-                      onClick={() => setActiveCheckInBooking(b)}
-                      rightIcon={<ArrowRight className="w-4 h-4" />}
-                    >
-                      Process Check-In
-                    </Button>
+                    {canEdit ? (
+                      <>
+                        {b.balanceAmount > 0 && (
+                          <Button variant="outline" size="sm" onClick={() => openBalanceCollection(b)}>
+                            Record payment
+                          </Button>
+                        )}
+                        <Button
+                          variant="glow"
+                          size="sm"
+                          onClick={() => setActiveCheckInBooking(b)}
+                          rightIcon={<ArrowRight className="w-4 h-4" />}
+                        >
+                          Process Check-In
+                        </Button>
+                      </>
+                    ) : (
+                      <span className="text-xs text-slate-500 font-mono">View Only</span>
+                    )}
                   </div>
                 </div>
               ))}
@@ -624,19 +635,23 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => {
-                        setActiveCheckOutBooking(b);
-                        setExtraCharges([]);
-                        setCheckoutCollectedAmount("0");
-                        setCheckOutErrorMsg("");
-                      }}
-                      rightIcon={<LogOut className="w-4 h-4" />}
-                    >
-                      Process Check-Out
-                    </Button>
+                    {canEdit ? (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => {
+                          setActiveCheckOutBooking(b);
+                          setExtraCharges([]);
+                          setCheckoutCollectedAmount("0");
+                          setCheckOutErrorMsg("");
+                        }}
+                        rightIcon={<LogOut className="w-4 h-4" />}
+                      >
+                        Process Check-Out
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-slate-500 font-mono">View Only</span>
+                    )}
                   </div>
                 </div>
               ))}
@@ -646,7 +661,7 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
       )}
 
       {/* Check-In Confirmation Modal */}
-      {activeCheckInBooking && (
+      {canEdit && activeCheckInBooking && (
         <Modal
           isOpen={!!activeCheckInBooking}
           onClose={() => setActiveCheckInBooking(null)}
@@ -799,7 +814,7 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
       )}
 
       {/* Check-Out & Additional Charges Modal */}
-      {activeCheckOutBooking && (
+      {canEdit && activeCheckOutBooking && (
         <Modal
           isOpen={!!activeCheckOutBooking}
           onClose={() => setActiveCheckOutBooking(null)}
@@ -917,7 +932,7 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
         </Modal>
       )}
 
-      {activeBalanceBooking && (
+      {canEdit && activeBalanceBooking && (
         <Modal
           isOpen={!!activeBalanceBooking}
           onClose={() => !isCollectingBalance && setActiveBalanceBooking(null)}

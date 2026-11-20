@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import prisma from "@/lib/prisma";
 import { getSessionUser, hasPermission, ROLES } from "@/lib/auth";
+import { canUserEdit } from "@/lib/permissions";
 import { addUtcCalendarDays, getRoomTypePriceRates } from "@/lib/pricing";
 import { createInvoiceWithRetry } from "@/lib/invoice";
 import { claimPhonePeAttempt } from "@/lib/payment-initiation";
@@ -160,6 +161,9 @@ export async function POST(
     if (method === "OFFLINE") {
       if (!isStaff) {
         return NextResponse.json({ success: false, message: "Only staff can record offline payments." }, { status: 403 });
+      }
+      if (!canUserEdit(user)) {
+        return NextResponse.json({ success: false, message: "You have view-only access and cannot record offline payments." }, { status: 403 });
       }
 
       const paymentMode = body.paymentMode || "CASH"; // CASH, UPI, CARD, BANK_TRANSFER

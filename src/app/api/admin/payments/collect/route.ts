@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSessionUser, hasPermission, ROLES } from "@/lib/auth";
+import { canUserEdit } from "@/lib/permissions";
 import { logAuditAction } from "@/lib/audit";
 import { paymentTransaction } from "@/lib/payment-reconciliation";
 
@@ -11,6 +12,10 @@ export async function POST(req: Request) {
     const user = await getSessionUser();
     if (!user || !hasPermission(user.role, [ROLES.SUPER_ADMIN, ROLES.PROPERTY_MANAGER, ROLES.RECEPTIONIST, ROLES.FINANCE])) {
       return NextResponse.json({ success: false, message: "Unauthorized staff role." }, { status: 403 });
+    }
+
+    if (!canUserEdit(user)) {
+      return NextResponse.json({ success: false, message: "You have view-only access and cannot record payments." }, { status: 403 });
     }
 
     const { bookingId, invoiceId, amount: rawAmount, paymentMethod } = await req.json();
