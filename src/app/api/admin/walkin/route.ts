@@ -214,11 +214,11 @@ export async function POST(req: Request) {
     const balanceAmount = amount - paidAmount;
     const now = new Date();
     const due = balanceAmount > 0 && dueDate ? new Date(`${dueDate}T18:29:59.000Z`) : now;
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const validDueDate = typeof dueDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dueDate) &&
       Number.isFinite(due.getTime()) && due.toISOString().slice(0, 10) === dueDate;
-    if (balanceAmount > 0 && (!validDueDate || due < today)) {
-      return NextResponse.json({ success: false, message: "Enter a valid due date today or later when a balance remains." }, { status: 400 });
+    const checkInDateOnly = new Date(checkIn.getFullYear(), checkIn.getMonth(), checkIn.getDate());
+    if (balanceAmount > 0 && (!validDueDate || due < checkInDateOnly)) {
+      return NextResponse.json({ success: false, message: "Enter a valid due date on or after check-in when a balance remains." }, { status: 400 });
     }
 
     const emailToUse = guestEmail?.trim()?.toLowerCase() || `walkin_${Date.now()}@genzlivingspace.local`;
@@ -229,12 +229,14 @@ export async function POST(req: Request) {
     const indiaToday = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(now);
     const checkInDay = checkIn.toISOString().slice(0, 10);
     const checkOutDay = checkOut.toISOString().slice(0, 10);
-    const isPastStay = checkOutDay < indiaToday;
+    // Only past DAILY stays whose checkout has already passed are treated as past completed stays.
+    // Monthly stays are continuous/open-ended, so backdated monthly stays remain active.
+    const isPastStay = stayType === "DAILY" && checkOutDay < indiaToday;
     const isFutureStay = checkInDay > indiaToday;
 
     // Smart status resolution:
-    // Past completed stay -> CHECKED_OUT (records revenue & history, keeps bed free)
-    // Currently active stay -> CHECKED_IN & OCCUPIED (locks bed for resident)
+    // Past completed DAILY stay -> CHECKED_OUT (records revenue & history, keeps bed free)
+    // Currently active stay (including backdated active monthly stays) -> CHECKED_IN & OCCUPIED (locks bed for resident)
     // Future advance stay -> CONFIRMED & RESERVED
     const bookingStatus = isPastStay
       ? "CHECKED_OUT"
@@ -356,7 +358,7 @@ export async function POST(req: Request) {
           guestGender,
           guestGovtId,
           guestDetails: JSON.stringify(persistedGuestDetails),
-          checkInTime: isPastStay ? checkIn : bookingStatus === "CHECKED_IN" ? (checkInDay < indiaToday ? checkIn : now) : null,
+          checkInTime: isPastStay ? checkIn : bookingStatus === "CHECKED_IN" ? checkIn : null,
           checkedInBy: bookingStatus === "CHECKED_IN" || isPastStay ? user.name : null,
           checkOutTime: isPastStay ? checkOut : null,
           checkedOutBy: isPastStay ? user.name : null,
@@ -393,6 +395,7 @@ export async function POST(req: Request) {
             gatewayPaymentId: `walkin_pay_${Date.now()}`,
             status: "CAPTURED",
             paymentMethod,
+            createdAt: checkIn < now ? checkIn : now,
           },
         });
       }
@@ -402,7 +405,7 @@ export async function POST(req: Request) {
         bookingId: b.id,
         customerId: customer.id,
         hostelId,
-        issueDate: now,
+        issueDate: checkIn < now ? checkIn : now,
         dueDate: due,
         baseAmount: recordedBaseAmount,
         taxAmount: pricing.taxAmount,

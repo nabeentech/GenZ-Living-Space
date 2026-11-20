@@ -83,6 +83,19 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
   const [checkIn, setCheckIn] = useState(todayStr);
   const [checkOut, setCheckOut] = useState(tomorrowStr);
   const [stayType, setStayType] = useState<"DAILY" | "MONTHLY">("DAILY");
+  const handleCheckInChange = (newCheckIn: string) => {
+    setCheckIn(newCheckIn);
+    if (newCheckIn) {
+      setDueDate((prevDue) => {
+        if (prevDue && prevDue < newCheckIn) {
+          return stayType === "MONTHLY"
+            ? addUtcCalendarDays(new Date(`${newCheckIn}T00:00:00.000Z`), 30).toISOString().slice(0, 10)
+            : newCheckIn;
+        }
+        return prevDue;
+      });
+    }
+  };
   const effectiveCheckOut = stayType === "MONTHLY"
     ? addUtcCalendarDays(new Date(`${checkIn}T00:00:00.000Z`), 30).toISOString().slice(0, 10)
     : checkOut;
@@ -297,6 +310,10 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
     }
     if (remainingAmount > 0 && !dueDate) {
       setErrorMsg("Set a due date for the remaining balance.");
+      return;
+    }
+    if (remainingAmount > 0 && checkIn && dueDate < checkIn) {
+      setErrorMsg("Due date cannot be earlier than the check-in date.");
       return;
     }
 
@@ -527,7 +544,7 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
             <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
               Check-In Date
             </label>
-            <DatePicker value={checkIn} onChange={setCheckIn} triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs" />
+            <DatePicker value={checkIn} onChange={handleCheckInChange} triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs" />
           </div>
 
           <div>
@@ -764,7 +781,14 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
               </div>
               <div>
                 <label className="mb-1 block text-xs font-semibold text-slate-300">Balance due date *</label>
-                <DatePicker value={dueDate} onChange={setDueDate} min={todayStr} triggerClassName="p-2.5 rounded-xl bg-slate-950 border border-slate-700 text-xs" />
+                <DatePicker value={dueDate} onChange={setDueDate} min={checkIn} triggerClassName="p-2.5 rounded-xl bg-slate-950 border border-slate-700 text-xs" />
+                {dueDate && dueDate < todayStr ? (
+                  <span className="mt-1 block text-[11px] font-semibold text-amber-300">
+                    ⚠️ Due date is in the past ({new Date(`${dueDate}T12:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}) — balance will be recorded as overdue
+                  </span>
+                ) : (
+                  <p className="mt-1 text-[11px] text-slate-400">Set the date the guest agreed to pay this balance.</p>
+                )}
               </div>
             </div> : <div className="text-sm font-semibold text-emerald-200">Fully paid · No balance due</div>}
           </section>
