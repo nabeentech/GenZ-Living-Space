@@ -663,7 +663,7 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
             <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
               Date of Birth (Optional)
             </label>
-            <DatePicker value={guestDateOfBirth} onChange={setGuestDateOfBirth} triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs" />
+            <DatePicker value={guestDateOfBirth} onChange={setGuestDateOfBirth} max={todayStr} triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs" />
           </div>
 
         </div>
@@ -681,7 +681,7 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
                   <label className="text-xs text-slate-400">Gender<CustomSelect value={guest.gender} onValueChange={(value) => updateAdditionalGuest(index, "gender", value)} options={[{ value: "MALE", label: "Male" }, { value: "FEMALE", label: "Female" }, { value: "OTHER", label: "Other" }]} triggerClassName="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 p-2.5 text-xs" /></label>
                   <div>
                     <label className="mb-1 block text-xs text-slate-400">Date of birth (optional)</label>
-                    <DatePicker value={guest.dateOfBirth} onChange={(value) => updateAdditionalGuest(index, "dateOfBirth", value)} triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs" />
+                    <DatePicker value={guest.dateOfBirth} onChange={(value) => updateAdditionalGuest(index, "dateOfBirth", value)} max={todayStr} triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs" />
                   </div>
                 </div>
               </section>
