@@ -1,13 +1,17 @@
 import React from "react";
+import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
-import { canUserEdit } from "@/lib/permissions";
+import { canAccessModule, canUserEdit, getFirstAllowedAdminRoute } from "@/lib/permissions";
 import BedMatrixClient from "./BedMatrixClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminBedsPage() {
   const user = await getSessionUser();
+  if (!user || !canAccessModule(user, "beds")) {
+    redirect(getFirstAllowedAdminRoute(user));
+  }
   const canEdit = canUserEdit(user);
 
   const hostels = await prisma.hostel.findMany({

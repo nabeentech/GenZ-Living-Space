@@ -1,10 +1,17 @@
 import React from "react";
+import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { getSessionUser } from "@/lib/auth";
+import { canAccessModule, getFirstAllowedAdminRoute } from "@/lib/permissions";
 import ComplaintsClient from "./ComplaintsClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminComplaintsPage() {
+  const user = await getSessionUser();
+  if (!user || !canAccessModule(user, "complaints")) {
+    redirect(getFirstAllowedAdminRoute(user));
+  }
   const tickets = await prisma.supportTicket.findMany({
     include: {
       hostel: true,

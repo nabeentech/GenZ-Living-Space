@@ -2,7 +2,7 @@ import React from "react";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { getSessionUser, ROLES } from "@/lib/auth";
-import { parsePermissions } from "@/lib/permissions";
+import { getFirstAllowedAdminRoute, parsePermissions } from "@/lib/permissions";
 import StaffManagementClient from "./StaffManagementClient";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ export default async function AdminStaffPage() {
 
   // Strictly Super Admin only
   if (user.role !== ROLES.SUPER_ADMIN) {
-    redirect("/admin");
+    redirect(getFirstAllowedAdminRoute(user));
   }
 
   const staffUsers = await prisma.user.findMany({

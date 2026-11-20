@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import prisma from "@/lib/prisma";
 import { getSessionUser, hasPermission, ROLES, hashPassword } from "@/lib/auth";
+import { canAccessModule } from "@/lib/permissions";
 import { generateBookingQRCode } from "@/lib/qr";
 import { createInvoiceWithRetry } from "@/lib/invoice";
 import { logAuditAction } from "@/lib/audit";
@@ -10,16 +11,9 @@ import { addUtcCalendarDays, calculateBookingPrice, getRoomTypePriceRates } from
 export async function POST(req: Request) {
   try {
     const user = await getSessionUser();
-    if (
-      !user ||
-      !hasPermission(user.role, [
-        ROLES.SUPER_ADMIN,
-        ROLES.PROPERTY_MANAGER,
-        ROLES.RECEPTIONIST,
-      ])
-    ) {
+    if (!user || !canAccessModule(user, "walkin")) {
       return NextResponse.json(
-        { success: false, message: "Unauthorized staff role" },
+        { success: false, message: "Unauthorized: Walk-In reservation access required" },
         { status: 403 }
       );
     }

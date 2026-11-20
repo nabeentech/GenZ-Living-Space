@@ -1,10 +1,17 @@
 import React from "react";
+import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { getSessionUser } from "@/lib/auth";
+import { canAccessModule, getFirstAllowedAdminRoute } from "@/lib/permissions";
 import CouponsClient from "./CouponsClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminCouponsPage() {
+  const user = await getSessionUser();
+  if (!user || !canAccessModule(user, "coupons")) {
+    redirect(getFirstAllowedAdminRoute(user));
+  }
   const coupons = await prisma.coupon.findMany({
     orderBy: { createdAt: "desc" },
   });

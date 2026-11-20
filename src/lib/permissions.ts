@@ -386,6 +386,20 @@ export function canAccessModule(
   return false;
 }
 
+export function getFirstAllowedAdminRoute(
+  user: { role: string; permissions?: string | null } | null | undefined
+): string {
+  if (!user) return "/auth/login";
+  if (user.role === "SUPER_ADMIN") return "/admin";
+  const perms = getUserPermissions(user);
+  for (const mod of ADMIN_MODULES) {
+    if (perms.allowedModules.includes(mod.key)) {
+      return mod.href;
+    }
+  }
+  return "/dashboard";
+}
+
 export function canUserEdit(
   user: { role: string; permissions?: string | null } | null | undefined
 ): boolean {

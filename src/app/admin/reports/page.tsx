@@ -1,10 +1,17 @@
 import React from "react";
+import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { getSessionUser } from "@/lib/auth";
+import { canAccessModule, getFirstAllowedAdminRoute } from "@/lib/permissions";
 import ReportsClient from "./ReportsClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminReportsPage() {
+  const user = await getSessionUser();
+  if (!user || !canAccessModule(user, "reports")) {
+    redirect(getFirstAllowedAdminRoute(user));
+  }
   const hostels = await prisma.hostel.findMany({
     include: {
       bookings: {

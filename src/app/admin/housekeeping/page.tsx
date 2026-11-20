@@ -1,10 +1,17 @@
 import React from "react";
+import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { getSessionUser } from "@/lib/auth";
+import { canAccessModule, getFirstAllowedAdminRoute } from "@/lib/permissions";
 import HousekeepingClient from "./HousekeepingClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function HousekeepingPage() {
+  const user = await getSessionUser();
+  if (!user || !canAccessModule(user, "housekeeping")) {
+    redirect(getFirstAllowedAdminRoute(user));
+  }
   const tasks = await prisma.housekeepingTask.findMany({
     include: {
       hostel: true,

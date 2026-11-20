@@ -1,7 +1,8 @@
 import React from "react";
+import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
-import { canUserEdit, isFinancialsHidden } from "@/lib/permissions";
+import { canAccessModule, canUserEdit, getFirstAllowedAdminRoute, isFinancialsHidden } from "@/lib/permissions";
 import BookingsManagementClient from "./BookingsManagementClient";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +17,9 @@ interface BookingsPageProps {
 
 export default async function AdminBookingsPage({ searchParams }: BookingsPageProps) {
   const user = await getSessionUser();
+  if (!user || !canAccessModule(user, "bookings")) {
+    redirect(getFirstAllowedAdminRoute(user));
+  }
   const canEdit = canUserEdit(user);
   const hideFinancials = isFinancialsHidden(user);
 

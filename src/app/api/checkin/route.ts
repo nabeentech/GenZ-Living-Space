@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSessionUser, hasPermission, ROLES } from "@/lib/auth";
+import { canAccessModule } from "@/lib/permissions";
 import { logAuditAction } from "@/lib/audit";
 import { createInvoiceWithRetry } from "@/lib/invoice";
 
 export async function POST(req: Request) {
   try {
     const user = await getSessionUser();
-    if (!user || !hasPermission(user.role, [ROLES.SUPER_ADMIN, ROLES.PROPERTY_MANAGER, ROLES.RECEPTIONIST])) {
+    if (!user || (!canAccessModule(user, "checkin") && !canAccessModule(user, "reception"))) {
       return NextResponse.json(
         { success: false, message: "Unauthorized. Staff access required." },
         { status: 403 }

@@ -1,10 +1,17 @@
 import React from "react";
+import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { getSessionUser } from "@/lib/auth";
+import { canAccessModule, getFirstAllowedAdminRoute } from "@/lib/permissions";
 import WalkInClient from "./WalkInClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function WalkInPage() {
+  const user = await getSessionUser();
+  if (!user || !canAccessModule(user, "walkin")) {
+    redirect(getFirstAllowedAdminRoute(user));
+  }
   const [hostels, coupons] = await Promise.all([
     prisma.hostel.findMany({
       where: { active: true },

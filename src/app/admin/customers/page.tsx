@@ -1,4 +1,5 @@
-import { getSessionUser, hasPermission, ROLES } from "@/lib/auth";
+import { getSessionUser } from "@/lib/auth";
+import { canAccessModule, getFirstAllowedAdminRoute } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { CustomerDirectoryClient } from "./CustomerDirectoryClient";
@@ -10,8 +11,8 @@ export const metadata = {
 export default async function CustomersPage() {
   const sessionUser = await getSessionUser();
 
-  if (!sessionUser || !hasPermission(sessionUser.role, [ROLES.SUPER_ADMIN, ROLES.PROPERTY_MANAGER])) {
-    redirect("/");
+  if (!sessionUser || !canAccessModule(sessionUser, "customers")) {
+    redirect(getFirstAllowedAdminRoute(sessionUser));
   }
 
   // Fetch all customers with their booking history

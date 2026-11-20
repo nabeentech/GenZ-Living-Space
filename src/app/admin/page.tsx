@@ -2,7 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionUser, ROLES } from "@/lib/auth";
-import { isFinancialsHidden } from "@/lib/permissions";
+import { canAccessModule, getFirstAllowedAdminRoute, isFinancialsHidden } from "@/lib/permissions";
 import prisma from "@/lib/prisma";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -25,10 +25,22 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
   const sessionUser = await getSessionUser();
-  if (sessionUser?.role === ROLES.RECEPTIONIST) redirect("/admin/receptionist");
-  if (sessionUser?.role === ROLES.PROPERTY_MANAGER) redirect("/admin/manager");
+  if (!sessionUser) redirect("/auth/login");
+  if (sessionUser.role === ROLES.RECEPTIONIST) redirect("/admin/receptionist");
+  if (sessionUser.role === ROLES.PROPERTY_MANAGER) redirect("/admin/manager");
+
+  if (!canAccessModule(sessionUser, "dashboard")) {
+    redirect(getFirstAllowedAdminRoute(sessionUser));
+  }
 
   const hideFinancials = isFinancialsHidden(sessionUser);
+  const canCheckIn = canAccessModule(sessionUser, "checkin");
+  const canWalkIn = canAccessModule(sessionUser, "walkin");
+  const canBeds = canAccessModule(sessionUser, "beds");
+  const canBookings = canAccessModule(sessionUser, "bookings");
+  const canExtensions = canAccessModule(sessionUser, "extensions");
+  const canPayments = canAccessModule(sessionUser, "payments");
+  const canPricing = canAccessModule(sessionUser, "pricing");
 
   // Aggregate real-time statistics
   const totalBookings = await prisma.booking.count();
@@ -113,16 +125,34 @@ export default async function AdminDashboardPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <Link href="/admin/checkin">
-            <Button variant="glow" size="sm">
-              Reception QR Check-In
-            </Button>
-          </Link>
-          <Link href="/admin/walkin">
-            <Button variant="outline" size="sm">
-              + Walk-In Booking
-            </Button>
-          </Link>
+          {canCheckIn && (
+            <Link href="/admin/checkin">
+              <Button variant="glow" size="sm">
+                Reception QR Check-In
+              </Button>
+            </Link>
+          )}
+          {canWalkIn && (
+            <Link href="/admin/walkin">
+              <Button variant="outline" size="sm">
+                + Walk-In Booking
+              </Button>
+            </Link>
+          )}
+          {!canCheckIn && !canWalkIn && canPayments && (
+            <Link href="/admin/payments">
+              <Button variant="glow" size="sm">
+                Payments &amp; Ledger
+              </Button>
+            </Link>
+          )}
+          {!canCheckIn && !canWalkIn && !canPayments && canPricing && (
+            <Link href="/admin/pricing">
+              <Button variant="outline" size="sm">
+                Pricing Management
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -215,8 +245,23 @@ export default async function AdminDashboardPage() {
         </div>
 
         {/* Pending Stay Extensions */}
-        <Link href="/admin/extensions">
-          <div className="glass-panel p-5 rounded-2xl border border-slate-800 bg-[#101626]/80 space-y-2 hover:border-indigo-500/50 transition cursor-pointer">
+        {canExtensions ? (
+          <Link href="/admin/extensions">
+            <div className="glass-panel p-5 rounded-2xl border border-slate-800 bg-[#101626]/80 space-y-2 hover:border-indigo-500/50 transition cursor-pointer">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-400">Stay Extensions</span>
+                <MapPin className="w-4 h-4 text-indigo-400" />
+              </div>
+              <span className="text-2xl font-black text-indigo-400 block">
+                {pendingExtensions}
+              </span>
+              <span className="text-[10px] text-indigo-400">
+                {hideFinancials ? "•••••• pending" : `₹${(pendingExtensionRevenue._sum.additionalAmount || 0).toLocaleString()} pending`}
+              </span>
+            </div>
+          </Link>
+        ) : (
+          <div className="glass-panel p-5 rounded-2xl border border-slate-800 bg-[#101626]/80 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-400">Stay Extensions</span>
               <MapPin className="w-4 h-4 text-indigo-400" />
@@ -228,7 +273,7 @@ export default async function AdminDashboardPage() {
               {hideFinancials ? "•••••• pending" : `₹${(pendingExtensionRevenue._sum.additionalAmount || 0).toLocaleString()} pending`}
             </span>
           </div>
-        </Link>
+        )}
       </div>
 
       {/* Hostel Performance Breakdown */}
@@ -240,11 +285,13 @@ export default async function AdminDashboardPage() {
               Real-time room occupancy, bed allocation, and live guest counts.
             </p>
           </div>
-          <Link href="/admin/beds">
-            <Button variant="outline" size="sm" rightIcon={<ArrowRight className="w-4 h-4" />}>
-              Open Bed Allocation Matrix
-            </Button>
-          </Link>
+          {canBeds && (
+            <Link href="/admin/beds">
+              <Button variant="outline" size="sm" rightIcon={<ArrowRight className="w-4 h-4" />}>
+                Open Bed Allocation Matrix
+              </Button>
+            </Link>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -311,11 +358,13 @@ export default async function AdminDashboardPage() {
       <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800 bg-[#111827]/80 space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-xl font-bold text-white">Recent Activity</h3>
-          <Link href="/admin/bookings">
-            <Button variant="ghost" size="sm" rightIcon={<ArrowRight className="w-4 h-4" />}>
-              View All Bookings
-            </Button>
-          </Link>
+          {canBookings && (
+            <Link href="/admin/bookings">
+              <Button variant="ghost" size="sm" rightIcon={<ArrowRight className="w-4 h-4" />}>
+                View All Bookings
+              </Button>
+            </Link>
+          )}
         </div>
 
         <div className="overflow-x-auto">
@@ -382,11 +431,15 @@ export default async function AdminDashboardPage() {
                     </Badge>
                   </td>
                   <td className="p-3.5 text-right">
-                    <Link href={`/admin/bookings?search=${b.bookingReference}`}>
-                      <Button variant="outline" size="sm">
-                        Manage
-                      </Button>
-                    </Link>
+                    {canBookings ? (
+                      <Link href={`/admin/bookings?search=${b.bookingReference}`}>
+                        <Button variant="outline" size="sm">
+                          Manage
+                        </Button>
+                      </Link>
+                    ) : (
+                      <span className="text-xs text-slate-600 font-mono">—</span>
+                    )}
                   </td>
                 </tr>
               ))}

@@ -1,11 +1,18 @@
 import React from "react";
+import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { getSessionUser } from "@/lib/auth";
+import { canAccessModule, getFirstAllowedAdminRoute } from "@/lib/permissions";
 import Badge from "@/components/ui/Badge";
 import { FileText, Clock, User, Shield } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminAuditLogsPage() {
+  const user = await getSessionUser();
+  if (!user || !canAccessModule(user, "audit-logs")) {
+    redirect(getFirstAllowedAdminRoute(user));
+  }
   const logs = await prisma.auditLog.findMany({
     take: 50,
     orderBy: { createdAt: "desc" },

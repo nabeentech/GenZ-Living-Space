@@ -1,10 +1,17 @@
 import React from "react";
+import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { getSessionUser } from "@/lib/auth";
+import { canAccessModule, getFirstAllowedAdminRoute } from "@/lib/permissions";
 import CmsClient from "./CmsClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminCmsPage() {
+  const user = await getSessionUser();
+  if (!user || !canAccessModule(user, "cms")) {
+    redirect(getFirstAllowedAdminRoute(user));
+  }
   const content = await prisma.websiteContent.findUnique({
     where: { sectionKey: "hero" },
   });

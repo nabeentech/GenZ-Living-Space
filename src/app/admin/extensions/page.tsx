@@ -1,6 +1,9 @@
 import React from "react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { getSessionUser } from "@/lib/auth";
+import { canAccessModule, getFirstAllowedAdminRoute } from "@/lib/permissions";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import { ArrowRight, Calendar, CreditCard, AlertCircle } from "lucide-react";
@@ -8,6 +11,10 @@ import { ArrowRight, Calendar, CreditCard, AlertCircle } from "lucide-react";
 export const dynamic = "force-dynamic";
 
 export default async function ExtensionsPage() {
+  const user = await getSessionUser();
+  if (!user || !canAccessModule(user, "extensions")) {
+    redirect(getFirstAllowedAdminRoute(user));
+  }
   const extensions = await prisma.bookingExtension.findMany({
     include: {
       booking: {

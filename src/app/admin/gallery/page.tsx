@@ -1,11 +1,18 @@
 import React from "react";
+import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { getSessionUser } from "@/lib/auth";
+import { canAccessModule, getFirstAllowedAdminRoute } from "@/lib/permissions";
 import GalleryClient from "./GalleryClient";
 import { getGalleryCategories } from "@/lib/gallery-categories";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminGalleryPage() {
+  const user = await getSessionUser();
+  if (!user || !canAccessModule(user, "gallery")) {
+    redirect(getFirstAllowedAdminRoute(user));
+  }
   const [images, hostels, totalCount, totalBytesResult, categories] = await Promise.all([
     prisma.galleryImage.findMany({
       select: {

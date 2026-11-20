@@ -1,10 +1,17 @@
 import React from "react";
+import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { getSessionUser } from "@/lib/auth";
+import { canAccessModule, getFirstAllowedAdminRoute } from "@/lib/permissions";
 import CheckInDeskClient from "./CheckInDeskClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function CheckInPage() {
+  const user = await getSessionUser();
+  if (!user || !canAccessModule(user, "checkin")) {
+    redirect(getFirstAllowedAdminRoute(user));
+  }
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
