@@ -5,6 +5,7 @@ import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import CustomSelect from "@/components/ui/CustomSelect";
+import ShiftRoomModal from "@/components/admin/ShiftRoomModal";
 import { Bed as BedIcon, User, Sparkles, Filter, CheckCircle2, AlertTriangle, RefreshCw, ChevronRight, Edit2, Plus, Trash2 } from "lucide-react";
 import { SHARING_NAMES } from "@/lib/room-types";
 
@@ -24,6 +25,7 @@ export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels, canEd
   const [newBedStatus, setNewBedStatus] = useState<string>("");
   const [isUpdatingBed, setIsUpdatingBed] = useState(false);
   const [updateMsg, setUpdateMsg] = useState("");
+  const [shiftBookingId, setShiftBookingId] = useState<string | null>(null);
 
   const [selectedRoom, setSelectedRoom] = useState<any | null>(null);
   const [roomGender, setRoomGender] = useState<string>("");
@@ -611,9 +613,23 @@ export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels, canEd
               </div>
               {selectedBed.bookings?.[0] && (
                 <div className="pt-2 border-t border-slate-800 space-y-1">
-                  <span className="font-bold text-indigo-300 block">
-                    Current Occupant:
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-indigo-300 block">
+                      Current Occupant:
+                    </span>
+                    {canEdit && (
+                      <Button
+                        size="sm"
+                        variant="glow"
+                        onClick={() => {
+                          setShiftBookingId(selectedBed.bookings[0].id);
+                        }}
+                        leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
+                      >
+                        Move Resident
+                      </Button>
+                    )}
+                  </div>
                   <p className="text-white font-semibold">
                     {selectedBed.bookings[0].guestName} ({selectedBed.bookings[0].bookingReference})
                   </p>
@@ -1046,6 +1062,18 @@ export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels, canEd
             </div>
           </div>
         </Modal>
+      )}
+
+      {shiftBookingId && (
+        <ShiftRoomModal
+          isOpen={!!shiftBookingId}
+          onClose={() => setShiftBookingId(null)}
+          bookingId={shiftBookingId}
+          onSuccess={() => {
+            setSelectedBed(null);
+            window.location.reload();
+          }}
+        />
       )}
     </div>
   );

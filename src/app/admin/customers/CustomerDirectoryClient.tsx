@@ -4,16 +4,19 @@ import React, { useState, useMemo } from "react";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
-import { Search, Mail, Phone, MapPin, Calendar, BookOpen, User, MessageCircle } from "lucide-react";
+import ShiftRoomModal from "@/components/admin/ShiftRoomModal";
+import { Search, Mail, Phone, MapPin, Calendar, BookOpen, User, MessageCircle, RefreshCw } from "lucide-react";
 
 interface CustomerDirectoryClientProps {
   customers: any[];
+  canEdit?: boolean;
 }
 
-export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = ({ customers }) => {
+export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = ({ customers, canEdit = true }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
   const [sortBy, setSortBy] = useState<"name" | "recent" | "bookings">("recent");
+  const [shiftBookingId, setShiftBookingId] = useState<string | null>(null);
 
   // Filter and sort customers
   const filteredCustomers = useMemo(() => {
@@ -88,94 +91,122 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
 
       {/* Customers Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredCustomers.map((customer) => (
-          <div
-            key={customer.id}
-            onClick={() => setSelectedCustomer(customer)}
-            className="p-4 sm:p-5 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 transition cursor-pointer space-y-3 group hover:bg-slate-900/80"
-          >
-            {/* Header */}
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex-1">
-                <h3 className="font-bold text-white text-sm sm:text-base group-hover:text-indigo-300 transition">
-                  {customer.name}
-                </h3>
-                <div className="flex items-center gap-2 mt-1">
-                  {customer.gender && (
-                    <Badge variant={getGenderBadgeVariant(customer.gender)} size="sm">
-                      {customer.gender}
-                    </Badge>
-                  )}
-                  {customer.role === "CUSTOMER" && (
-                    <Badge variant="indigo" size="sm">
-                      Guest
-                    </Badge>
-                  )}
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-2xl font-black text-indigo-400">
-                  {customer.bookings?.length || 0}
-                </div>
-                <div className="text-[10px] text-slate-400 uppercase font-bold">Bookings</div>
-              </div>
-            </div>
+        {filteredCustomers.map((customer) => {
+          const activeBooking = customer.bookings?.find((b: any) =>
+            ["CHECKED_IN", "CONFIRMED"].includes(b.bookingStatus)
+          );
 
-            {/* Contact Info */}
-            <div className="space-y-1.5 text-xs">
-              <div className="flex items-center gap-2 text-slate-400 group-hover:text-slate-300 transition">
-                <Mail className="w-3 h-3 shrink-0" />
-                <span className="truncate">{customer.email || "No email"}</span>
+          return (
+            <div
+              key={customer.id}
+              onClick={() => setSelectedCustomer(customer)}
+              className="p-4 sm:p-5 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 transition cursor-pointer space-y-3 group hover:bg-slate-900/80"
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1">
+                  <h3 className="font-bold text-white text-sm sm:text-base group-hover:text-indigo-300 transition">
+                    {customer.name}
+                  </h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    {customer.gender && (
+                      <Badge variant={getGenderBadgeVariant(customer.gender)} size="sm">
+                        {customer.gender}
+                      </Badge>
+                    )}
+                    {activeBooking ? (
+                      <Badge variant="indigo" size="sm">
+                        In-House (Rm {activeBooking.room?.roomNumber || "Active"})
+                      </Badge>
+                    ) : (
+                      customer.role === "CUSTOMER" && (
+                        <Badge variant="default" size="sm">
+                          Guest
+                        </Badge>
+                      )
+                    )}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-black text-indigo-400">
+                    {customer.bookings?.length || 0}
+                  </div>
+                  <div className="text-[10px] text-slate-400 uppercase font-bold">Bookings</div>
+                </div>
               </div>
-              {customer.phone && (
+
+              {/* Contact Info */}
+              <div className="space-y-1.5 text-xs">
                 <div className="flex items-center gap-2 text-slate-400 group-hover:text-slate-300 transition">
-                  <Phone className="w-3 h-3 shrink-0" />
-                  <span>{customer.phone}</span>
+                  <Mail className="w-3 h-3 shrink-0" />
+                  <span className="truncate">{customer.email || "No email"}</span>
                 </div>
-              )}
-            </div>
-
-            {/* Stats */}
-            <div className="pt-2 border-t border-slate-800 grid grid-cols-3 gap-2">
-              <div className="text-center">
-                <div className="text-sm font-bold text-white">
-                  {customer.createdAt ? new Date(customer.createdAt).toLocaleDateString("en-IN", {
-                    day: "2-digit",
-                    month: "short",
-                    year: "2-digit",
-                  }) : "—"}
-                </div>
-                <div className="text-[9px] text-slate-500 uppercase font-bold">Joined</div>
+                {customer.phone && (
+                  <div className="flex items-center gap-2 text-slate-400 group-hover:text-slate-300 transition">
+                    <Phone className="w-3 h-3 shrink-0" />
+                    <span>{customer.phone}</span>
+                  </div>
+                )}
               </div>
-              {customer.bookings?.[0] && (
+
+              {/* Stats */}
+              <div className="pt-2 border-t border-slate-800 grid grid-cols-3 gap-2">
                 <div className="text-center">
-                  <div className="text-sm font-bold text-indigo-300">
-                    {new Date(customer.bookings[0].checkInDate).toLocaleDateString("en-IN", {
+                  <div className="text-sm font-bold text-white">
+                    {customer.createdAt ? new Date(customer.createdAt).toLocaleDateString("en-IN", {
                       day: "2-digit",
                       month: "short",
-                    })}
+                      year: "2-digit",
+                    }) : "—"}
                   </div>
-                  <div className="text-[9px] text-slate-500 uppercase font-bold">Last Stay</div>
+                  <div className="text-[9px] text-slate-500 uppercase font-bold">Joined</div>
                 </div>
-              )}
-              <div className="text-center">
-                <div className="text-sm font-bold text-emerald-300">
-                  {customer.bookings?.filter((b: any) => b.bookingStatus === "CHECKED_OUT").length || 0}
+                {customer.bookings?.[0] && (
+                  <div className="text-center">
+                    <div className="text-sm font-bold text-indigo-300">
+                      {new Date(customer.bookings[0].checkInDate).toLocaleDateString("en-IN", {
+                        day: "2-digit",
+                        month: "short",
+                      })}
+                    </div>
+                    <div className="text-[9px] text-slate-500 uppercase font-bold">Last Stay</div>
+                  </div>
+                )}
+                <div className="text-center">
+                  <div className="text-sm font-bold text-emerald-300">
+                    {customer.bookings?.filter((b: any) => b.bookingStatus === "CHECKED_OUT").length || 0}
+                  </div>
+                  <div className="text-[9px] text-slate-500 uppercase font-bold">Completed</div>
                 </div>
-                <div className="text-[9px] text-slate-500 uppercase font-bold">Completed</div>
+              </div>
+
+              {/* View Button */}
+              <div className="flex items-center gap-2 pt-1">
+                <Button
+                  variant="glow"
+                  size="sm"
+                  className="flex-1 text-xs"
+                >
+                  View Details →
+                </Button>
+                {canEdit && activeBooking && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShiftBookingId(activeBooking.id);
+                    }}
+                    leftIcon={<RefreshCw className="w-3 h-3" />}
+                  >
+                    Shift Room
+                  </Button>
+                )}
               </div>
             </div>
-
-            {/* View Button */}
-            <Button
-              variant="glow"
-              size="sm"
-              className="w-full text-xs"
-            >
-              View Details →
-            </Button>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {filteredCustomers.length === 0 && (
@@ -276,16 +307,31 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-white">{booking.hostel?.name || "Unknown Hostel"}</span>
-                        <Badge 
-                          variant={
-                            booking.bookingStatus === "CHECKED_OUT" ? "available" :
-                            booking.bookingStatus === "CHECKED_IN" ? "occupied" :
-                            "reserved"
-                          }
-                          size="sm"
-                        >
-                          {booking.bookingStatus}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          {canEdit && ["CHECKED_IN", "CONFIRMED"].includes(booking.bookingStatus) && (
+                            <Button
+                              size="sm"
+                              variant="glow"
+                              onClick={() => {
+                                setShiftBookingId(booking.id);
+                                setSelectedCustomer(null);
+                              }}
+                              leftIcon={<RefreshCw className="w-3 h-3" />}
+                            >
+                              Shift Room
+                            </Button>
+                          )}
+                          <Badge 
+                            variant={
+                              booking.bookingStatus === "CHECKED_OUT" ? "available" :
+                              booking.bookingStatus === "CHECKED_IN" ? "occupied" :
+                              "reserved"
+                            }
+                            size="sm"
+                          >
+                            {booking.bookingStatus}
+                          </Badge>
+                        </div>
                       </div>
                       <div className="flex items-center justify-between text-slate-400">
                         <span>Room {booking.room?.roomNumber || "—"} • {booking.bed?.bedNumber || "—"}</span>
@@ -323,6 +369,15 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
             </div>
           </div>
         </Modal>
+      )}
+
+      {shiftBookingId && (
+        <ShiftRoomModal
+          isOpen={!!shiftBookingId}
+          onClose={() => setShiftBookingId(null)}
+          bookingId={shiftBookingId}
+          onSuccess={() => window.location.reload()}
+        />
       )}
     </div>
   );

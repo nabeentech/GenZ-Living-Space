@@ -6,6 +6,7 @@ import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import CustomSelect from "@/components/ui/CustomSelect";
+import ShiftRoomModal from "@/components/admin/ShiftRoomModal";
 import {
   QrCode,
   Search,
@@ -20,6 +21,7 @@ import {
   ArrowRight,
   LogOut,
   Camera,
+  RefreshCw,
 } from "lucide-react";
 
 interface CheckInDeskClientProps {
@@ -61,6 +63,7 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
     { category: string; description: string; amount: number }[]
   >([]);
   const [newChargeCategory, setNewChargeCategory] = useState("LAUNDRY");
+  const [shiftBookingId, setShiftBookingId] = useState<string | null>(null);
   const [newChargeAmount, setNewChargeAmount] = useState(150);
   const [newChargeDesc, setNewChargeDesc] = useState("Floor 2 Laundry wash & dry");
   const [isProcessingCheckOut, setIsProcessingCheckOut] = useState(false);
@@ -634,21 +637,31 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     {canEdit ? (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => {
-                          setActiveCheckOutBooking(b);
-                          setExtraCharges([]);
-                          setCheckoutCollectedAmount("0");
-                          setCheckOutErrorMsg("");
-                        }}
-                        rightIcon={<LogOut className="w-4 h-4" />}
-                      >
-                        Process Check-Out
-                      </Button>
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShiftBookingId(b.id)}
+                          leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
+                        >
+                          Shift Room
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => {
+                            setActiveCheckOutBooking(b);
+                            setExtraCharges([]);
+                            setCheckoutCollectedAmount("0");
+                            setCheckOutErrorMsg("");
+                          }}
+                          rightIcon={<LogOut className="w-4 h-4" />}
+                        >
+                          Process Check-Out
+                        </Button>
+                      </>
                     ) : (
                       <span className="text-xs text-slate-500 font-mono">View Only</span>
                     )}
@@ -951,6 +964,15 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
             <div className="flex justify-end gap-2 border-t border-slate-800 pt-3"><Button type="button" variant="outline" onClick={() => setActiveBalanceBooking(null)} disabled={isCollectingBalance}>Cancel</Button><Button type="submit" variant="glow" isLoading={isCollectingBalance}>Save payment</Button></div>
           </form>
         </Modal>
+      )}
+
+      {shiftBookingId && (
+        <ShiftRoomModal
+          isOpen={!!shiftBookingId}
+          onClose={() => setShiftBookingId(null)}
+          bookingId={shiftBookingId}
+          onSuccess={() => window.location.reload()}
+        />
       )}
     </div>
   );

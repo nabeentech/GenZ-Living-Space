@@ -7,6 +7,7 @@ import CustomSelect from "@/components/ui/CustomSelect";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import DatePicker from "@/components/ui/DatePicker";
+import ShiftRoomModal from "@/components/admin/ShiftRoomModal";
 import { getRoomTypePriceRates } from "@/lib/pricing";
 import {
   Search,
@@ -22,6 +23,7 @@ import {
   CreditCard,
   LogOut,
   Sparkles,
+  RefreshCw,
 } from "lucide-react";
 
 interface BookingsManagementClientProps {
@@ -57,6 +59,7 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [actionMsg, setActionMsg] = useState("");
+  const [shiftBookingId, setShiftBookingId] = useState<string | null>(null);
 
   // Offline Monthly Rent Modal State
   const [showOfflineRentModal, setShowOfflineRentModal] = useState(false);
@@ -367,6 +370,16 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
                     </td>
                     <td className="p-3.5 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        {canEdit && ["CONFIRMED", "CHECKED_IN"].includes(b.bookingStatus) && (
+                          <Button
+                            variant="glow"
+                            size="sm"
+                            onClick={() => setShiftBookingId(b.id)}
+                            leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
+                          >
+                            Shift Room
+                          </Button>
+                        )}
                         <Button
                           variant="outline"
                           size="sm"
@@ -641,7 +654,7 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
             )}
 
             <div className="flex items-center justify-between pt-2">
-              <div>
+              <div className="flex items-center gap-2">
                 {canEdit && selectedBooking.bookingStatus === "CONFIRMED" && (
                   <Button
                     variant="danger"
@@ -650,6 +663,19 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
                     onClick={() => handleCancelBooking(selectedBooking.id)}
                   >
                     Cancel & Refund
+                  </Button>
+                )}
+                {canEdit && ["CONFIRMED", "CHECKED_IN"].includes(selectedBooking.bookingStatus) && (
+                  <Button
+                    variant="glow"
+                    size="sm"
+                    onClick={() => {
+                      setShiftBookingId(selectedBooking.id);
+                      setSelectedBooking(null);
+                    }}
+                    leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
+                  >
+                    Shift Room
                   </Button>
                 )}
               </div>
@@ -859,6 +885,15 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
             </div>
           </div>
         </Modal>
+      )}
+
+      {shiftBookingId && (
+        <ShiftRoomModal
+          isOpen={!!shiftBookingId}
+          onClose={() => setShiftBookingId(null)}
+          bookingId={shiftBookingId}
+          onSuccess={() => window.location.reload()}
+        />
       )}
     </div>
   );

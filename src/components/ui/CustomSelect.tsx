@@ -21,8 +21,21 @@ interface CustomSelectProps {
 
 export default function CustomSelect({ value, options, onValueChange, label, icon, className = "", triggerClassName = "" }: CustomSelectProps) {
   const [open, setOpen] = useState(false);
+  const [openUpward, setOpenUpward] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const selected = options.find((option) => option.value === value);
+
+  useEffect(() => {
+    if (open && rootRef.current) {
+      const rect = rootRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      if (spaceBelow < 240 && rect.top > 240) {
+        setOpenUpward(true);
+      } else {
+        setOpenUpward(false);
+      }
+    }
+  }, [open]);
 
   useEffect(() => {
     const closeOutside = (event: MouseEvent) => {
@@ -54,8 +67,8 @@ export default function CustomSelect({ value, options, onValueChange, label, ico
         <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
       </span>
     </button>
-    {open && <div role="listbox" className="absolute left-0 top-[calc(100%+0.5rem)] z-[70] max-h-60 w-full overflow-y-auto rounded-xl border border-slate-700 bg-[#111827] p-1.5 shadow-2xl shadow-black/90 scrollbar-thin">
-      {options.map((option) => <button key={option.value} type="button" role="option" aria-selected={option.value === value} disabled={option.disabled} onClick={() => { onValueChange(option.value); setOpen(false); }} className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition ${option.value === value ? "bg-indigo-600/20 text-indigo-200" : "text-slate-200 hover:bg-slate-800"} disabled:cursor-not-allowed disabled:opacity-40`}>
+    {open && <div role="listbox" className={`absolute left-0 ${openUpward ? "bottom-[calc(100%+0.5rem)]" : "top-[calc(100%+0.5rem)]"} z-[70] max-h-60 min-w-full w-max max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-slate-700 bg-[#111827] p-1.5 shadow-2xl shadow-black/90 scrollbar-thin`}>
+      {options.map((option) => <button key={option.value} type="button" role="option" aria-selected={option.value === value} disabled={option.disabled} onClick={() => { onValueChange(option.value); setOpen(false); }} className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-xs sm:text-sm whitespace-nowrap transition ${option.value === value ? "bg-indigo-600/20 text-indigo-200" : "text-slate-200 hover:bg-slate-800"} disabled:cursor-not-allowed disabled:opacity-40`}>
         <span>{option.label}</span>{option.value === value && <Check className="h-4 w-4 shrink-0 text-indigo-300" />}
       </button>)}
     </div>}

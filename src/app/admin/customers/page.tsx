@@ -1,5 +1,5 @@
 import { getSessionUser } from "@/lib/auth";
-import { canAccessModule, getFirstAllowedAdminRoute } from "@/lib/permissions";
+import { canAccessModule, canUserEdit, getFirstAllowedAdminRoute } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { CustomerDirectoryClient } from "./CustomerDirectoryClient";
@@ -14,6 +14,8 @@ export default async function CustomersPage() {
   if (!sessionUser || !canAccessModule(sessionUser, "customers")) {
     redirect(getFirstAllowedAdminRoute(sessionUser));
   }
+
+  const canEdit = canUserEdit(sessionUser);
 
   // Fetch all customers with their booking history
   const customers = await prisma.user.findMany({
@@ -49,7 +51,7 @@ export default async function CustomersPage() {
         </div>
       </div>
 
-      <CustomerDirectoryClient customers={customers} />
+      <CustomerDirectoryClient customers={customers} canEdit={canEdit} />
     </main>
   );
 }
