@@ -42,73 +42,72 @@ export default async function AdminDashboardPage() {
   const canPayments = canAccessModule(sessionUser, "payments");
   const canPricing = canAccessModule(sessionUser, "pricing");
 
-  // Aggregate real-time statistics
-  const totalBookings = await prisma.booking.count();
-  const confirmedBookings = await prisma.booking.count({
-    where: { bookingStatus: { in: ["CONFIRMED", "CHECKED_IN"] } },
-  });
-
-  const allBeds = await prisma.bed.count({ where: { active: true } });
-  const occupiedBeds = await prisma.bed.count({
-    where: { status: "OCCUPIED" },
-  });
-  const cleaningBeds = await prisma.bed.count({
-    where: { status: "CLEANING" },
-  });
-  const availableBeds = await prisma.bed.count({
-    where: { status: "AVAILABLE" },
-  });
-
-  const occupancyRate = allBeds > 0 ? Math.round((occupiedBeds / allBeds) * 100) : 0;
-
-  // Payments & Revenue
-  const payments = await prisma.payment.findMany({
-    where: { status: "CAPTURED" },
-    select: { amount: true },
-  });
-  const totalRevenue = payments.reduce((acc, p) => acc + p.amount, 0);
-
-  // Complaints & Refunds
-  const openComplaints = await prisma.supportTicket.count({
-    where: { status: { in: ["OPEN", "IN_PROGRESS"] } },
-  });
-  const refundRequests = await prisma.refund.count({
-    where: { status: "REQUESTED" },
-  });
-
-  // Hostels Breakdown
-  const hostels = await prisma.hostel.findMany({
-    include: {
-      rooms: {
-        include: {
-          beds: true,
+  // Aggregate real-time statistics in parallel
+  const [
+    totalBookings,
+    confirmedBookings,
+    allBeds,
+    occupiedBeds,
+    cleaningBeds,
+    availableBeds,
+    paymentRevenueAgg,
+    openComplaints,
+    refundRequests,
+    hostels,
+    recentBookings,
+    pendingExtensions,
+    pendingExtensionRevenue,
+  ] = await Promise.all([
+    prisma.booking.count(),
+    prisma.booking.count({
+      where: { bookingStatus: { in: ["CONFIRMED", "CHECKED_IN"] } },
+    }),
+    prisma.bed.count({ where: { active: true } }),
+    prisma.bed.count({ where: { status: "OCCUPIED" } }),
+    prisma.bed.count({ where: { status: "CLEANING" } }),
+    prisma.bed.count({ where: { status: "AVAILABLE" } }),
+    prisma.payment.aggregate({
+      where: { status: "CAPTURED" },
+      _sum: { amount: true },
+    }),
+    prisma.supportTicket.count({
+      where: { status: { in: ["OPEN", "IN_PROGRESS"] } },
+    }),
+    prisma.refund.count({
+      where: { status: "REQUESTED" },
+    }),
+    prisma.hostel.findMany({
+      include: {
+        rooms: {
+          include: {
+            beds: true,
+          },
+        },
+        bookings: {
+          where: { bookingStatus: { in: ["CONFIRMED", "CHECKED_IN"] } },
         },
       },
-      bookings: {
-        where: { bookingStatus: { in: ["CONFIRMED", "CHECKED_IN"] } },
+    }),
+    prisma.booking.findMany({
+      take: 6,
+      orderBy: { createdAt: "desc" },
+      include: {
+        hostel: true,
+        room: true,
+        bed: true,
       },
-    },
-  });
+    }),
+    prisma.bookingExtension.count({
+      where: { status: "REQUESTED" },
+    }),
+    prisma.bookingExtension.aggregate({
+      where: { status: "REQUESTED", additionalAmount: { gt: 0 } },
+      _sum: { additionalAmount: true },
+    }),
+  ]);
 
-  // Recent 6 Bookings
-  const recentBookings = await prisma.booking.findMany({
-    take: 6,
-    orderBy: { createdAt: "desc" },
-    include: {
-      hostel: true,
-      room: true,
-      bed: true,
-    },
-  });
-
-  // Booking Extensions
-  const pendingExtensions = await prisma.bookingExtension.count({
-    where: { status: "REQUESTED" },
-  });
-  const pendingExtensionRevenue = await prisma.bookingExtension.aggregate({
-    where: { status: "REQUESTED", additionalAmount: { gt: 0 } },
-    _sum: { additionalAmount: true },
-  });
+  const occupancyRate = allBeds > 0 ? Math.round((occupiedBeds / allBeds) * 100) : 0;
+  const totalRevenue = paymentRevenueAgg._sum.amount ?? 0;
 
   return (
     <div className="space-y-8">

@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
+import { cache } from "react";
 import prisma from "./prisma";
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -45,7 +46,7 @@ export function verifyToken(token: string): {
   }
 }
 
-export async function getSessionUser() {
+export const getSessionUser = cache(async () => {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get(COOKIE_NAME)?.value;
@@ -74,7 +75,7 @@ export async function getSessionUser() {
   } catch {
     return null;
   }
-}
+});
 
 export const ROLES = {
   SUPER_ADMIN: "SUPER_ADMIN",

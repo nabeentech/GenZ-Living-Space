@@ -34,6 +34,9 @@ model User {
   supportTickets   SupportTicket[]
   assignedTasks    HousekeepingTask[] @relation("AssignedHousekeeping")
   auditLogs        AuditLog[]
+
+  @@index([role, active])
+  @@index([phone])
 }
 
 model Hostel {
@@ -151,6 +154,10 @@ model Room {
   beds           Bed[]
   bookings       Booking[]
   tasks          HousekeepingTask[]
+
+  @@index([hostelId, status])
+  @@index([roomTypeId])
+  @@index([floor])
 }
 
 model Bed {
@@ -169,6 +176,10 @@ model Bed {
   hostel            Hostel   @relation(fields: [hostelId], references: [id], onDelete: Cascade)
   bookings          Booking[]
   tasks             HousekeepingTask[]
+
+  @@index([roomId, status])
+  @@index([hostelId, status])
+  @@index([status, active])
 }
 
 model Booking {
@@ -237,6 +248,13 @@ model Booking {
   additionalCharges  AdditionalCharge[]
   review             Review?
   extensions         BookingExtension[]
+
+  @@index([hostelId, bookingStatus])
+  @@index([bedId, bookingStatus])
+  @@index([customerId])
+  @@index([checkInDate, checkOutDate])
+  @@index([createdAt])
+  @@index([stayType, bookingStatus])
 }
 
 model Payment {
@@ -258,6 +276,9 @@ model Payment {
   booking            Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   customer           User     @relation(fields: [customerId], references: [id])
   refunds            Refund[]
+
+  @@index([bookingId, status])
+  @@index([status, createdAt])
 }
 
 model Refund {
@@ -299,6 +320,10 @@ model Invoice {
 
   booking            Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   hostel             Hostel   @relation(fields: [hostelId], references: [id])
+
+  @@index([bookingId, status])
+  @@index([dueDate, status])
+  @@index([status])
 }
 
 model Coupon {
@@ -348,6 +373,9 @@ model SupportTicket {
 
   customer    User     @relation(fields: [customerId], references: [id])
   hostel      Hostel   @relation(fields: [hostelId], references: [id])
+
+  @@index([hostelId, status])
+  @@index([customerId])
 }
 
 model HousekeepingTask {
@@ -368,6 +396,10 @@ model HousekeepingTask {
   room          Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
   bed           Bed?      @relation(fields: [bedId], references: [id], onDelete: Cascade)
   assignee      User?     @relation("AssignedHousekeeping", fields: [assignedTo], references: [id])
+
+  @@index([hostelId, status])
+  @@index([bedId])
+  @@index([roomId])
 }
 
 model BookingExtension {
@@ -417,6 +449,10 @@ model AuditLog {
   createdAt     DateTime @default(now())
 
   user          User?    @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@index([entity, entityId])
+  @@index([userId])
 }
 
 model WebsiteContent {
