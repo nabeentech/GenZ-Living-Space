@@ -23,6 +23,9 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
   canEdit = true,
 }) => {
   const [activeTab, setActiveTab] = useState<"rent" | "due" | "payments" | "refunds" | "invoices">("rent");
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+
   const [rentDues, setRentDues] = useState(initialRentDues);
   const [payments, setPayments] = useState(initialPayments);
   const [refunds, setRefunds] = useState(initialRefunds);
@@ -64,6 +67,20 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
     return counts;
   }, {});
   const upcomingRentTotal = rentDues.reduce((sum, row) => sum + (row.invoicePaid ? 0 : row.amountDue), 0);
+
+  const rentDuesPage = React.useMemo(() => rentDues.slice((page - 1) * pageSize, page * pageSize), [rentDues, page]);
+  const dueInvoicesPage = React.useMemo(() => dueInvoices.slice((page - 1) * pageSize, page * pageSize), [dueInvoices, page]);
+  const paymentsPage = React.useMemo(() => payments.slice((page - 1) * pageSize, page * pageSize), [payments, page]);
+  const refundsPage = React.useMemo(() => refunds.slice((page - 1) * pageSize, page * pageSize), [refunds, page]);
+  const invoicesPage = React.useMemo(() => invoiceRows.slice((page - 1) * pageSize, page * pageSize), [invoiceRows, page]);
+
+  const activeTotal = activeTab === "rent" ? rentDues.length
+    : activeTab === "due" ? dueInvoices.length
+    : activeTab === "payments" ? payments.length
+    : activeTab === "refunds" ? refunds.length
+    : invoiceRows.length;
+
+  const totalPages = Math.max(1, Math.ceil(activeTotal / pageSize));
 
   const handleMonthlyRent = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -178,24 +195,60 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
     }
   };
 
+  const renderPagination = (currentCount: number) => {
+    if (currentCount <= pageSize) return null;
+    return (
+      <div className="pt-4 mt-2 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+        <div>
+          Showing <span className="font-bold text-white">{(page - 1) * pageSize + 1}</span> to{" "}
+          <span className="font-bold text-white">
+            {Math.min(page * pageSize, currentCount)}
+          </span>{" "}
+          of <span className="font-bold text-white">{currentCount}</span> records
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+          >
+            Previous
+          </Button>
+          <span className="px-3 py-1 rounded-lg bg-slate-900 border border-slate-800 text-xs font-semibold text-slate-200">
+            Page {page} of {Math.max(1, Math.ceil(currentCount / pageSize))}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.min(Math.ceil(currentCount / pageSize), p + 1))}
+            disabled={page >= Math.ceil(currentCount / pageSize)}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Tabs */}
       <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
         <button
-          onClick={() => setActiveTab("rent")}
+          onClick={() => { setActiveTab("rent"); setPage(1); }}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition ${activeTab === "rent" ? "bg-indigo-600 text-white shadow-glow" : "text-slate-400 hover:text-white"}`}
         >
           Rent dues ({rentDues.length})
         </button>
         <button
-          onClick={() => setActiveTab("due")}
+          onClick={() => { setActiveTab("due"); setPage(1); }}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition ${activeTab === "due" ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20" : "text-slate-400 hover:text-white"}`}
         >
           Outstanding ({dueInvoices.length}) · ₹{outstandingTotal.toLocaleString("en-IN")}
         </button>
         <button
-          onClick={() => setActiveTab("payments")}
+          onClick={() => { setActiveTab("payments"); setPage(1); }}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
             activeTab === "payments"
               ? "bg-indigo-600 text-white shadow-glow"
@@ -205,7 +258,7 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
           Captured Transactions ({payments.length})
         </button>
         <button
-          onClick={() => setActiveTab("refunds")}
+          onClick={() => { setActiveTab("refunds"); setPage(1); }}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
             activeTab === "refunds"
               ? "bg-indigo-600 text-white shadow-glow"
@@ -215,14 +268,14 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
           Refund Requests Queue ({refunds.length})
         </button>
         <button
-          onClick={() => setActiveTab("invoices")}
+          onClick={() => { setActiveTab("invoices"); setPage(1); }}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
             activeTab === "invoices"
               ? "bg-indigo-600 text-white shadow-glow"
               : "text-slate-400 hover:text-white"
           }`}
         >
-          Official Tax Invoices ({invoices.length})
+          Official Tax Invoices ({invoiceRows.length})
         </button>
       </div>
 
@@ -255,7 +308,7 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
                   <th className="p-3.5">Resident</th><th className="p-3.5">Property / room</th><th className="p-3.5">Next rent due</th><th className="p-3.5">Monthly rent</th><th className="p-3.5">Discount</th><th className="p-3.5">Amount due</th><th className="p-3.5 text-right">Action</th>
                 </tr></thead>
                 <tbody className="divide-y divide-slate-800">
-                  {rentDues.length === 0 ? <tr><td colSpan={7} className="p-12 text-center"><IndianRupee className="mx-auto mb-2 h-6 w-6 text-slate-600" /><div className="font-semibold text-slate-300">No active monthly stays</div><div className="mt-1 text-slate-500">New rent dates will appear here when a monthly resident is checked in.</div></td></tr> : rentDues.map((row) => {
+                  {rentDues.length === 0 ? <tr><td colSpan={7} className="p-12 text-center"><IndianRupee className="mx-auto mb-2 h-6 w-6 text-slate-600" /><div className="font-semibold text-slate-300">No active monthly stays</div><div className="mt-1 text-slate-500">New rent dates will appear here when a monthly resident is checked in.</div></td></tr> : rentDuesPage.map((row) => {
                     const status = getRentStatus(row.dueDate);
                     const statusText = row.invoicePaid ? "Invoice paid" : status === "overdue" ? "Overdue" : status === "due" ? "Due today" : status === "due-soon" ? "Due within 7 days" : "Upcoming";
                     const statusClass = row.invoicePaid ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200" : status === "overdue" ? "border-rose-500/30 bg-rose-500/10 text-rose-200" : status === "upcoming" ? "border-indigo-500/30 bg-indigo-500/10 text-indigo-200" : "border-amber-500/30 bg-amber-500/10 text-amber-200";
@@ -272,6 +325,7 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
                 </tbody>
               </table>
             </div>
+            {renderPagination(rentDues.length)}
           </div>
           <p className="text-[11px] text-slate-500">Rent due dates follow the current stay end date. Each collection creates a payment and invoice, then extends the stay by one 30-day cycle. If a stay is several cycles overdue, collect each displayed cycle in turn. Security deposit and one-time maintenance are excluded.</p>
         </section>
@@ -289,7 +343,7 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
                 <th className="p-3">Booking / Invoice</th><th className="p-3">Guest</th><th className="p-3">Hostel</th><th className="p-3">Due date</th><th className="p-3">Total</th><th className="p-3">Paid</th><th className="p-3">Balance</th><th className="p-3 text-right">Action</th>
               </tr></thead>
               <tbody className="divide-y divide-slate-800">
-                {dueInvoices.length === 0 ? <tr><td colSpan={8} className="p-10 text-center text-slate-500">No outstanding balances.</td></tr> : dueInvoices.map((invoice) => {
+                {dueInvoices.length === 0 ? <tr><td colSpan={8} className="p-10 text-center text-slate-500">No outstanding balances.</td></tr> : dueInvoicesPage.map((invoice) => {
                   const balance = Math.max(0, invoice.totalAmount - invoice.paidAmount);
                   const overdue = new Date(invoice.dueDate).getTime() < new Date(new Date().toDateString()).getTime();
                   return <tr key={invoice.id} className="hover:bg-slate-900/50">
@@ -306,6 +360,7 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
               </tbody>
             </table>
           </div>
+          {renderPagination(dueInvoices.length)}
         </div>
       )}
 
@@ -327,7 +382,7 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
-                {payments.map((p) => (
+                {paymentsPage.map((p) => (
                   <tr key={p.id} className="hover:bg-slate-900/50">
                     <td className="p-3.5 font-mono text-indigo-400 font-semibold">
                       {p.gatewayPaymentId || "CASH_COUNTER"}
@@ -357,6 +412,7 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
               </tbody>
             </table>
           </div>
+          {renderPagination(payments.length)}
         </div>
       )}
 
@@ -384,7 +440,7 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
                     </td>
                   </tr>
                 ) : (
-                  refunds.map((r) => (
+                  refundsPage.map((r) => (
                     <tr key={r.id} className="hover:bg-slate-900/50">
                       <td className="p-3.5 font-mono font-bold text-white">
                         {r.booking?.bookingReference}
@@ -446,6 +502,7 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
               </tbody>
             </table>
           </div>
+          {renderPagination(refunds.length)}
         </div>
       )}
 
@@ -470,7 +527,7 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
-                {invoiceRows.map((inv) => (
+                {invoicesPage.map((inv) => (
                   <tr key={inv.id} className="hover:bg-slate-900/50">
                     <td className="p-3.5 font-mono font-bold text-white">
                       {inv.invoiceNumber}
@@ -511,6 +568,7 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
               </tbody>
             </table>
           </div>
+          {renderPagination(invoiceRows.length)}
         </div>
       )}
 

@@ -5,7 +5,11 @@ import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import CustomSelect from "@/components/ui/CustomSelect";
-import ShiftRoomModal from "@/components/admin/ShiftRoomModal";
+import dynamic from "next/dynamic";
+
+const ShiftRoomModal = dynamic(() => import("@/components/admin/ShiftRoomModal"), {
+  ssr: false,
+});
 import { Bed as BedIcon, User, Sparkles, Filter, CheckCircle2, AlertTriangle, RefreshCw, ChevronRight, Edit2, Plus, Trash2 } from "lucide-react";
 import { SHARING_NAMES } from "@/lib/room-types";
 

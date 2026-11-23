@@ -6,7 +6,11 @@ import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import CustomSelect from "@/components/ui/CustomSelect";
-import ShiftRoomModal from "@/components/admin/ShiftRoomModal";
+import dynamic from "next/dynamic";
+
+const ShiftRoomModal = dynamic(() => import("@/components/admin/ShiftRoomModal"), {
+  ssr: false,
+});
 import {
   QrCode,
   Search,

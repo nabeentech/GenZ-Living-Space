@@ -4,7 +4,11 @@ import React, { useState, useMemo } from "react";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
-import ShiftRoomModal from "@/components/admin/ShiftRoomModal";
+import dynamic from "next/dynamic";
+
+const ShiftRoomModal = dynamic(() => import("@/components/admin/ShiftRoomModal"), {
+  ssr: false,
+});
 import { Search, Mail, Phone, MapPin, Calendar, BookOpen, User, MessageCircle, RefreshCw } from "lucide-react";
 
 interface CustomerDirectoryClientProps {
@@ -17,6 +21,10 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
   const [sortBy, setSortBy] = useState<"name" | "recent" | "bookings">("recent");
   const [shiftBookingId, setShiftBookingId] = useState<string | null>(null);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 18;
 
   // Filter and sort customers
   const filteredCustomers = useMemo(() => {
@@ -40,6 +48,17 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
 
     return result;
   }, [customers, searchTerm, sortBy]);
+
+  // Reset page to 1 when search or sort criteria change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, sortBy]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredCustomers.length / pageSize));
+  const paginatedCustomers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredCustomers.slice(start, start + pageSize);
+  }, [filteredCustomers, currentPage, pageSize]);
 
   const getGenderBadgeVariant = (gender: string) => {
     if (!gender) return "default";
@@ -84,14 +103,17 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
         </div>
 
         <div className="text-xs text-slate-400">
-          Showing <span className="font-bold text-white">{filteredCustomers.length}</span> of{" "}
-          <span className="font-bold text-white">{customers.length}</span> customers
+          Showing <span className="font-bold text-white">{filteredCustomers.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}</span> to{" "}
+          <span className="font-bold text-white">
+            {Math.min(currentPage * pageSize, filteredCustomers.length)}
+          </span>{" "}
+          of <span className="font-bold text-white">{filteredCustomers.length}</span> guests {filteredCustomers.length !== customers.length && `(filtered from ${customers.length})`}
         </div>
       </div>
 
       {/* Customers Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredCustomers.map((customer) => {
+        {paginatedCustomers.map((customer) => {
           const activeBooking = customer.bookings?.find((b: any) =>
             ["CHECKED_IN", "CONFIRMED"].includes(b.bookingStatus)
           );
@@ -208,6 +230,40 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
           );
         })}
       </div>
+
+      {/* Pagination Controls */}
+      {filteredCustomers.length > 0 && (
+        <div className="glass-panel p-4 rounded-2xl border border-slate-800 bg-[#111827]/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+          <div>
+            Showing <span className="font-bold text-white">{(currentPage - 1) * pageSize + 1}</span> to{" "}
+            <span className="font-bold text-white">
+              {Math.min(currentPage * pageSize, filteredCustomers.length)}
+            </span>{" "}
+            of <span className="font-bold text-white">{filteredCustomers.length}</span> guests
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+            >
+              Previous
+            </Button>
+            <span className="px-3 py-1 rounded-lg bg-slate-900 border border-slate-800 text-xs font-semibold text-slate-200">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage >= totalPages}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
 
       {filteredCustomers.length === 0 && (
         <div className="text-center py-12">

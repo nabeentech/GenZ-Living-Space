@@ -18,6 +18,7 @@ export default async function AdminComplaintsPage() {
       customer: true,
     },
     orderBy: { createdAt: "desc" },
+    take: 200,
   });
 
   return (

@@ -17,17 +17,40 @@ export default async function CustomersPage() {
 
   const canEdit = canUserEdit(sessionUser);
 
-  // Fetch all customers with their booking history
+  // Fetch customers with optimized lean select
   const customers = await prisma.user.findMany({
     where: {
       role: "CUSTOMER",
     },
-    include: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      gender: true,
+      avatarUrl: true,
+      dateOfBirth: true,
+      address: true,
+      emergencyContact: true,
+      govtIdType: true,
+      govtIdNumber: true,
+      role: true,
+      active: true,
+      createdAt: true,
       bookings: {
-        include: {
-          hostel: true,
-          room: true,
-          bed: true,
+        select: {
+          id: true,
+          bookingReference: true,
+          bookingStatus: true,
+          stayType: true,
+          checkInDate: true,
+          checkOutDate: true,
+          totalAmount: true,
+          paidAmount: true,
+          balanceAmount: true,
+          hostel: { select: { id: true, name: true, city: true } },
+          room: { select: { id: true, roomNumber: true } },
+          bed: { select: { id: true, bedNumber: true } },
         },
         orderBy: {
           checkInDate: "desc",

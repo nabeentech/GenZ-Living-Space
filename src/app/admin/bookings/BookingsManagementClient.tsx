@@ -7,7 +7,11 @@ import CustomSelect from "@/components/ui/CustomSelect";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import DatePicker from "@/components/ui/DatePicker";
-import ShiftRoomModal from "@/components/admin/ShiftRoomModal";
+import dynamic from "next/dynamic";
+
+const ShiftRoomModal = dynamic(() => import("@/components/admin/ShiftRoomModal"), {
+  ssr: false,
+});
 import { getRoomTypePriceRates } from "@/lib/pricing";
 import {
   Search,
@@ -61,6 +65,10 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
   const [actionMsg, setActionMsg] = useState("");
   const [shiftBookingId, setShiftBookingId] = useState<string | null>(null);
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 20;
+
   // Offline Monthly Rent Modal State
   const [showOfflineRentModal, setShowOfflineRentModal] = useState(false);
   const [offlinePaymentMode, setOfflinePaymentMode] = useState("CASH");
@@ -90,6 +98,17 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
       return matchHostel && matchStatus && matchSearch;
     });
   }, [bookings, selectedHostel, statusFilter, search]);
+
+  // Reset pagination when search or filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedHostel, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredBookings.length / pageSize));
+  const paginatedBookings = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredBookings.slice(start, start + pageSize);
+  }, [filteredBookings, currentPage, pageSize]);
 
   const offlineRenewalQuote = useMemo(() => {
     const room = selectedBooking?.room;
@@ -302,7 +321,7 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
                   </td>
                 </tr>
               ) : (
-                filteredBookings.map((b) => (
+                paginatedBookings.map((b) => (
                   <tr key={b.id} className="hover:bg-slate-900/50 transition">
                     <td className="p-3.5 font-mono font-bold text-white">
                       {b.bookingReference}
@@ -401,6 +420,40 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Bar */}
+        {filteredBookings.length > 0 && (
+          <div className="pt-4 mt-2 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+            <div>
+              Showing <span className="font-bold text-white">{(currentPage - 1) * pageSize + 1}</span> to{" "}
+              <span className="font-bold text-white">
+                {Math.min(currentPage * pageSize, filteredBookings.length)}
+              </span>{" "}
+              of <span className="font-bold text-white">{filteredBookings.length}</span> bookings
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              <span className="px-3 py-1 rounded-lg bg-slate-900 border border-slate-800 text-xs font-semibold text-slate-200">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Booking Details Modal */}

@@ -41,23 +41,25 @@ export default async function AdminBookingsPage({ searchParams }: BookingsPagePr
     ];
   }
 
-  const bookings = await prisma.booking.findMany({
-    where,
-    include: {
-      hostel: true,
-      room: { include: { roomType: true } },
-      bed: true,
-      payments: true,
-      invoices: true,
-      refunds: true,
-      extensions: { orderBy: { createdAt: "desc" } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  const hostels = await prisma.hostel.findMany({
-    select: { id: true, name: true, city: true },
-  });
+  const [bookings, hostels] = await Promise.all([
+    prisma.booking.findMany({
+      where,
+      include: {
+        hostel: true,
+        room: { include: { roomType: true } },
+        bed: true,
+        payments: true,
+        invoices: true,
+        refunds: true,
+        extensions: { orderBy: { createdAt: "desc" } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 300,
+    }),
+    prisma.hostel.findMany({
+      select: { id: true, name: true, city: true },
+    }),
+  ]);
 
   return (
     <div className="space-y-6">

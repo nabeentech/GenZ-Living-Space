@@ -12,19 +12,21 @@ export default async function HousekeepingPage() {
   if (!user || !canAccessModule(user, "housekeeping")) {
     redirect(getFirstAllowedAdminRoute(user));
   }
-  const tasks = await prisma.housekeepingTask.findMany({
-    include: {
-      hostel: true,
-      room: true,
-      bed: true,
-      assignee: true,
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  const hostels = await prisma.hostel.findMany({
-    select: { id: true, name: true, city: true },
-  });
+  const [tasks, hostels] = await Promise.all([
+    prisma.housekeepingTask.findMany({
+      include: {
+        hostel: true,
+        room: true,
+        bed: true,
+        assignee: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    }),
+    prisma.hostel.findMany({
+      select: { id: true, name: true, city: true },
+    }),
+  ]);
 
   return (
     <div className="space-y-6">

@@ -16,46 +16,61 @@ export default async function AdminPaymentsPage() {
 
   const canEdit = canUserEdit(user);
 
-  const payments = await prisma.payment.findMany({
-    include: {
-      booking: {
-        include: { hostel: true },
+  const [payments, refunds, invoices, monthlyBookings] = await Promise.all([
+    prisma.payment.findMany({
+      include: {
+        booking: {
+          include: { hostel: true },
+        },
+        customer: true,
       },
-      customer: true,
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  const refunds = await prisma.refund.findMany({
-    include: {
-      booking: {
-        include: { hostel: true, customer: true },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    }),
+    prisma.refund.findMany({
+      include: {
+        booking: {
+          include: { hostel: true, customer: true },
+        },
       },
-    },
-    orderBy: { requestedAt: "desc" },
-  });
-
-  const invoices = await prisma.invoice.findMany({
-    include: {
-      hostel: true,
-      booking: true,
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  const monthlyBookings = await prisma.booking.findMany({
-    where: {
-      stayType: "MONTHLY",
-      bookingStatus: { in: ["CONFIRMED", "CHECKED_IN"] },
-    },
-    include: {
-      hostel: { select: { id: true, name: true } },
-      room: { include: { roomType: true } },
-      bed: { select: { bedNumber: true } },
-      invoices: { where: { status: { not: "CANCELLED" } }, orderBy: { createdAt: "desc" }, select: { id: true, dueDate: true, totalAmount: true, paidAmount: true, status: true, baseAmount: true, monthlyRentDiscountAmount: true } },
-    },
-    orderBy: { checkOutDate: "asc" },
-  });
+      orderBy: { requestedAt: "desc" },
+      take: 200,
+    }),
+    prisma.invoice.findMany({
+      include: {
+        hostel: true,
+        booking: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    }),
+    prisma.booking.findMany({
+      where: {
+        stayType: "MONTHLY",
+        bookingStatus: { in: ["CONFIRMED", "CHECKED_IN"] },
+      },
+      include: {
+        hostel: { select: { id: true, name: true } },
+        room: { include: { roomType: true } },
+        bed: { select: { bedNumber: true } },
+        invoices: {
+          where: { status: { not: "CANCELLED" } },
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            dueDate: true,
+            totalAmount: true,
+            paidAmount: true,
+            status: true,
+            baseAmount: true,
+            monthlyRentDiscountAmount: true,
+          },
+        },
+      },
+      orderBy: { checkOutDate: "asc" },
+      take: 200,
+    }),
+  ]);
 
   const rentDues = monthlyBookings.map((booking) => {
     const rates = getRoomTypePriceRates(booking.room.roomType, booking.room.isAC);
