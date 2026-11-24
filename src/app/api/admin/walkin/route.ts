@@ -36,6 +36,7 @@ export async function POST(req: Request) {
       customTotalAmount,
       maintenanceFeeOverride,
       securityDepositOverride,
+      paidSecurityDeposit: rawPaidSecurityDeposit,
       customDiscountAmount = 0,
       monthlyRentDiscountAmount = 0,
       monthlyRentDiscountMonths = 0,
@@ -318,6 +319,16 @@ export async function POST(req: Request) {
         });
       }
 
+      const resolvedPaidSecurityDeposit = pricing.securityDeposit > 0
+        ? Math.min(
+            pricing.securityDeposit,
+            paidAmount,
+            typeof rawPaidSecurityDeposit === "number" && !isNaN(rawPaidSecurityDeposit) && rawPaidSecurityDeposit >= 0
+              ? rawPaidSecurityDeposit
+              : paidAmount
+          )
+        : 0;
+
       // 1. Create Booking
       const b = await tx.booking.create({
         data: {
@@ -335,6 +346,7 @@ export async function POST(req: Request) {
           taxAmount: pricing.taxAmount,
           serviceFee: pricing.serviceFee,
           securityDeposit: pricing.securityDeposit,
+          paidSecurityDeposit: resolvedPaidSecurityDeposit,
           discountAmount: pricing.discountAmount,
           customDiscountAmount: pricing.customDiscountAmount,
           monthlyRentDiscountAmount: pricing.monthlyRentDiscountAmount,
@@ -405,6 +417,7 @@ export async function POST(req: Request) {
         taxAmount: pricing.taxAmount,
         serviceFee: pricing.serviceFee,
         securityDeposit: pricing.securityDeposit,
+        paidSecurityDeposit: resolvedPaidSecurityDeposit,
         discountAmount: pricing.discountAmount,
         customDiscountAmount: pricing.customDiscountAmount,
         monthlyRentDiscountAmount: pricing.monthlyRentDiscountAmount,

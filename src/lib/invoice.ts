@@ -82,6 +82,7 @@ export async function createInvoiceWithRetry(
     taxAmount: number;
     serviceFee?: number;
     securityDeposit?: number;
+    paidSecurityDeposit?: number;
     discountAmount?: number;
     customDiscountAmount?: number;
     monthlyRentDiscountAmount?: number;

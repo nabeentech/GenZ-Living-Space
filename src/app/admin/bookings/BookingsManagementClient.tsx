@@ -73,6 +73,7 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
   const [showOfflineRentModal, setShowOfflineRentModal] = useState(false);
   const [offlinePaymentMode, setOfflinePaymentMode] = useState("CASH");
   const [offlineRentAmount, setOfflineRentAmount] = useState("");
+  const [offlineBalanceDueDate, setOfflineBalanceDueDate] = useState("");
   const [offlineRentNotes, setOfflineRentNotes] = useState("");
   const [isRecordingOfflineRent, setIsRecordingOfflineRent] = useState(false);
   const [offlineRentMsg, setOfflineRentMsg] = useState("");
@@ -157,6 +158,22 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
 
   const handleRecordOfflineRent = async () => {
     if (!selectedBooking) return;
+    const paid = Number(offlineRentAmount);
+    const quoteTotal = offlineRenewalQuote?.total || 0;
+    if (!Number.isFinite(paid) || paid <= 0) {
+      setOfflineRentMsg("Enter a valid payment amount greater than 0.");
+      return;
+    }
+    if (quoteTotal > 0 && paid > quoteTotal) {
+      setOfflineRentMsg(`Payment cannot exceed the cycle total of ₹${quoteTotal.toLocaleString("en-IN")}.`);
+      return;
+    }
+    const rem = quoteTotal > 0 ? Math.max(0, quoteTotal - paid) : 0;
+    if (rem > 0 && !offlineBalanceDueDate) {
+      setOfflineRentMsg("Please select an agreed balance due date.");
+      return;
+    }
+
     setIsRecordingOfflineRent(true);
     setOfflineRentMsg("");
 
@@ -167,7 +184,8 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
         body: JSON.stringify({
           method: "OFFLINE",
           paymentMode: offlinePaymentMode,
-          amount: Number(offlineRentAmount) || undefined,
+          amount: paid,
+          balanceDueDate: rem > 0 ? offlineBalanceDueDate : undefined,
           notes: offlineRentNotes,
         }),
       });
@@ -585,6 +603,9 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
                       size="sm"
                       onClick={() => {
                         setOfflineRentAmount(offlineRenewalQuote ? String(offlineRenewalQuote.total) : "");
+                        const defaultDue = new Date();
+                        defaultDue.setDate(defaultDue.getDate() + 7);
+                        setOfflineBalanceDueDate(defaultDue.toISOString().slice(0, 10));
                         setShowOfflineRentModal(true);
                         setOfflineRentMsg("");
                       }}
@@ -803,7 +824,7 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
 
             <div>
               <label className="block text-xs font-bold text-indigo-400 mb-1">
-                Amount Collected (₹)
+                Amount Received Now (₹)
               </label>
               <input
                 type="number"
@@ -812,7 +833,45 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
                 placeholder="Rent Amount"
                 className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-sm font-bold text-white focus:outline-none focus:border-indigo-500"
               />
+              <span className="mt-1 block text-[11px] text-slate-400">
+                Enter only the amount collected today. If partial, the remaining balance will be recorded under Outstanding balances.
+              </span>
             </div>
+
+            {(() => {
+              const quoteTotal = offlineRenewalQuote?.total || 0;
+              const entered = Number(offlineRentAmount) || 0;
+              const remaining = Math.max(0, quoteTotal - entered);
+
+              if (quoteTotal > 0 && entered > 0 && remaining > 0) {
+                return (
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 space-y-3">
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-wider text-amber-200">Remaining Balance</div>
+                      <div className="mt-0.5 text-xl font-black text-amber-300">₹{remaining.toLocaleString("en-IN")}</div>
+                      <p className="mt-0.5 text-[11px] text-slate-400">Set the date the resident agreed to pay this balance.</p>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-slate-300">Balance due date *</label>
+                      <DatePicker
+                        value={offlineBalanceDueDate}
+                        onChange={setOfflineBalanceDueDate}
+                        min={new Date().toISOString().slice(0, 10)}
+                        triggerClassName="p-2.5 rounded-xl bg-slate-950 border border-slate-700 text-xs w-full text-white"
+                      />
+                    </div>
+                  </div>
+                );
+              }
+              if (quoteTotal > 0 && entered >= quoteTotal) {
+                return (
+                  <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs font-semibold text-emerald-300">
+                    Full payment · Stay will be extended by 30 days with no outstanding balance.
+                  </div>
+                );
+              }
+              return null;
+            })()}
 
             <div>
               <label className="block text-xs font-bold text-slate-400 mb-1">

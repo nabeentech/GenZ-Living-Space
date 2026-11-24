@@ -113,6 +113,7 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
   const [priceOverride, setPriceOverride] = useState<number>(0);
   const [maintenanceFeeOverride, setMaintenanceFeeOverride] = useState<number | null>(null);
   const [securityDepositOverride, setSecurityDepositOverride] = useState<number | null>(null);
+  const [paidSecurityDepositInput, setPaidSecurityDepositInput] = useState<string>("");
   const [customDiscountAmount, setCustomDiscountAmount] = useState(0);
   const [monthlyRentDiscountAmount, setMonthlyRentDiscountAmount] = useState(0);
   const [monthlyRentDiscountMonths, setMonthlyRentDiscountMonths] = useState(2);
@@ -341,6 +342,7 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
           stayType,
           maintenanceFeeOverride: stayType === "MONTHLY" ? effectiveMaintenanceFee : null,
           securityDepositOverride: stayType === "MONTHLY" ? effectiveSecurityDeposit : null,
+          paidSecurityDeposit: stayType === "MONTHLY" ? (paidSecurityDepositInput !== "" ? Number(paidSecurityDepositInput) : effectiveSecurityDeposit) : 0,
           customDiscountAmount,
           monthlyRentDiscountAmount: stayType === "MONTHLY" ? monthlyRentDiscountAmount : 0,
           monthlyRentDiscountMonths: stayType === "MONTHLY" && monthlyRentDiscountAmount > 0 ? monthlyRentDiscountMonths : 0,
@@ -709,7 +711,22 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
               {calculatedPricing && <div className="mt-3 space-y-2 border-t border-slate-800 pt-3 text-xs text-slate-300">
                 <div className="flex justify-between"><span>Stay rent</span><span>₹{calculatedPricing.baseAmount.toLocaleString("en-IN")}</span></div>
                 {calculatedPricing.stayType === "MONTHLY" ? <div><label className="flex items-center justify-between gap-3"><span>Maintenance <span className="text-slate-500">(one-time)</span></span><span className="flex items-center gap-1">₹<input type="text" inputMode="numeric" maxLength={8} aria-label="One-time maintenance fee" value={effectiveMaintenanceFee} onChange={(e) => { setMaintenanceFeeOverride(Number(e.target.value.replace(/\D/g, "").slice(0, 8))); setPriceOverride(0); }} className="w-32 rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-right text-white" /></span></label>{effectiveMaintenanceFee > configuredMaintenanceFee && <p className="mt-1 text-right text-[11px] text-rose-300">Cannot exceed configured maintenance of ₹{configuredMaintenanceFee.toLocaleString("en-IN")}.</p>}</div> : calculatedPricing.serviceFee > 0 && <div className="flex justify-between"><span>Service fee</span><span>₹{calculatedPricing.serviceFee.toLocaleString("en-IN")}</span></div>}
-                {calculatedPricing.stayType === "MONTHLY" && <div><label className="flex items-center justify-between gap-3"><span>Security deposit <span className="text-slate-500">(refundable)</span></span><span className="flex items-center gap-1">₹<input type="text" inputMode="numeric" maxLength={7} aria-label="Refundable security deposit" value={effectiveSecurityDeposit} onChange={(e) => { setSecurityDepositOverride(Number(e.target.value.replace(/\D/g, "").slice(0, 7))); setPriceOverride(0); }} className="w-32 rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-right text-white" /></span></label><p className="mt-1 text-right text-[11px] text-slate-500">Collected once at check-in and refunded according to the deposit policy.</p></div>}
+                {calculatedPricing.stayType === "MONTHLY" && <div className="space-y-1.5">
+                  <label className="flex items-center justify-between gap-3"><span>Security deposit <span className="text-slate-500">(refundable)</span></span><span className="flex items-center gap-1">₹<input type="text" inputMode="numeric" maxLength={7} aria-label="Refundable security deposit" value={effectiveSecurityDeposit} onChange={(e) => { setSecurityDepositOverride(Number(e.target.value.replace(/\D/g, "").slice(0, 7))); setPriceOverride(0); }} className="w-32 rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-right text-white" /></span></label>
+                  {effectiveSecurityDeposit > 0 && (
+                    <label className="flex items-center justify-between gap-3 pl-3 text-[11px] text-amber-200/90">
+                      <span>↳ Deposit collected today</span>
+                      <span className="flex items-center gap-1">₹<input type="text" inputMode="numeric" maxLength={7} placeholder={String(effectiveSecurityDeposit)} value={paidSecurityDepositInput} onChange={(e) => setPaidSecurityDepositInput(e.target.value.replace(/\D/g, "").slice(0, 7))} className="w-32 rounded-lg border border-amber-500/30 bg-slate-950 px-2.5 py-1 text-right text-amber-300 font-bold focus:border-amber-400" /></span>
+                    </label>
+                  )}
+                  {effectiveSecurityDeposit > 0 && (
+                    <div className="flex justify-between text-[11px] text-slate-500 pl-3">
+                      <span>{Number(paidSecurityDepositInput !== "" ? paidSecurityDepositInput : effectiveSecurityDeposit) < effectiveSecurityDeposit ? `⚠️ Pending deposit: ₹${(effectiveSecurityDeposit - Number(paidSecurityDepositInput !== "" ? paidSecurityDepositInput : effectiveSecurityDeposit)).toLocaleString("en-IN")}` : "Full deposit collected"}</span>
+                      <span>Refunded at checkout</span>
+                    </div>
+                  )}
+                  {effectiveSecurityDeposit === 0 && <p className="mt-1 text-right text-[11px] text-slate-500">Collected once at check-in and refunded according to the deposit policy.</p>}
+                </div>}
                 {calculatedPricing.couponDiscountAmount > 0 && <div className="flex justify-between text-emerald-300"><span>Coupon discount{calculatedPricing.couponCode ? ` · ${calculatedPricing.couponCode}` : ""}</span><span>−₹{calculatedPricing.couponDiscountAmount.toLocaleString("en-IN")}</span></div>}
                 {calculatedPricing.customDiscountAmount > 0 && <div className="flex justify-between text-emerald-300"><span>Custom discount</span><span>−₹{calculatedPricing.customDiscountAmount.toLocaleString("en-IN")}</span></div>}
                 {calculatedPricing.monthlyRentDiscountAmount > 0 && <div className="flex justify-between text-emerald-300"><span>Intro discount · month 1 of {monthlyRentDiscountMonths}</span><span>−₹{calculatedPricing.monthlyRentDiscountAmount.toLocaleString("en-IN")}</span></div>}

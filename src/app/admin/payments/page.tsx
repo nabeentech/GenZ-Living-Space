@@ -88,6 +88,12 @@ export default async function AdminPaymentsPage() {
       ? Math.max(0, matchingInvoice.totalAmount - matchingInvoice.paidAmount)
       : monthlyRent - monthlyDiscount;
 
+    const pendingDeposit = Math.max(0, (booking.securityDeposit || 0) - (booking.paidSecurityDeposit || 0));
+    const pastBalance = Math.max(0, booking.balanceAmount || 0);
+    const pastOtherBalance = Math.max(0, pastBalance - pendingDeposit);
+    const cycleRent = amountDue;
+    const totalDueWithPast = pastBalance + cycleRent;
+
     return {
       bookingId: booking.id,
       bookingReference: booking.bookingReference,
@@ -101,6 +107,13 @@ export default async function AdminPaymentsPage() {
       baseRent: matchingInvoice?.baseAmount ?? monthlyRent,
       discount: matchingInvoice?.monthlyRentDiscountAmount ?? monthlyDiscount,
       amountDue,
+      securityDeposit: booking.securityDeposit || 0,
+      paidSecurityDeposit: booking.paidSecurityDeposit || 0,
+      pendingDeposit,
+      pastBalance,
+      pastOtherBalance,
+      cycleRent,
+      totalDueWithPast,
       invoiceId: matchingInvoice?.id ?? null,
       invoiceStatus: matchingInvoice?.status ?? null,
       invoicePaid: matchingInvoice ? matchingInvoice.totalAmount <= matchingInvoice.paidAmount : false,

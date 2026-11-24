@@ -902,11 +902,72 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
               )}
             </div>
 
-            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs">
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs space-y-1">
               <div className="flex justify-between text-slate-300"><span>Current balance</span><strong>₹{(activeCheckOutBooking.balanceAmount || 0).toLocaleString("en-IN")}</strong></div>
-              <div className="mt-1 flex justify-between text-slate-300"><span>New checkout charges</span><strong>₹{checkoutExtraTotal.toLocaleString("en-IN")}</strong></div>
+              <div className="flex justify-between text-slate-300"><span>New checkout charges</span><strong>₹{checkoutExtraTotal.toLocaleString("en-IN")}</strong></div>
+              {activeCheckOutBooking.securityDeposit > 0 && (
+                <div className="flex justify-between text-emerald-300 pt-1 border-t border-slate-800">
+                  <span>Refundable deposit received</span>
+                  <strong>₹{(activeCheckOutBooking.paidSecurityDeposit ?? activeCheckOutBooking.securityDeposit).toLocaleString("en-IN")}</strong>
+                </div>
+              )}
               <div className="mt-2 flex justify-between border-t border-amber-500/20 pt-2 font-bold text-amber-200"><span>Outstanding after checkout</span><strong>₹{checkoutOutstandingTotal.toLocaleString("en-IN")}</strong></div>
             </div>
+
+            {(() => {
+              const depositHeld = (activeCheckOutBooking.paidSecurityDeposit ?? activeCheckOutBooking.securityDeposit) || 0;
+              const netSettlement = depositHeld - checkoutOutstandingTotal;
+
+              if (depositHeld <= 0) return null;
+
+              return (
+                <div className={`rounded-xl border p-3 text-xs space-y-1.5 ${
+                  netSettlement > 0 
+                    ? "border-emerald-500/30 bg-emerald-500/10" 
+                    : netSettlement < 0 
+                    ? "border-rose-500/30 bg-rose-950/40" 
+                    : "border-slate-700 bg-slate-900/60"
+                }`}>
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold text-slate-200">Net Settlement Calculation</span>
+                    <span className="text-[10px] text-slate-400">Deposit vs Total Debt</span>
+                  </div>
+                  <div className="flex justify-between text-slate-400 text-[11px]">
+                    <span>Total Debt (Rent + Charges):</span>
+                    <span>₹{checkoutOutstandingTotal.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-400 text-[11px]">
+                    <span>Refundable Deposit Held:</span>
+                    <span>−₹{depositHeld.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="border-t border-slate-700/60 pt-1.5 flex justify-between items-center font-bold">
+                    {netSettlement > 0 ? (
+                      <>
+                        <span className="text-emerald-300">✓ Net Refund to Guest:</span>
+                        <span className="text-sm text-emerald-300 font-black">₹{netSettlement.toLocaleString("en-IN")}</span>
+                      </>
+                    ) : netSettlement < 0 ? (
+                      <>
+                        <span className="text-rose-300">⚠️ Net Guest Must Pay Desk:</span>
+                        <span className="text-sm text-rose-300 font-black">₹{Math.abs(netSettlement).toLocaleString("en-IN")}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-slate-200">✓ Even Settlement:</span>
+                        <span className="text-sm text-slate-200 font-bold">₹0 (Deposit covers debt)</span>
+                      </>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-400 pt-0.5">
+                    {netSettlement > 0
+                      ? `Deposit absorbs the ₹${checkoutOutstandingTotal.toLocaleString("en-IN")} debt. Return remaining ₹${netSettlement.toLocaleString("en-IN")} cash/refund to the guest.`
+                      : netSettlement < 0
+                      ? `Deposit is fully absorbed. Collect remaining ₹${Math.abs(netSettlement).toLocaleString("en-IN")} from the guest today.`
+                      : `Deposit completely absorbs the debt. No cash needs to be exchanged.`}
+                  </p>
+                </div>
+              );
+            })()}
 
             <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-3">
               <label className="block text-xs font-semibold text-slate-300">Amount collected at checkout (₹, optional)

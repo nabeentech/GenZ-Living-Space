@@ -18,7 +18,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: "You have view-only access and cannot record payments." }, { status: 403 });
     }
 
-    const { bookingId, invoiceId, amount: rawAmount, paymentMethod } = await req.json();
+    const { bookingId, invoiceId, amount: rawAmount, paymentMethod, newDueDate } = await req.json();
     const amount = Number(rawAmount);
     const amountPaise = Math.round(amount * 100);
     if (!bookingId || !invoiceId) {
@@ -64,24 +64,36 @@ export async function POST(req: Request) {
 
       const invoicePaidPaise = Math.round(invoice.paidAmount * 100) + amountPaise;
       const invoiceBalancePaise = Math.max(0, Math.round(invoice.totalAmount * 100) - invoicePaidPaise);
+
+      let updatedDueDate: Date | undefined;
+      if (invoiceBalancePaise > 0 && typeof newDueDate === "string" && newDueDate.trim()) {
+        const parsed = new Date(`${newDueDate.slice(0, 10)}T18:29:59.000Z`);
+        if (!isNaN(parsed.getTime())) {
+          updatedDueDate = parsed;
+        }
+      }
+
       const claimedInvoice = await tx.invoice.updateMany({
         where: { id: invoice.id, paidAmount: invoice.paidAmount, status: { not: "CANCELLED" } },
         data: {
           paidAmount: invoicePaidPaise / 100,
           balanceDue: invoiceBalancePaise / 100,
           status: invoiceBalancePaise === 0 ? "PAID" : "PARTIAL",
+          ...(updatedDueDate ? { dueDate: updatedDueDate } : {}),
         },
       });
       if (claimedInvoice.count !== 1) throw Object.assign(new Error("This invoice changed while payment was being recorded. Refresh and retry."), { status: 409 });
       const invoiceUpdated = await tx.invoice.findUniqueOrThrow({ where: { id: invoice.id } });
 
       const appliedToBookingPaise = Math.min(amountPaise, bookingDuePaise);
+      const depositToCredit = Math.min(appliedToBookingPaise / 100, Math.max(0, (booking.securityDeposit || 0) - (booking.paidSecurityDeposit || 0)));
       const bookingUpdated = appliedToBookingPaise > 0
         ? await tx.booking.update({
             where: { id: booking.id },
             data: {
               paidAmount: (Math.round(booking.paidAmount * 100) + appliedToBookingPaise) / 100,
               balanceAmount: (bookingDuePaise - appliedToBookingPaise) / 100,
+              paidSecurityDeposit: (booking.paidSecurityDeposit || 0) + depositToCredit,
               paymentStatus: bookingDuePaise === appliedToBookingPaise ? "PAID" : "PARTIAL",
             },
           })

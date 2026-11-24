@@ -201,6 +201,7 @@ model Booking {
   taxAmount          Float     // 12% GST
   serviceFee         Float     @default(0.0)
   securityDeposit    Float     @default(0.0)
+  paidSecurityDeposit Float    @default(0.0)
   discountAmount     Float     @default(0.0)
   customDiscountAmount Float   @default(0.0)
   monthlyRentDiscountAmount Float @default(0.0)
@@ -309,6 +310,7 @@ model Invoice {
   taxAmount          Float
   serviceFee         Float    @default(0.0)
   securityDeposit    Float    @default(0.0)
+  paidSecurityDeposit Float   @default(0.0)
   discountAmount     Float    @default(0.0)
   customDiscountAmount Float  @default(0.0)
   monthlyRentDiscountAmount Float @default(0.0)
