@@ -34,7 +34,7 @@ import {
   GalleryCategoryItem,
   DEFAULT_GALLERY_CATEGORIES,
   getCategoryLabel,
-} from "@/lib/gallery-categories";
+} from "@/lib/gallery-types";
 
 export interface GalleryItem {
   id: string;

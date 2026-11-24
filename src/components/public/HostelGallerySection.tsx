@@ -31,7 +31,7 @@ export interface PublicGalleryImage {
 import {
   GalleryCategoryItem,
   DEFAULT_GALLERY_CATEGORIES,
-} from "@/lib/gallery-categories";
+} from "@/lib/gallery-types";
 
 interface HostelGallerySectionProps {
   initialImages: PublicGalleryImage[];

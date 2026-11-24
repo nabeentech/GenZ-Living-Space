@@ -17,7 +17,7 @@ import { PublicGalleryImage } from "@/components/public/HostelGallerySection";
 import {
   GalleryCategoryItem,
   DEFAULT_GALLERY_CATEGORIES,
-} from "@/lib/gallery-categories";
+} from "@/lib/gallery-types";
 
 interface HostelOption {
   id: string;
