@@ -96,6 +96,7 @@ export default async function AdminPaymentsPage() {
 
     return {
       bookingId: booking.id,
+      customerId: booking.customerId,
       bookingReference: booking.bookingReference,
       guestName: booking.guestName,
       guestPhone: booking.guestPhone,

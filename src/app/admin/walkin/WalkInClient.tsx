@@ -106,6 +106,8 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
   const [guestGovtId, setGuestGovtId] = useState("");
   const [guestGender, setGuestGender] = useState("MALE");
   const [guestDateOfBirth, setGuestDateOfBirth] = useState("");
+  const [hasVehicle, setHasVehicle] = useState(false);
+  const [vehicleNumber, setVehicleNumber] = useState("");
   const [guestsCount, setGuestsCount] = useState(1);
   const [guestCountInput, setGuestCountInput] = useState("1");
   const [additionalGuests, setAdditionalGuests] = useState<AdditionalGuest[]>([]);
@@ -239,7 +241,16 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
       if (!guest.name.trim()) return `${label}: name is required.`;
       if (!/^\d{10}$/.test(guest.phone)) return `${label}: enter a valid 10-digit mobile number.`;
       if (guest.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guest.email)) return `${label}: enter a valid email address.`;
+      if (index === 0 && !/^\d{12}$/.test((guest.govtId || "").trim())) {
+        return "Primary guest: enter a valid 12-digit Aadhaar number.";
+      }
+      if (index > 0 && guest.govtId && !/^\d{12}$/.test(guest.govtId.trim())) {
+        return `${label}: Aadhaar number must be exactly 12 digits.`;
+      }
       if (guest.dateOfBirth && guest.dateOfBirth > todayStr) return `${label}: date of birth cannot be in the future.`;
+    }
+    if (hasVehicle && !vehicleNumber.trim()) {
+      return "Vehicle number is required when the guest has their own vehicle.";
     }
     return "";
   };
@@ -332,6 +343,8 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
           guestGovtId,
           guestGender,
           guestDateOfBirth,
+          hasVehicle,
+          vehicleNumber: hasVehicle ? vehicleNumber.trim().toUpperCase() : null,
           guestsCount,
           guestDetails: allGuestDetails,
           hostelId: selectedHostelId,
@@ -643,13 +656,18 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
 
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
-              Govt ID Number (Aadhaar/Passport)
+              Aadhaar Number (12 digits) *
             </label>
             <input
               type="text"
-              placeholder="XXXX-XXXX-XXXX"
+              required
+              inputMode="numeric"
+              maxLength={12}
+              pattern="[0-9]{12}"
+              title="Enter exactly 12 digits"
+              placeholder="12-digit Aadhaar number"
               value={guestGovtId}
-              onChange={(e) => setGuestGovtId(e.target.value)}
+              onChange={(e) => setGuestGovtId(e.target.value.replace(/\D/g, "").slice(0, 12))}
               className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none"
             />
           </div>
@@ -667,6 +685,42 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
             </label>
             <DatePicker value={guestDateOfBirth} onChange={setGuestDateOfBirth} max={todayStr} triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs" />
           </div>
+
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
+              Own Vehicle?
+            </label>
+            <CustomSelect
+              value={hasVehicle ? "YES" : "NO"}
+              onValueChange={(value) => {
+                const yes = value === "YES";
+                setHasVehicle(yes);
+                if (!yes) setVehicleNumber("");
+              }}
+              options={[
+                { value: "NO", label: "No Vehicle" },
+                { value: "YES", label: "Yes · Has Own Vehicle" },
+              ]}
+              triggerClassName="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs"
+            />
+          </div>
+
+          {hasVehicle && (
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
+                Vehicle Number *
+              </label>
+              <input
+                type="text"
+                required
+                maxLength={20}
+                placeholder="e.g. KA-01-AB-1234"
+                value={vehicleNumber}
+                onChange={(e) => setVehicleNumber(e.target.value.toUpperCase())}
+                className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white uppercase focus:outline-none"
+              />
+            </div>
+          )}
 
         </div>
         {guestsCount > 1 && (

@@ -12,6 +12,9 @@ import dynamic from "next/dynamic";
 const ShiftRoomModal = dynamic(() => import("@/components/admin/ShiftRoomModal"), {
   ssr: false,
 });
+const CustomerProfileModal = dynamic(() => import("@/components/admin/CustomerProfileModal"), {
+  ssr: false,
+});
 import { getRoomTypePriceRates } from "@/lib/pricing";
 import {
   Search,
@@ -61,6 +64,7 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
   const [statusFilter, setStatusFilter] = useState("all");
 
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
+  const [profileCustomerId, setProfileCustomerId] = useState<string | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [actionMsg, setActionMsg] = useState("");
   const [shiftBookingId, setShiftBookingId] = useState<string | null>(null);
@@ -345,7 +349,13 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
                       {b.bookingReference}
                     </td>
                     <td className="p-3.5">
-                      <span className="font-bold text-white block">{b.guestName}</span>
+                      <button
+                        type="button"
+                        onClick={() => b.customerId && setProfileCustomerId(b.customerId)}
+                        className="font-bold text-white hover:text-indigo-300 underline decoration-slate-700 underline-offset-2 block text-left"
+                      >
+                        {b.guestName}
+                      </button>
                       <span className="text-[11px] text-slate-400">{b.guestPhone}</span>
                     </td>
                     <td className="p-3.5 font-semibold text-white">
@@ -1007,6 +1017,14 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
           onSuccess={() => window.location.reload()}
         />
       )}
+
+      <CustomerProfileModal
+        isOpen={!!profileCustomerId}
+        onClose={() => setProfileCustomerId(null)}
+        customerId={profileCustomerId}
+        canEdit={canEdit}
+        onUpdated={() => window.location.reload()}
+      />
     </div>
   );
 };

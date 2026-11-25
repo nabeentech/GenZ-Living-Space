@@ -3,13 +3,15 @@
 import React, { useState, useMemo } from "react";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
-import Modal from "@/components/ui/Modal";
 import dynamic from "next/dynamic";
 
 const ShiftRoomModal = dynamic(() => import("@/components/admin/ShiftRoomModal"), {
   ssr: false,
 });
-import { Search, Mail, Phone, MapPin, Calendar, BookOpen, User, MessageCircle, RefreshCw } from "lucide-react";
+const CustomerProfileModal = dynamic(() => import("@/components/admin/CustomerProfileModal"), {
+  ssr: false,
+});
+import { Search, Mail, Phone, User, RefreshCw, Shield, CreditCard, Car } from "lucide-react";
 
 interface CustomerDirectoryClientProps {
   customers: any[];
@@ -18,8 +20,9 @@ interface CustomerDirectoryClientProps {
 
 export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = ({ customers, canEdit = true }) => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"name" | "recent" | "bookings">("recent");
+  const [checklistFilter, setChecklistFilter] = useState<"all" | "missing_aadhaar" | "missing_email" | "deposit_due">("all");
   const [shiftBookingId, setShiftBookingId] = useState<string | null>(null);
 
   // Pagination state
@@ -30,11 +33,25 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
   const filteredCustomers = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     let result = customers.filter((customer) => {
+      if (checklistFilter === "missing_aadhaar") {
+        const valid = customer.govtIdType === "AADHAAR"
+          ? /^\d{12}$/.test(customer.govtIdNumber || "")
+          : Boolean(customer.govtIdNumber);
+        if (valid) return false;
+      } else if (checklistFilter === "missing_email") {
+        if (customer.email && !customer.email.endsWith("@genzlivingspace.local")) return false;
+      } else if (checklistFilter === "deposit_due") {
+        const active = customer.bookings?.find((b: any) => ["CHECKED_IN", "CONFIRMED"].includes(b.bookingStatus));
+        if (!active || (active.securityDeposit || 0) <= (active.paidSecurityDeposit || 0)) return false;
+      }
+
       if (!term) return true;
       const name = (customer.name || "").toLowerCase();
       const email = (customer.email || "").toLowerCase();
       const phone = (customer.phone || "").toLowerCase();
-      return name.includes(term) || email.includes(term) || phone.includes(term);
+      const vehicle = (customer.vehicleNumber || "").toLowerCase();
+      const aadhaar = (customer.govtIdNumber || "").toLowerCase();
+      return name.includes(term) || email.includes(term) || phone.includes(term) || vehicle.includes(term) || aadhaar.includes(term);
     });
 
     // Sort customers
@@ -47,12 +64,12 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
     }
 
     return result;
-  }, [customers, searchTerm, sortBy]);
+  }, [customers, searchTerm, sortBy, checklistFilter]);
 
   // Reset page to 1 when search or sort criteria change
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, sortBy]);
+  }, [searchTerm, sortBy, checklistFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredCustomers.length / pageSize));
   const paginatedCustomers = useMemo(() => {
@@ -81,25 +98,49 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Sort By:</span>
-          {[
-            { id: "recent", label: "Recently Joined", icon: "📅" },
-            { id: "name", label: "Name (A-Z)", icon: "🔤" },
-            { id: "bookings", label: "Most Bookings", icon: "📊" },
-          ].map((option) => (
-            <button
-              key={option.id}
-              onClick={() => setSortBy(option.id as any)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                sortBy === option.id
-                  ? "bg-indigo-600 text-white"
-                  : "bg-slate-900 border border-slate-700 text-slate-300 hover:text-white"
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Sort By:</span>
+            {[
+              { id: "recent", label: "Recently Joined" },
+              { id: "name", label: "Name (A-Z)" },
+              { id: "bookings", label: "Most Bookings" },
+            ].map((option) => (
+              <button
+                key={option.id}
+                onClick={() => setSortBy(option.id as any)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                  sortBy === option.id
+                    ? "bg-indigo-600 text-white"
+                    : "bg-slate-900 border border-slate-700 text-slate-300 hover:text-white"
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">Checklist:</span>
+            {[
+              { id: "all", label: "All" },
+              { id: "missing_aadhaar", label: "⚠️ Missing Aadhaar" },
+              { id: "missing_email", label: "📧 No Gmail" },
+              { id: "deposit_due", label: "🛡️ Deposit Due" },
+            ].map((f) => (
+              <button
+                key={f.id}
+                onClick={() => setChecklistFilter(f.id as any)}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${
+                  checklistFilter === f.id
+                    ? "bg-amber-500/20 border border-amber-400/50 text-amber-200"
+                    : "bg-slate-900 border border-slate-800 text-slate-400 hover:text-white"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="text-xs text-slate-400">
@@ -121,7 +162,7 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
           return (
             <div
               key={customer.id}
-              onClick={() => setSelectedCustomer(customer)}
+              onClick={() => setSelectedCustomerId(customer.id)}
               className="p-4 sm:p-5 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 transition cursor-pointer space-y-3 group hover:bg-slate-900/80"
             >
               {/* Header */}
@@ -157,7 +198,7 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
                 </div>
               </div>
 
-              {/* Contact Info */}
+              {/* Contact Info & Checklist Pills */}
               <div className="space-y-1.5 text-xs">
                 <div className="flex items-center gap-2 text-slate-400 group-hover:text-slate-300 transition">
                   <Mail className="w-3 h-3 shrink-0" />
@@ -168,6 +209,35 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
                     <Phone className="w-3 h-3 shrink-0" />
                     <span>{customer.phone}</span>
                   </div>
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-1.5 text-[10px] font-semibold">
+                <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 border ${
+                  (customer.govtIdType === "AADHAAR" ? /^\d{12}$/.test(customer.govtIdNumber || "") : Boolean(customer.govtIdNumber))
+                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                    : "border-rose-500/30 bg-rose-500/10 text-rose-300"
+                }`}>
+                  <CreditCard className="w-2.5 h-2.5" />
+                  {customer.govtIdNumber ? "Aadhaar ✓" : "No Aadhaar"}
+                </span>
+                {activeBooking && activeBooking.securityDeposit > 0 && (
+                  <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 border ${
+                    (activeBooking.paidSecurityDeposit || 0) >= activeBooking.securityDeposit
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                      : "border-amber-500/30 bg-amber-500/10 text-amber-300"
+                  }`}>
+                    <Shield className="w-2.5 h-2.5" />
+                    {(activeBooking.paidSecurityDeposit || 0) >= activeBooking.securityDeposit
+                      ? "Deposit ✓"
+                      : `Dep Due ₹${(activeBooking.securityDeposit - (activeBooking.paidSecurityDeposit || 0)).toLocaleString("en-IN")}`}
+                  </span>
+                )}
+                {customer.hasVehicle && (
+                  <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 border border-indigo-500/30 bg-indigo-500/10 text-indigo-200">
+                    <Car className="w-2.5 h-2.5" />
+                    {customer.vehicleNumber || "Vehicle"}
+                  </span>
                 )}
               </div>
 
@@ -272,160 +342,14 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
         </div>
       )}
 
-      {/* Customer Detail Modal */}
-      {selectedCustomer && (
-        <Modal
-          isOpen={!!selectedCustomer}
-          onClose={() => setSelectedCustomer(null)}
-          title={selectedCustomer.name}
-          description={`Guest Profile & Booking History`}
-        >
-          <div className="space-y-4 py-2 max-h-[70vh] overflow-y-auto">
-            {/* Contact Information */}
-            <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400">Email:</span>
-                <span className="font-semibold text-white">{selectedCustomer.email}</span>
-              </div>
-              {selectedCustomer.phone && (
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Phone:</span>
-                  <span className="font-semibold text-white">{selectedCustomer.phone}</span>
-                </div>
-              )}
-              {selectedCustomer.gender && (
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Gender:</span>
-                  <Badge variant={getGenderBadgeVariant(selectedCustomer.gender)} size="sm">
-                    {selectedCustomer.gender}
-                  </Badge>
-                </div>
-              )}
-              {selectedCustomer.dateOfBirth && (
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Date of Birth:</span>
-                  <span className="font-semibold text-white">
-                    {new Date(selectedCustomer.dateOfBirth).toLocaleDateString("en-IN")}
-                  </span>
-                </div>
-              )}
-              {selectedCustomer.govtIdType && (
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Govt ID Type:</span>
-                  <span className="font-semibold text-white">{selectedCustomer.govtIdType}</span>
-                </div>
-              )}
-              {selectedCustomer.govtIdNumber && (
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Govt ID Number:</span>
-                  <span className="font-mono font-semibold text-indigo-300">{selectedCustomer.govtIdNumber}</span>
-                </div>
-              )}
-              <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-800">
-                <span className="text-slate-400">Member Since:</span>
-                <span className="font-semibold text-white">
-                  {new Date(selectedCustomer.createdAt).toLocaleDateString("en-IN")}
-                </span>
-              </div>
-            </div>
-
-            {/* Booking Statistics */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="p-3 rounded-xl bg-indigo-950 border border-indigo-500/30 text-center">
-                <div className="text-xl font-bold text-indigo-300">{selectedCustomer.bookings?.length || 0}</div>
-                <div className="text-xs text-slate-400 mt-1">Total Bookings</div>
-              </div>
-              <div className="p-3 rounded-xl bg-emerald-950 border border-emerald-500/30 text-center">
-                <div className="text-xl font-bold text-emerald-300">
-                  {selectedCustomer.bookings?.filter((b: any) => b.bookingStatus === "CHECKED_OUT").length || 0}
-                </div>
-                <div className="text-xs text-slate-400 mt-1">Completed</div>
-              </div>
-              <div className="p-3 rounded-xl bg-blue-950 border border-blue-500/30 text-center">
-                <div className="text-xl font-bold text-blue-300">
-                  {selectedCustomer.bookings?.filter((b: any) => 
-                    b.bookingStatus === "CHECKED_IN" || b.bookingStatus === "CONFIRMED"
-                  ).length || 0}
-                </div>
-                <div className="text-xs text-slate-400 mt-1">Active</div>
-              </div>
-            </div>
-
-            {/* Recent Bookings */}
-            {(selectedCustomer.bookings?.length || 0) > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-bold text-indigo-300 uppercase tracking-wider">Recent Bookings</h4>
-                <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {selectedCustomer.bookings.map((booking: any, index: number) => (
-                    <div
-                      key={booking.id}
-                      className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-xs space-y-1"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-white">{booking.hostel?.name || "Unknown Hostel"}</span>
-                        <div className="flex items-center gap-2">
-                          {canEdit && ["CHECKED_IN", "CONFIRMED"].includes(booking.bookingStatus) && (
-                            <Button
-                              size="sm"
-                              variant="glow"
-                              onClick={() => {
-                                setShiftBookingId(booking.id);
-                                setSelectedCustomer(null);
-                              }}
-                              leftIcon={<RefreshCw className="w-3 h-3" />}
-                            >
-                              Shift Room
-                            </Button>
-                          )}
-                          <Badge 
-                            variant={
-                              booking.bookingStatus === "CHECKED_OUT" ? "available" :
-                              booking.bookingStatus === "CHECKED_IN" ? "occupied" :
-                              "reserved"
-                            }
-                            size="sm"
-                          >
-                            {booking.bookingStatus}
-                          </Badge>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between text-slate-400">
-                        <span>Room {booking.room?.roomNumber || "—"} • {booking.bed?.bedNumber || "—"}</span>
-                        <span className="font-semibold text-indigo-300">₹{booking.totalAmount.toLocaleString()}</span>
-                      </div>
-                      <div className="flex items-center gap-4 text-slate-500">
-                        <span>
-                          {new Date(booking.checkInDate).toLocaleDateString("en-IN", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "2-digit",
-                          })}{" "}
-                          →{" "}
-                          {new Date(booking.checkOutDate).toLocaleDateString("en-IN", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "2-digit",
-                          })}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="flex justify-end gap-3 pt-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSelectedCustomer(null)}
-              >
-                Close
-              </Button>
-            </div>
-          </div>
-        </Modal>
-      )}
+      {/* Unified Customer Profile, Checklist & Payment Timeline Modal */}
+      <CustomerProfileModal
+        isOpen={!!selectedCustomerId}
+        onClose={() => setSelectedCustomerId(null)}
+        customerId={selectedCustomerId}
+        canEdit={canEdit}
+        onUpdated={() => window.location.reload()}
+      />
 
       {shiftBookingId && (
         <ShiftRoomModal

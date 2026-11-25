@@ -23,6 +23,8 @@ model User {
   emergencyContact String?
   govtIdType       String?   // AADHAAR, PASSPORT, DRIVING_LICENSE, VOTER_ID
   govtIdNumber     String?
+  hasVehicle       Boolean   @default(false)
+  vehicleNumber    String?
   active           Boolean   @default(true)
   permissions      String?   @default("{}") // JSON string of granular access overrides
   createdAt        DateTime  @default(now())
@@ -200,6 +202,7 @@ model Booking {
   extraGuestCharges  Float     @default(0.0)
   taxAmount          Float     // 12% GST
   serviceFee         Float     @default(0.0)
+  paidMaintenanceFee Float     @default(0.0)
   securityDeposit    Float     @default(0.0)
   paidSecurityDeposit Float    @default(0.0)
   discountAmount     Float     @default(0.0)

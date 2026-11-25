@@ -2,11 +2,16 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import DatePicker from "@/components/ui/DatePicker";
 import { CreditCard, CheckCircle2, XCircle, Printer, Download, AlertCircle, CalendarClock, IndianRupee } from "lucide-react";
+
+const CustomerProfileModal = dynamic(() => import("@/components/admin/CustomerProfileModal"), {
+  ssr: false,
+});
 
 interface PaymentsClientProps {
   initialPayments: any[];
@@ -49,6 +54,7 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
   const [confirmZeroRentExtension, setConfirmZeroRentExtension] = useState(false);
   const [rentError, setRentError] = useState("");
   const [rentProcessing, setRentProcessing] = useState(false);
+  const [profileCustomerId, setProfileCustomerId] = useState<string | null>(null);
 
   const dueInvoices = invoiceRows.filter((invoice) =>
     invoice.status !== "CANCELLED" &&
@@ -455,7 +461,16 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
                     const statusText = row.invoicePaid ? "Invoice paid" : status === "overdue" ? "Overdue" : status === "due" ? "Due today" : status === "due-soon" ? "Due within 7 days" : "Upcoming";
                     const statusClass = row.invoicePaid ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200" : status === "overdue" ? "border-rose-500/30 bg-rose-500/10 text-rose-200" : status === "upcoming" ? "border-indigo-500/30 bg-indigo-500/10 text-indigo-200" : "border-amber-500/30 bg-amber-500/10 text-amber-200";
                     return <tr key={row.bookingId} className="hover:bg-slate-900/50">
-                      <td className="p-3.5"><span className="block font-semibold text-white">{row.guestName}</span><span className="mt-1 block font-mono text-[10px] text-slate-500">{row.bookingReference} · {row.guestPhone}</span></td>
+                      <td className="p-3.5">
+                        <button
+                          type="button"
+                          onClick={() => row.customerId && setProfileCustomerId(row.customerId)}
+                          className="block font-semibold text-white hover:text-indigo-300 underline decoration-slate-700 underline-offset-2 text-left"
+                        >
+                          {row.guestName}
+                        </button>
+                        <span className="mt-1 block font-mono text-[10px] text-slate-500">{row.bookingReference} · {row.guestPhone}</span>
+                      </td>
                       <td className="p-3.5"><span className="block text-white">{row.hostelName}</span><span className="mt-1 block text-[10px] text-slate-500">{row.roomName} · {row.roomType} · {row.bedLabel}</span></td>
                       <td className="p-3.5"><span className="block text-slate-200">{new Date(row.dueDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "2-digit", month: "short", year: "numeric" })}</span><span className={`mt-1 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${statusClass}`}>{statusText}</span>{row.invoiceId && !row.invoicePaid && <span className="mt-1 block text-[10px] text-amber-300">Invoice issued · collection here will settle it</span>}{row.invoicePaid && <span className="mt-1 block text-[10px] text-emerald-300">Check whether the stay extension completed</span>}</td>
                       <td className="p-3.5">₹{row.baseRent.toLocaleString("en-IN")}</td>
@@ -490,7 +505,15 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
                   const overdue = new Date(invoice.dueDate).getTime() < new Date(new Date().toDateString()).getTime();
                   return <tr key={invoice.id} className="hover:bg-slate-900/50">
                     <td className="p-3"><span className="block font-mono font-bold text-indigo-300">{invoice.booking?.bookingReference || "—"}</span><span className="mt-1 block text-[10px] text-slate-500">{invoice.invoiceNumber}</span></td>
-                    <td className="p-3 font-semibold text-white">{invoice.booking?.guestName || invoice.booking?.guestEmail}</td>
+                    <td className="p-3 font-semibold text-white">
+                      <button
+                        type="button"
+                        onClick={() => invoice.booking?.customerId && setProfileCustomerId(invoice.booking.customerId)}
+                        className="hover:text-indigo-300 underline decoration-slate-700 underline-offset-2 text-left"
+                      >
+                        {invoice.booking?.guestName || invoice.booking?.guestEmail}
+                      </button>
+                    </td>
                     <td className="p-3">{invoice.hostel?.name}</td>
                     <td className="p-3"><span className={overdue ? "font-semibold text-rose-300" : "text-slate-300"}>{new Date(invoice.dueDate).toLocaleDateString()}</span>{overdue && <span className="ml-1 text-[10px] text-rose-400">Overdue</span>}</td>
                     <td className="p-3">₹{invoice.totalAmount.toLocaleString("en-IN")}</td>
@@ -794,7 +817,18 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
         <Modal isOpen={!!rentCollection} onClose={() => rentProcessing ? undefined : setRentCollection(null)} title="Resident Settlement & Rent Renewal" description={`${rentCollection.guestName} · ${rentCollection.bookingReference}`}>
           <form onSubmit={handleMonthlyRent} className="space-y-4 py-2">
             <div className="rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-4 text-xs space-y-2.5">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-indigo-300">Total Resident Debt Breakdown</div>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-300">Total Resident Debt Breakdown</span>
+                {rentCollection.customerId && (
+                  <button
+                    type="button"
+                    onClick={() => setProfileCustomerId(rentCollection.customerId)}
+                    className="text-[11px] font-semibold text-amber-300 hover:text-amber-200 underline"
+                  >
+                    Checklist &amp; Edit Deposit →
+                  </button>
+                )}
+              </div>
               
               {rentCollection.pendingDeposit > 0 && (
                 <div className="flex justify-between items-center text-amber-300 bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20">
@@ -1096,6 +1130,14 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
           </form>
         </Modal>
       )}
+
+      <CustomerProfileModal
+        isOpen={!!profileCustomerId}
+        onClose={() => setProfileCustomerId(null)}
+        customerId={profileCustomerId}
+        canEdit={canEdit}
+        onUpdated={() => window.location.reload()}
+      />
     </div>
   );
 };

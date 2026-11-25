@@ -24,6 +24,8 @@ export async function POST(req: Request) {
       guestPhone,
       guestGender = "MALE",
       guestDateOfBirth,
+      hasVehicle = false,
+      vehicleNumber = null,
       guestsCount = 1,
       guestDetails,
       guestGovtId,
@@ -50,6 +52,21 @@ export async function POST(req: Request) {
     if (typeof guestName !== "string" || !guestName.trim() || typeof guestPhone !== "string" || !guestPhone || !hostelId || !roomId || !bedId) {
       return NextResponse.json(
         { success: false, message: "Missing required walk-in reservation fields" },
+        { status: 400 }
+      );
+    }
+
+    const cleanGovtId = typeof guestGovtId === "string" ? guestGovtId.trim() : "";
+    if (!/^\d{12}$/.test(cleanGovtId)) {
+      return NextResponse.json(
+        { success: false, message: "Primary guest: a valid 12-digit Aadhaar number is required." },
+        { status: 400 }
+      );
+    }
+    const cleanVehicleNumber = hasVehicle && typeof vehicleNumber === "string" ? vehicleNumber.trim().toUpperCase() : null;
+    if (hasVehicle && !cleanVehicleNumber) {
+      return NextResponse.json(
+        { success: false, message: "Vehicle number is required when the guest has their own vehicle." },
         { status: 400 }
       );
     }
@@ -312,9 +329,22 @@ export async function POST(req: Request) {
             phone: guestPhone,
             gender: guestGender,
             dateOfBirth: guestDateOfBirth ? new Date(guestDateOfBirth) : null,
-            govtIdNumber: guestGovtId,
+            govtIdType: "AADHAAR",
+            govtIdNumber: cleanGovtId,
+            hasVehicle: Boolean(hasVehicle),
+            vehicleNumber: cleanVehicleNumber,
             passwordHash: validPasswordHash,
             role: "CUSTOMER",
+          },
+        });
+      } else {
+        await tx.user.update({
+          where: { id: customer.id },
+          data: {
+            govtIdType: customer.govtIdType || "AADHAAR",
+            govtIdNumber: customer.govtIdNumber || cleanGovtId,
+            hasVehicle: Boolean(hasVehicle) || customer.hasVehicle,
+            vehicleNumber: cleanVehicleNumber || customer.vehicleNumber,
           },
         });
       }
@@ -327,6 +357,9 @@ export async function POST(req: Request) {
               ? rawPaidSecurityDeposit
               : paidAmount
           )
+        : 0;
+      const resolvedPaidMaintenanceFee = pricing.serviceFee > 0
+        ? Math.min(pricing.serviceFee, Math.max(0, paidAmount - resolvedPaidSecurityDeposit))
         : 0;
 
       // 1. Create Booking
@@ -345,6 +378,7 @@ export async function POST(req: Request) {
           baseAmount: recordedBaseAmount,
           taxAmount: pricing.taxAmount,
           serviceFee: pricing.serviceFee,
+          paidMaintenanceFee: resolvedPaidMaintenanceFee,
           securityDeposit: pricing.securityDeposit,
           paidSecurityDeposit: resolvedPaidSecurityDeposit,
           discountAmount: pricing.discountAmount,
