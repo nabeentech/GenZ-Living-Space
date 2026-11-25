@@ -4,6 +4,9 @@ import React, { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import CustomSelect from "@/components/ui/CustomSelect";
+import DatePicker from "@/components/ui/DatePicker";
+import PaginationBar from "@/components/ui/PaginationBar";
+import { compressImageToDataUrl } from "@/lib/image-compress";
 import {
   CheckCircle2,
   AlertTriangle,
@@ -39,6 +42,8 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
   const [error, setError] = useState("");
   const [data, setData] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState<"timeline" | "edit" | "stays">("timeline");
+  const [timelinePage, setTimelinePage] = useState(1);
+  const timelinePageSize = 10;
 
   // Profile edit state
   const [name, setName] = useState("");
@@ -48,6 +53,10 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
   const [govtIdNumber, setGovtIdNumber] = useState("");
   const [hasVehicle, setHasVehicle] = useState(false);
   const [vehicleNumber, setVehicleNumber] = useState("");
+  const [drivingLicenseNumber, setDrivingLicenseNumber] = useState("");
+  const [aadhaarFrontImage, setAadhaarFrontImage] = useState<string | null>(null);
+  const [aadhaarBackImage, setAadhaarBackImage] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<{ src: string; label: string } | null>(null);
   const [address, setAddress] = useState("");
   const [emergencyContact, setEmergencyContact] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
@@ -60,6 +69,12 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
   const [syncBalanceOnFeeEdit, setSyncBalanceOnFeeEdit] = useState(true);
   const [savingFees, setSavingFees] = useState(false);
   const [feeError, setFeeError] = useState("");
+
+  // Payment cycle edit state
+  const [editingCycle, setEditingCycle] = useState(false);
+  const [nextCycleDate, setNextCycleDate] = useState("");
+  const [savingCycle, setSavingCycle] = useState(false);
+  const [cycleError, setCycleError] = useState("");
 
   const loadLedger = async (id: string) => {
     setLoading(true);
@@ -75,10 +90,13 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
       setName(c.name || "");
       setPhone(c.phone || "");
       setEmail(c.email || "");
-      setGovtIdType(c.govtIdType || "AADHAAR");
+      setGovtIdType(c.govtIdType && c.govtIdType !== "DRIVING_LICENSE" ? c.govtIdType : "AADHAAR");
       setGovtIdNumber(c.govtIdNumber || "");
+      setAadhaarFrontImage(c.aadhaarFrontImage || null);
+      setAadhaarBackImage(c.aadhaarBackImage || null);
       setHasVehicle(Boolean(c.hasVehicle));
       setVehicleNumber(c.vehicleNumber || "");
+      setDrivingLicenseNumber(c.drivingLicenseNumber || "");
       setAddress(c.address || "");
       setEmergencyContact(c.emergencyContact || "");
 
@@ -86,6 +104,7 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
       if (active) {
         setEditPaidDeposit(String(active.paidSecurityDeposit ?? 0));
         setEditPaidMaintenance(String(active.paidMaintenanceFee ?? 0));
+        setNextCycleDate(new Date(active.checkOutDate).toISOString().slice(0, 10));
       }
     } catch (err: any) {
       setError(err.message || "Could not load customer profile");
@@ -98,13 +117,39 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
     if (isOpen && customerId) {
       setActiveTab("timeline");
       setEditingFees(false);
+      setEditingCycle(false);
       setProfileMsg(null);
       setFeeError("");
+      setCycleError("");
       void loadLedger(customerId);
     } else {
       setData(null);
     }
   }, [isOpen, customerId]);
+
+  const handleSaveCycle = async () => {
+    if (!data?.activeBooking || !customerId || !canEdit || !nextCycleDate) return;
+    setCycleError("");
+    setSavingCycle(true);
+    try {
+      const res = await fetch(`/api/admin/bookings/${data.activeBooking.id}/payment-cycle`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nextDueDate: nextCycleDate }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Could not update payment cycle");
+      }
+      setEditingCycle(false);
+      await loadLedger(customerId);
+      onUpdated?.();
+    } catch (err: any) {
+      setCycleError(err.message || "Failed to update payment cycle");
+    } finally {
+      setSavingCycle(false);
+    }
+  };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,6 +164,10 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
       setProfileMsg({ type: "err", text: "Vehicle number is required when customer has their own vehicle." });
       return;
     }
+    if (hasVehicle && !drivingLicenseNumber.trim()) {
+      setProfileMsg({ type: "err", text: "Driving license number is required when customer has their own vehicle." });
+      return;
+    }
 
     setSavingProfile(true);
     try {
@@ -131,8 +180,11 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
           email,
           govtIdType,
           govtIdNumber: govtIdNumber.trim(),
+          aadhaarFrontImage,
+          aadhaarBackImage,
           hasVehicle,
           vehicleNumber: hasVehicle ? vehicleNumber.trim().toUpperCase() : null,
+          drivingLicenseNumber: hasVehicle ? drivingLicenseNumber.trim().toUpperCase() : null,
           address,
           emergencyContact,
         }),
@@ -203,7 +255,7 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
     : Boolean(customer?.govtIdNumber);
   const depositPending = activeBooking ? Math.max(0, (activeBooking.securityDeposit || 0) - (activeBooking.paidSecurityDeposit || 0)) : 0;
   const maintPending = activeBooking ? Math.max(0, (activeBooking.serviceFee || 0) - (activeBooking.paidMaintenanceFee || 0)) : 0;
-  const vehicleOk = !customer?.hasVehicle || Boolean(customer?.vehicleNumber);
+  const vehicleOk = !customer?.hasVehicle || (Boolean(customer?.vehicleNumber) && Boolean(customer?.drivingLicenseNumber));
 
   useEffect(() => {
     if (!isOpen) return;
@@ -230,7 +282,7 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
         role="dialog"
         aria-modal="true"
         aria-label={customer ? customer.name : "Customer Profile & Timeline"}
-        className="relative z-10 flex h-full w-full max-w-2xl flex-col border-l border-slate-800 bg-[#0B0F19] shadow-2xl"
+        className="relative z-10 flex h-dvh w-full sm:max-w-xl lg:max-w-2xl flex-col border-l border-slate-800 bg-[#0B0F19] shadow-2xl"
       >
         {/* Sticky Panel Header */}
         <div className="flex items-start justify-between gap-4 border-b border-slate-800 bg-[#111827]/95 px-5 py-4 sm:px-6">
@@ -361,6 +413,28 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                       <div className="font-semibold text-white">Aadhaar / KYC</div>
                       <div className="text-[10px] font-mono text-slate-300">
                         {customer.govtIdNumber ? customer.govtIdNumber : "Not provided"}
+                        {(customer.aadhaarFrontImage || customer.aadhaarBackImage) && (
+                          <span className="ml-1.5 inline-flex gap-1.5 font-sans">
+                            {customer.aadhaarFrontImage && (
+                              <button
+                                type="button"
+                                onClick={() => setPreviewImage({ src: customer.aadhaarFrontImage, label: `${customer.name} · Aadhaar Front` })}
+                                className="text-indigo-300 underline hover:text-indigo-200 font-semibold"
+                              >
+                                Front
+                              </button>
+                            )}
+                            {customer.aadhaarBackImage && (
+                              <button
+                                type="button"
+                                onClick={() => setPreviewImage({ src: customer.aadhaarBackImage, label: `${customer.name} · Aadhaar Back` })}
+                                className="text-indigo-300 underline hover:text-indigo-200 font-semibold"
+                              >
+                                Back
+                              </button>
+                            )}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -382,9 +456,11 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                   <div className="flex items-center gap-2">
                     <Car className={`w-4 h-4 shrink-0 ${vehicleOk ? "text-emerald-400" : "text-amber-400"}`} />
                     <div>
-                      <div className="font-semibold text-white">Vehicle</div>
+                      <div className="font-semibold text-white">Vehicle &amp; License</div>
                       <div className="text-[10px] text-slate-300">
-                        {customer.hasVehicle ? (customer.vehicleNumber || "Missing number") : "No own vehicle"}
+                        {customer.hasVehicle
+                          ? `${customer.vehicleNumber || "Missing No."}${customer.drivingLicenseNumber ? ` · DL: ${customer.drivingLicenseNumber}` : " · Missing DL"}`
+                          : "No own vehicle"}
                       </div>
                     </div>
                   </div>
@@ -419,6 +495,70 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                   )
                 )}
               </div>
+
+              {/* 6. Monthly Payment Cycle Date */}
+              {activeBooking && activeBooking.stayType === "MONTHLY" && ["CONFIRMED", "CHECKED_IN"].includes(activeBooking.bookingStatus) && (
+                <div className="rounded-xl border border-indigo-500/25 bg-indigo-500/5 p-2.5 text-xs space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-indigo-400 shrink-0" />
+                      <div>
+                        <div className="font-semibold text-white">Monthly Payment Cycle</div>
+                        <div className="text-[11px] text-slate-300">
+                          Next Rent Due:{" "}
+                          <strong className="text-indigo-200">
+                            {new Date(activeBooking.checkOutDate).toLocaleDateString("en-IN", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </strong>
+                        </div>
+                      </div>
+                    </div>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => setEditingCycle((v) => !v)}
+                        className="shrink-0 rounded-lg bg-indigo-500/20 px-2.5 py-1 text-[11px] font-bold text-indigo-200 hover:bg-indigo-500/30"
+                      >
+                        {editingCycle ? "Cancel" : "Change Cycle Date"}
+                      </button>
+                    )}
+                  </div>
+
+                  {editingCycle && (
+                    <div className="rounded-xl border border-indigo-500/30 bg-slate-950/90 p-3 space-y-2.5">
+                      {cycleError && (
+                        <div className="rounded-lg bg-rose-950/60 border border-rose-500/30 p-2 text-[11px] text-rose-200">
+                          {cycleError}
+                        </div>
+                      )}
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                          New Next Rent Due Date (e.g. 1st of next month)
+                        </label>
+                        <DatePicker
+                          value={nextCycleDate}
+                          onChange={setNextCycleDate}
+                          triggerClassName="p-2 rounded-lg bg-slate-900 border border-slate-700 text-xs w-full"
+                        />
+                        <p className="mt-1 text-[10px] text-slate-400">
+                          Future 30-day rent cycles will count from this new date.
+                        </p>
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button type="button" variant="outline" size="sm" onClick={() => setEditingCycle(false)} disabled={savingCycle}>
+                          Cancel
+                        </Button>
+                        <Button type="button" variant="glow" size="sm" onClick={handleSaveCycle} isLoading={savingCycle}>
+                          Save Cycle Date
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Inline Deposit & Maintenance Edit Panel */}
               {editingFees && activeBooking && (
@@ -524,7 +664,9 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                   <div className="py-8 text-center text-xs text-slate-500">No financial events recorded yet.</div>
                 ) : (
                   <div className="relative pl-5 space-y-3 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-px before:bg-slate-800">
-                    {timeline.map((item: any) => {
+                    {timeline
+                      .slice((timelinePage - 1) * timelinePageSize, timelinePage * timelinePageSize)
+                      .map((item: any) => {
                       const dotColor =
                         item.type === "PAYMENT" ? "bg-emerald-400" :
                         item.type === "REFUND" ? "bg-rose-400" :
@@ -591,6 +733,13 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                     })}
                   </div>
                 )}
+                <PaginationBar
+                  currentPage={timelinePage}
+                  totalItems={timeline.length}
+                  pageSize={timelinePageSize}
+                  onPageChange={setTimelinePage}
+                  itemLabel="events"
+                />
               </div>
             )}
 
@@ -648,7 +797,6 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                       options={[
                         { value: "AADHAAR", label: "Aadhaar (12 digits)" },
                         { value: "PASSPORT", label: "Passport" },
-                        { value: "DRIVING_LICENSE", label: "Driving License" },
                         { value: "VOTER_ID", label: "Voter ID" },
                       ]}
                       triggerClassName="p-2.5 rounded-xl bg-slate-950 border border-slate-700 text-xs"
@@ -679,7 +827,10 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                       onValueChange={(val) => {
                         const yes = val === "YES";
                         setHasVehicle(yes);
-                        if (!yes) setVehicleNumber("");
+                        if (!yes) {
+                          setVehicleNumber("");
+                          setDrivingLicenseNumber("");
+                        }
                       }}
                       options={[
                         { value: "NO", label: "No Vehicle" },
@@ -689,19 +840,90 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                     />
                   </div>
                   {hasVehicle && (
-                    <label className="block">
-                      <span className="text-[11px] font-semibold text-slate-300">Vehicle Number *</span>
-                      <input
-                        type="text"
-                        required
-                        maxLength={20}
-                        value={vehicleNumber}
-                        onChange={(e) => setVehicleNumber(e.target.value.toUpperCase())}
-                        placeholder="e.g. KA-01-AB-1234"
-                        className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-xs text-white uppercase"
-                      />
-                    </label>
+                    <>
+                      <label className="block">
+                        <span className="text-[11px] font-semibold text-slate-300">Vehicle Number *</span>
+                        <input
+                          type="text"
+                          required
+                          maxLength={20}
+                          value={vehicleNumber}
+                          onChange={(e) => setVehicleNumber(e.target.value.toUpperCase())}
+                          placeholder="e.g. KA-01-AB-1234"
+                          className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-xs text-white uppercase"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-[11px] font-semibold text-slate-300">Driving License Number *</span>
+                        <input
+                          type="text"
+                          required
+                          maxLength={30}
+                          value={drivingLicenseNumber}
+                          onChange={(e) => setDrivingLicenseNumber(e.target.value.toUpperCase())}
+                          placeholder="e.g. KA01 20200012345"
+                          className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-xs text-white uppercase"
+                        />
+                      </label>
+                    </>
                   )}
+
+                  <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                    <div>
+                      <span className="block text-[11px] font-semibold text-slate-300 mb-1.5">Aadhaar Front Photo (Optional)</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          try {
+                            const dataUrl = await compressImageToDataUrl(file);
+                            setAadhaarFrontImage(dataUrl);
+                          } catch (err: any) {
+                            setProfileMsg({ type: "err", text: err.message || "Could not upload Aadhaar front image." });
+                          }
+                        }}
+                        className="block w-full text-[11px] text-slate-400 file:mr-2 file:rounded-lg file:border-0 file:bg-indigo-600/20 file:px-2.5 file:py-1 file:text-[11px] file:font-semibold file:text-indigo-200 hover:file:bg-indigo-600/30"
+                      />
+                      {aadhaarFrontImage && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <button type="button" onClick={() => setPreviewImage({ src: aadhaarFrontImage, label: "Aadhaar Front" })} className="group relative overflow-hidden rounded-lg border border-slate-700 hover:border-indigo-400 transition">
+                            <img src={aadhaarFrontImage} alt="Aadhaar front" className="h-12 w-20 object-cover" />
+                            <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-[9px] font-bold text-white transition">View</span>
+                          </button>
+                          <button type="button" onClick={() => setAadhaarFrontImage(null)} className="text-[10px] text-rose-300 underline">Remove</button>
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <span className="block text-[11px] font-semibold text-slate-300 mb-1.5">Aadhaar Back Photo (Optional)</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          try {
+                            const dataUrl = await compressImageToDataUrl(file);
+                            setAadhaarBackImage(dataUrl);
+                          } catch (err: any) {
+                            setProfileMsg({ type: "err", text: err.message || "Could not upload Aadhaar back image." });
+                          }
+                        }}
+                        className="block w-full text-[11px] text-slate-400 file:mr-2 file:rounded-lg file:border-0 file:bg-indigo-600/20 file:px-2.5 file:py-1 file:text-[11px] file:font-semibold file:text-indigo-200 hover:file:bg-indigo-600/30"
+                      />
+                      {aadhaarBackImage && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <button type="button" onClick={() => setPreviewImage({ src: aadhaarBackImage, label: "Aadhaar Back" })} className="group relative overflow-hidden rounded-lg border border-slate-700 hover:border-indigo-400 transition">
+                            <img src={aadhaarBackImage} alt="Aadhaar back" className="h-12 w-20 object-cover" />
+                            <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-[9px] font-bold text-white transition">View</span>
+                          </button>
+                          <button type="button" onClick={() => setAadhaarBackImage(null)} className="text-[10px] text-rose-300 underline">Remove</button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                   <label className="block">
                     <span className="text-[11px] font-semibold text-slate-300">Emergency Contact</span>
                     <input
@@ -778,6 +1000,21 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
         )}
         </div>
       </aside>
+
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 backdrop-blur-sm p-4"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div className="relative max-w-2xl w-full rounded-2xl border border-slate-700 bg-[#0B0F19] p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-bold text-white">{previewImage.label}</span>
+              <button type="button" onClick={() => setPreviewImage(null)} className="rounded-lg bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-700">Close</button>
+            </div>
+            <img src={previewImage.src} alt={previewImage.label} className="w-full max-h-[75vh] object-contain rounded-xl bg-black" />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

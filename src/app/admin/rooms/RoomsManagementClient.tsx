@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Wind, Zap, AlertCircle, Search, Loader2, CheckCircle2, X, Sun, Home, Sparkles } from "lucide-react";
 import Badge from "@/components/ui/Badge";
+import PaginationBar from "@/components/ui/PaginationBar";
 import { SHARING_NAMES, getRoomVariantInfo, RoomVariant } from "@/lib/room-types";
 
 interface Room {
@@ -52,6 +53,8 @@ export const RoomsManagementClient: React.FC<RoomsManagementClientProps> = ({ ca
   const [filterAC, setFilterAC] = useState<"all" | "ac" | "non-ac">("all");
   const [updatingRoomId, setUpdatingRoomId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 18;
 
   // Fetch all rooms
   useEffect(() => {
@@ -113,6 +116,7 @@ export const RoomsManagementClient: React.FC<RoomsManagementClientProps> = ({ ca
     }
 
     setFilteredRooms(result);
+    setCurrentPage(1);
   }, [searchTerm, filterSharing, filterVariant, filterAC, rooms]);
 
   // Toggle AC status
@@ -395,7 +399,15 @@ export const RoomsManagementClient: React.FC<RoomsManagementClientProps> = ({ ca
 
       {/* Rooms by Floor */}
       <div className="space-y-6">
-        {Object.entries(roomsByFloor)
+        {Object.entries(
+          filteredRooms
+            .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+            .reduce<Record<number, Room[]>>((acc, r) => {
+              if (!acc[r.floor]) acc[r.floor] = [];
+              acc[r.floor].push(r);
+              return acc;
+            }, {})
+        )
           .sort(([floorA], [floorB]) => parseInt(floorA) - parseInt(floorB))
           .map(([floor, floorRooms]) => (
             <div key={floor} className="bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden">
@@ -541,6 +553,14 @@ export const RoomsManagementClient: React.FC<RoomsManagementClientProps> = ({ ca
             </div>
           ))}
       </div>
+
+      <PaginationBar
+        currentPage={currentPage}
+        totalItems={filteredRooms.length}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        itemLabel="rooms"
+      />
 
       {/* Empty State */}
       {filteredRooms.length === 0 && (

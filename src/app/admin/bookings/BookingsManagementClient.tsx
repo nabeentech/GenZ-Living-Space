@@ -16,6 +16,7 @@ const CustomerProfileModal = dynamic(() => import("@/components/admin/CustomerPr
   ssr: false,
 });
 import { getRoomTypePriceRates } from "@/lib/pricing";
+import { isWalkInBooking } from "@/lib/booking-source";
 import {
   Search,
   Filter,
@@ -62,6 +63,9 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
   const [search, setSearch] = useState(initialSearch);
   const [selectedHostel, setSelectedHostel] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sourceFilter, setSourceFilter] = useState<"all" | "WALKIN" | "ONLINE">("all");
+  const [stayTypeFilter, setStayTypeFilter] = useState<"all" | "MONTHLY" | "DAILY">("all");
+  const [paymentFilter, setPaymentFilter] = useState<"all" | "PAID" | "DUE">("all");
 
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
   const [profileCustomerId, setProfileCustomerId] = useState<string | null>(null);
@@ -95,19 +99,28 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
         selectedHostel === "all" || b.hostelId === selectedHostel;
       const matchStatus =
         statusFilter === "all" || b.bookingStatus === statusFilter;
+      const matchSource =
+        sourceFilter === "all" ||
+        (sourceFilter === "WALKIN" ? isWalkInBooking(b.bookingReference) : !isWalkInBooking(b.bookingReference));
+      const matchStay =
+        stayTypeFilter === "all" || b.stayType === stayTypeFilter;
+      const matchPayment =
+        paymentFilter === "all" ||
+        (paymentFilter === "PAID" ? (b.balanceAmount || 0) <= 0 : (b.balanceAmount || 0) > 0);
       const matchSearch =
         !search ||
         b.bookingReference.toLowerCase().includes(search.toLowerCase()) ||
         b.guestName.toLowerCase().includes(search.toLowerCase()) ||
-        b.guestPhone.includes(search);
-      return matchHostel && matchStatus && matchSearch;
+        b.guestPhone.includes(search) ||
+        (b.room?.roomNumber || "").toLowerCase().includes(search.toLowerCase());
+      return matchHostel && matchStatus && matchSource && matchStay && matchPayment && matchSearch;
     });
-  }, [bookings, selectedHostel, statusFilter, search]);
+  }, [bookings, selectedHostel, statusFilter, sourceFilter, stayTypeFilter, paymentFilter, search]);
 
   // Reset pagination when search or filters change
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [search, selectedHostel, statusFilter]);
+  }, [search, selectedHostel, statusFilter, sourceFilter, stayTypeFilter, paymentFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredBookings.length / pageSize));
   const paginatedBookings = useMemo(() => {
@@ -298,24 +311,82 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
   return (
     <div className="space-y-6">
       {/* Search and Filters Bar */}
-      <div className="glass-panel p-4 sm:p-5 rounded-2xl border border-slate-800 bg-[#111827]/80 flex flex-col md:flex-row items-center justify-between gap-4">
-        {/* Search */}
-        <div className="relative w-full md:w-80">
-          <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search reference, guest, phone..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
-          />
+      <div className="glass-panel p-4 sm:p-5 rounded-2xl border border-slate-800 bg-[#111827]/80 space-y-3">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-3">
+          {/* Search */}
+          <div className="relative w-full md:w-80">
+            <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search reference, guest, phone, room..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
+            />
+          </div>
+
+          {/* Filter Hostels & Status */}
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            <CustomSelect value={selectedHostel} onValueChange={setSelectedHostel} options={[{ value: "all", label: "All Properties" }, ...hostels.map((h) => ({ value: h.id, label: h.name }))]} triggerClassName="min-w-40 p-2 rounded-xl bg-slate-900 border border-slate-700 text-xs" />
+
+            <CustomSelect value={statusFilter} onValueChange={setStatusFilter} options={[{ value: "all", label: "All Statuses" }, { value: "CONFIRMED", label: "Confirmed" }, { value: "CHECKED_IN", label: "Checked In" }, { value: "CHECKED_OUT", label: "Checked Out" }, { value: "CANCELLED", label: "Cancelled" }, { value: "PAYMENT_PENDING", label: "Payment Pending" }]} triggerClassName="min-w-40 p-2 rounded-xl bg-slate-900 border border-slate-700 text-xs" />
+          </div>
         </div>
 
-        {/* Filter Hostels & Status */}
-        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-          <CustomSelect value={selectedHostel} onValueChange={setSelectedHostel} options={[{ value: "all", label: "All Properties" }, ...hostels.map((h) => ({ value: h.id, label: h.name }))]} triggerClassName="min-w-44 p-2 rounded-xl bg-slate-900 border border-slate-700 text-xs" />
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800/80 text-[11px]">
+          <span className="font-bold text-slate-400 uppercase tracking-wider mr-1">Source:</span>
+          {[
+            { id: "all", label: "All" },
+            { id: "WALKIN", label: "Walk-In" },
+            { id: "ONLINE", label: "Online" },
+          ].map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setSourceFilter(opt.id as any)}
+              className={`px-2.5 py-1 rounded-lg font-semibold transition ${
+                sourceFilter === opt.id ? "bg-indigo-600 text-white" : "bg-slate-900 border border-slate-800 text-slate-400 hover:text-white"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
 
-          <CustomSelect value={statusFilter} onValueChange={setStatusFilter} options={[{ value: "all", label: "All Statuses" }, { value: "CONFIRMED", label: "Confirmed" }, { value: "CHECKED_IN", label: "Checked In" }, { value: "CHECKED_OUT", label: "Checked Out" }, { value: "CANCELLED", label: "Cancelled" }, { value: "PAYMENT_PENDING", label: "Payment Pending" }]} triggerClassName="min-w-44 p-2 rounded-xl bg-slate-900 border border-slate-700 text-xs" />
+          <span className="font-bold text-slate-400 uppercase tracking-wider ml-3 mr-1">Stay:</span>
+          {[
+            { id: "all", label: "All" },
+            { id: "MONTHLY", label: "Monthly" },
+            { id: "DAILY", label: "Daily" },
+          ].map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setStayTypeFilter(opt.id as any)}
+              className={`px-2.5 py-1 rounded-lg font-semibold transition ${
+                stayTypeFilter === opt.id ? "bg-indigo-600 text-white" : "bg-slate-900 border border-slate-800 text-slate-400 hover:text-white"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+
+          <span className="font-bold text-slate-400 uppercase tracking-wider ml-3 mr-1">Payment:</span>
+          {[
+            { id: "all", label: "All" },
+            { id: "DUE", label: "Balance Due" },
+            { id: "PAID", label: "Fully Paid" },
+          ].map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setPaymentFilter(opt.id as any)}
+              className={`px-2.5 py-1 rounded-lg font-semibold transition ${
+                paymentFilter === opt.id ? "bg-amber-500/20 border border-amber-400/50 text-amber-200" : "bg-slate-900 border border-slate-800 text-slate-400 hover:text-white"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -345,8 +416,15 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
               ) : (
                 paginatedBookings.map((b) => (
                   <tr key={b.id} className="hover:bg-slate-900/50 transition">
-                    <td className="p-3.5 font-mono font-bold text-white">
-                      {b.bookingReference}
+                    <td className="p-3.5 font-mono font-bold text-white space-y-1">
+                      <span className="block">{b.bookingReference}</span>
+                      <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-sans font-bold ${
+                        isWalkInBooking(b.bookingReference)
+                          ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                          : "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
+                      }`}>
+                        {isWalkInBooking(b.bookingReference) ? "Walk-In" : "Online"}
+                      </span>
                     </td>
                     <td className="p-3.5">
                       <button
@@ -383,7 +461,17 @@ export const BookingsManagementClient: React.FC<BookingsManagementClientProps> =
                           ••••••
                         </span>
                       ) : (
-                        `₹${b.totalAmount.toLocaleString()}`
+                        <>
+                          <span className="block">₹{b.totalAmount.toLocaleString()}</span>
+                          {b.balanceAmount > 0 && (
+                            <Link
+                              href={`/admin/payments?search=${encodeURIComponent(b.bookingReference)}`}
+                              className="mt-1 inline-block text-[10px] font-bold text-amber-300 underline hover:text-amber-200"
+                            >
+                              Collect ₹{b.balanceAmount.toLocaleString("en-IN")} →
+                            </Link>
+                          )}
+                        </>
                       )}
                     </td>
                     <td className="p-3.5 space-y-1">

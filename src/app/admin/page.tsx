@@ -6,6 +6,7 @@ import { canAccessModule, getFirstAllowedAdminRoute, isFinancialsHidden } from "
 import prisma from "@/lib/prisma";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import DashboardFilterBar from "@/components/admin/DashboardFilterBar";
 import {
   Calendar,
   Users,
@@ -19,11 +20,16 @@ import {
   CheckCircle2,
   Clock,
   MapPin,
+  LogOut,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminDashboardPage() {
+export default async function AdminDashboardPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ hostelId?: string; range?: string }>;
+}) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect("/auth/login");
   if (sessionUser.role === ROLES.RECEPTIONIST) redirect("/admin/receptionist");
@@ -32,6 +38,30 @@ export default async function AdminDashboardPage() {
   if (!canAccessModule(sessionUser, "dashboard")) {
     redirect(getFirstAllowedAdminRoute(sessionUser));
   }
+
+  const resolvedParams = searchParams ? await searchParams : {};
+  const selectedHostelId = resolvedParams.hostelId || "all";
+  const selectedRange = ["today", "thisMonth"].includes(resolvedParams.range || "")
+    ? (resolvedParams.range as string)
+    : "all";
+
+  const todayKey = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+
+  let rangeStart: Date | undefined;
+  if (selectedRange === "today") {
+    rangeStart = new Date(`${todayKey}T00:00:00+05:30`);
+  } else if (selectedRange === "thisMonth") {
+    rangeStart = new Date(`${todayKey.slice(0, 7)}-01T00:00:00+05:30`);
+  }
+
+  const hostelWhere = selectedHostelId !== "all" ? { hostelId: selectedHostelId } : {};
+  const bookingDateWhere = rangeStart ? { createdAt: { gte: rangeStart } } : {};
+  const paymentDateWhere = rangeStart ? { createdAt: { gte: rangeStart } } : {};
 
   const hideFinancials = isFinancialsHidden(sessionUser);
   const canCheckIn = canAccessModule(sessionUser, "checkin");
@@ -42,10 +72,16 @@ export default async function AdminDashboardPage() {
   const canPayments = canAccessModule(sessionUser, "payments");
   const canPricing = canAccessModule(sessionUser, "pricing");
 
+  const next3DaysEnd = new Date();
+  next3DaysEnd.setDate(next3DaysEnd.getDate() + 3);
+
   // Aggregate real-time statistics in parallel
   const [
+    allHostelOptions,
     totalBookings,
+    walkInBookingsCount,
     confirmedBookings,
+    monthlyTenantsCount,
     allBeds,
     occupiedBeds,
     cleaningBeds,
@@ -57,57 +93,133 @@ export default async function AdminDashboardPage() {
     recentBookings,
     pendingExtensions,
     pendingExtensionRevenue,
+    pendingBalanceAgg,
+    vacatingBookings,
   ] = await Promise.all([
-    prisma.booking.count(),
-    prisma.booking.count({
-      where: { bookingStatus: { in: ["CONFIRMED", "CHECKED_IN"] } },
+    prisma.hostel.findMany({
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
     }),
-    prisma.bed.count({ where: { active: true } }),
-    prisma.bed.count({ where: { status: "OCCUPIED" } }),
-    prisma.bed.count({ where: { status: "CLEANING" } }),
-    prisma.bed.count({ where: { status: "AVAILABLE" } }),
+    prisma.booking.count({ where: { ...hostelWhere, ...bookingDateWhere } }),
+    prisma.booking.count({
+      where: { ...hostelWhere, ...bookingDateWhere, bookingReference: { startsWith: "GZ-W" } },
+    }),
+    prisma.booking.count({
+      where: { ...hostelWhere, bookingStatus: { in: ["CONFIRMED", "CHECKED_IN"] } },
+    }),
+    prisma.booking.count({
+      where: {
+        ...hostelWhere,
+        stayType: "MONTHLY",
+        bookingStatus: { in: ["CONFIRMED", "CHECKED_IN"] },
+      },
+    }),
+    prisma.bed.count({ where: { active: true, ...hostelWhere } }),
+    prisma.bed.count({ where: { status: "OCCUPIED", ...hostelWhere } }),
+    prisma.bed.count({ where: { status: "CLEANING", ...hostelWhere } }),
+    prisma.bed.count({ where: { status: "AVAILABLE", ...hostelWhere } }),
     prisma.payment.aggregate({
-      where: { status: "CAPTURED" },
+      where: {
+        status: "CAPTURED",
+        ...paymentDateWhere,
+        ...(selectedHostelId !== "all" ? { booking: { hostelId: selectedHostelId } } : {}),
+      },
       _sum: { amount: true },
     }),
     prisma.supportTicket.count({
-      where: { status: { in: ["OPEN", "IN_PROGRESS"] } },
+      where: { status: { in: ["OPEN", "IN_PROGRESS"] }, ...hostelWhere },
     }),
     prisma.refund.count({
-      where: { status: "REQUESTED" },
+      where: {
+        status: "REQUESTED",
+        ...(selectedHostelId !== "all" ? { booking: { hostelId: selectedHostelId } } : {}),
+      },
     }),
     prisma.hostel.findMany({
-      include: {
+      where: selectedHostelId !== "all" ? { id: selectedHostelId } : undefined,
+      select: {
+        id: true,
+        name: true,
+        city: true,
         rooms: {
-          include: {
-            beds: true,
+          where: { active: true },
+          select: {
+            beds: {
+              where: { active: true },
+              select: { status: true },
+            },
           },
         },
-        bookings: {
-          where: { bookingStatus: { in: ["CONFIRMED", "CHECKED_IN"] } },
+        _count: {
+          select: {
+            bookings: {
+              where: { bookingStatus: { in: ["CONFIRMED", "CHECKED_IN"] } },
+            },
+          },
         },
       },
     }),
     prisma.booking.findMany({
+      where: { ...hostelWhere, ...bookingDateWhere },
       take: 6,
       orderBy: { createdAt: "desc" },
-      include: {
-        hostel: true,
-        room: true,
-        bed: true,
+      select: {
+        id: true,
+        bookingReference: true,
+        guestName: true,
+        guestPhone: true,
+        checkInDate: true,
+        totalAmount: true,
+        bookingStatus: true,
+        hostel: { select: { name: true } },
+        room: { select: { roomNumber: true } },
+        bed: { select: { bedNumber: true } },
       },
     }),
     prisma.bookingExtension.count({
-      where: { status: "REQUESTED" },
+      where: {
+        status: "REQUESTED",
+        ...(selectedHostelId !== "all" ? { booking: { hostelId: selectedHostelId } } : {}),
+      },
     }),
     prisma.bookingExtension.aggregate({
-      where: { status: "REQUESTED", additionalAmount: { gt: 0 } },
+      where: {
+        status: "REQUESTED",
+        additionalAmount: { gt: 0 },
+        ...(selectedHostelId !== "all" ? { booking: { hostelId: selectedHostelId } } : {}),
+      },
       _sum: { additionalAmount: true },
+    }),
+    prisma.booking.aggregate({
+      where: {
+        ...hostelWhere,
+        bookingStatus: { notIn: ["CANCELLED", "REFUNDED"] },
+        balanceAmount: { gt: 0 },
+      },
+      _sum: { balanceAmount: true },
+    }),
+    prisma.booking.findMany({
+      where: {
+        ...hostelWhere,
+        bookingStatus: { in: ["CONFIRMED", "CHECKED_IN"] },
+        OR: [
+          { stayType: "MONTHLY", isOpenEnded: false },
+          { stayType: "DAILY", checkOutDate: { lte: next3DaysEnd } },
+        ],
+      },
+      include: {
+        hostel: { select: { name: true } },
+        room: { select: { roomNumber: true } },
+        bed: { select: { bedNumber: true } },
+      },
+      orderBy: { checkOutDate: "asc" },
+      take: 10,
     }),
   ]);
 
   const occupancyRate = allBeds > 0 ? Math.round((occupiedBeds / allBeds) * 100) : 0;
   const totalRevenue = paymentRevenueAgg._sum.amount ?? 0;
+  const totalPendingBalance = pendingBalanceAgg._sum.balanceAmount ?? 0;
 
   return (
     <div className="space-y-8">
@@ -155,8 +267,15 @@ export default async function AdminDashboardPage() {
         </div>
       </div>
 
+      {/* Filter Bar */}
+      <DashboardFilterBar
+        hostels={allHostelOptions}
+        selectedHostelId={selectedHostelId}
+        selectedRange={selectedRange}
+      />
+
       {/* KPI Metric Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
         {/* Total Bookings */}
         <div className="glass-panel p-5 rounded-2xl border border-slate-800 bg-[#101626]/80 space-y-2">
           <div className="flex items-center justify-between">
@@ -166,8 +285,8 @@ export default async function AdminDashboardPage() {
           <span className="text-2xl font-black text-white block">
             {totalBookings}
           </span>
-          <span className="text-[10px] text-emerald-400 font-semibold">
-            {confirmedBookings} active/confirmed
+          <span className="text-[10px] text-emerald-400 font-semibold block">
+            {confirmedBookings} active · {walkInBookingsCount} Walk-In / {Math.max(0, totalBookings - walkInBookingsCount)} Online
           </span>
         </div>
 
@@ -199,25 +318,29 @@ export default async function AdminDashboardPage() {
           </span>
         </div>
 
-        {/* Total Revenue */}
-        <div className="glass-panel p-5 rounded-2xl border border-slate-800 bg-[#101626]/80 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400">Gross Revenue</span>
-            <CreditCard className="w-4 h-4 text-cyan-400" />
+        {/* Money Received */}
+        <Link href="/admin/reports">
+          <div className="glass-panel p-5 rounded-2xl border border-slate-800 bg-[#101626]/80 space-y-2 hover:border-cyan-500/40 transition cursor-pointer h-full">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-400">Money Received</span>
+              <CreditCard className="w-4 h-4 text-cyan-400" />
+            </div>
+            <span className="text-2xl font-black text-white block">
+              {hideFinancials ? (
+                <span className="font-mono text-slate-500 font-bold" title="Financial figures restricted for your role">
+                  ••••••
+                </span>
+              ) : (
+                `₹${totalRevenue.toLocaleString("en-IN")}`
+              )}
+            </span>
+            <span className="text-[10px] text-amber-300 font-semibold block">
+              {hideFinancials
+                ? "Financials Restricted"
+                : `₹${totalPendingBalance.toLocaleString("en-IN")} yet to come →`}
+            </span>
           </div>
-          <span className="text-2xl font-black text-white block">
-            {hideFinancials ? (
-              <span className="font-mono text-slate-500 font-bold" title="Financial figures restricted for your role">
-                ••••••
-              </span>
-            ) : (
-              `₹${totalRevenue.toLocaleString()}`
-            )}
-          </span>
-          <span className="text-[10px] text-emerald-400">
-            {hideFinancials ? "Financials Restricted" : "Server captured"}
-          </span>
-        </div>
+        </Link>
 
         {/* Open Complaints */}
         <div className="glass-panel p-5 rounded-2xl border border-slate-800 bg-[#101626]/80 space-y-2">
@@ -273,7 +396,84 @@ export default async function AdminDashboardPage() {
             </span>
           </div>
         )}
+
+        {/* Monthly Tenants */}
+        <Link href="/admin/customers">
+          <div className="glass-panel p-5 rounded-2xl border border-slate-800 bg-[#101626]/80 space-y-2 hover:border-indigo-500/40 transition cursor-pointer h-full">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-400">Monthly Tenants</span>
+              <Users className="w-4 h-4 text-indigo-400" />
+            </div>
+            <span className="text-2xl font-black text-white block">
+              {monthlyTenantsCount}
+            </span>
+            <span className="text-[10px] text-indigo-300 font-semibold">
+              Active month-to-month residents
+            </span>
+          </div>
+        </Link>
+
+        {/* Ready to Vacate / Notice */}
+        <Link href="/admin/bookings?status=CHECKED_IN">
+          <div className="glass-panel p-5 rounded-2xl border border-amber-500/20 bg-[#101626]/80 space-y-2 hover:border-amber-500/50 transition cursor-pointer h-full">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-amber-300">Ready to Vacate</span>
+              <LogOut className="w-4 h-4 text-amber-400" />
+            </div>
+            <span className="text-2xl font-black text-amber-300 block">
+              {vacatingBookings.length}
+            </span>
+            <span className="text-[10px] text-slate-400 font-semibold">
+              Notice active or checking out soon
+            </span>
+          </div>
+        </Link>
       </div>
+
+      {/* Ready to Vacate / Notice Active List */}
+      {vacatingBookings.length > 0 && (
+        <div className="glass-panel p-5 sm:p-6 rounded-3xl border border-amber-500/20 bg-[#101626]/80 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <LogOut className="w-4 h-4 text-amber-400" />
+                Ready to Vacate / Notice Active ({vacatingBookings.length})
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Residents who gave vacate notice or daily guests scheduled to check out soon.
+              </p>
+            </div>
+            <Link href="/admin/checkin">
+              <Button variant="outline" size="sm" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
+                Open Check-Out Desk
+              </Button>
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {vacatingBookings.map((vb) => (
+              <div key={vb.id} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-3.5 text-xs space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-bold text-white truncate">{vb.guestName}</span>
+                  <Badge variant="occupied" size="sm">
+                    {vb.stayType === "MONTHLY" ? "Notice" : "Daily Out"}
+                  </Badge>
+                </div>
+                <div className="text-slate-400">
+                  {vb.hostel?.name} · Rm {vb.room?.roomNumber} ({vb.bed?.bedNumber})
+                </div>
+                <div className="flex items-center justify-between pt-1 text-[11px]">
+                  <span className="text-amber-300 font-semibold">
+                    Vacates: {new Date(vb.checkOutDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                  </span>
+                  {!hideFinancials && vb.balanceAmount > 0 && (
+                    <span className="text-rose-300 font-bold">Due ₹{vb.balanceAmount.toLocaleString("en-IN")}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Hostel Performance Breakdown */}
       <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800 bg-[#101626]/80 space-y-6">
@@ -343,7 +543,7 @@ export default async function AdminDashboardPage() {
                   <div>
                     <span className="text-slate-500 block">Active Bookings</span>
                     <span className="font-bold text-emerald-400">
-                      {h.bookings.length}
+                      {h._count.bookings}
                     </span>
                   </div>
                 </div>
@@ -402,7 +602,7 @@ export default async function AdminDashboardPage() {
                     </Badge>
                   </td>
                   <td className="p-3.5">
-                    {new Date(b.checkInDate).toLocaleDateString()}
+                    {new Date(b.checkInDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}
                   </td>
                   <td className="p-3.5 font-black text-white">
                     {hideFinancials ? (

@@ -558,8 +558,8 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
                       <strong className="text-indigo-400">{b.bed.bedNumber}</strong>)
                     </p>
                     <p className="text-xs text-slate-500">
-                      Stay: {new Date(b.checkInDate).toLocaleDateString()} to{" "}
-                      {new Date(b.checkOutDate).toLocaleDateString()} • Contact:{" "}
+                      Stay: {new Date(b.checkInDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })} to{" "}
+                      {new Date(b.checkOutDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })} • Contact:{" "}
                       {b.guestPhone}
                     </p>
                   </div>
@@ -568,7 +568,7 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
                     {b.balanceAmount > 0 && <div className="text-right">
                       <div className="text-[10px] font-bold uppercase tracking-wide text-amber-300">Balance due</div>
                       <div className="font-black text-amber-200">₹{b.balanceAmount.toLocaleString("en-IN")}</div>
-                      {b.invoices?.find((invoice: any) => invoice.status !== "PAID" && invoice.status !== "CANCELLED" && invoice.totalAmount > invoice.paidAmount)?.dueDate && <div className="mt-0.5 text-[10px] text-slate-400">Due {new Date(b.invoices.find((invoice: any) => invoice.status !== "PAID" && invoice.status !== "CANCELLED" && invoice.totalAmount > invoice.paidAmount).dueDate).toLocaleDateString()}</div>}
+                      {b.invoices?.find((invoice: any) => invoice.status !== "PAID" && invoice.status !== "CANCELLED" && invoice.totalAmount > invoice.paidAmount)?.dueDate && <div className="mt-0.5 text-[10px] text-slate-400">Due {new Date(b.invoices.find((invoice: any) => invoice.status !== "PAID" && invoice.status !== "CANCELLED" && invoice.totalAmount > invoice.paidAmount).dueDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}</div>}
                     </div>}
                     {canEdit ? (
                       <>
@@ -637,7 +637,7 @@ export const CheckInDeskClient: React.FC<CheckInDeskClientProps> = ({
                       {b.guestName}
                     </h4>
                     <p className="text-xs text-slate-400">
-                      Check-In: {b.checkInTime ? new Date(b.checkInTime).toLocaleString() : "Checked In"} by {b.checkedInBy || "Reception"}
+                      Check-In: {b.checkInTime ? new Date(b.checkInTime).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) : "Checked In"} by {b.checkedInBy || "Reception"}
                     </p>
                   </div>
 

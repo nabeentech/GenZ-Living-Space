@@ -7,7 +7,8 @@ import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import DatePicker from "@/components/ui/DatePicker";
-import { CreditCard, CheckCircle2, XCircle, Printer, Download, AlertCircle, CalendarClock, IndianRupee } from "lucide-react";
+import { CreditCard, CheckCircle2, XCircle, Printer, Download, AlertCircle, CalendarClock, IndianRupee, Search, MessageCircle } from "lucide-react";
+import { buildWhatsAppLink } from "@/lib/booking-source";
 
 const CustomerProfileModal = dynamic(() => import("@/components/admin/CustomerProfileModal"), {
   ssr: false,
@@ -18,6 +19,7 @@ interface PaymentsClientProps {
   initialRefunds: any[];
   invoices: any[];
   rentDues: any[];
+  initialSearch?: string;
   canEdit?: boolean;
 }
 
@@ -26,9 +28,11 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
   initialRefunds,
   invoices,
   rentDues: initialRentDues,
+  initialSearch = "",
   canEdit = true,
 }) => {
   const [activeTab, setActiveTab] = useState<"rent" | "due" | "payments" | "refunds" | "invoices">("rent");
+  const [search, setSearch] = useState(initialSearch);
   const [page, setPage] = useState(1);
   const pageSize = 20;
 
@@ -83,17 +87,65 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
   }, {});
   const upcomingRentTotal = rentDues.reduce((sum, row) => sum + (row.invoicePaid ? 0 : row.amountDue), 0);
 
-  const rentDuesPage = React.useMemo(() => rentDues.slice((page - 1) * pageSize, page * pageSize), [rentDues, page]);
-  const dueInvoicesPage = React.useMemo(() => dueInvoices.slice((page - 1) * pageSize, page * pageSize), [dueInvoices, page]);
-  const paymentsPage = React.useMemo(() => payments.slice((page - 1) * pageSize, page * pageSize), [payments, page]);
-  const refundsPage = React.useMemo(() => refunds.slice((page - 1) * pageSize, page * pageSize), [refunds, page]);
-  const invoicesPage = React.useMemo(() => invoiceRows.slice((page - 1) * pageSize, page * pageSize), [invoiceRows, page]);
+  const q = search.trim().toLowerCase();
 
-  const activeTotal = activeTab === "rent" ? rentDues.length
-    : activeTab === "due" ? dueInvoices.length
-    : activeTab === "payments" ? payments.length
-    : activeTab === "refunds" ? refunds.length
-    : invoiceRows.length;
+  const filteredRentDues = React.useMemo(() => {
+    if (!q) return rentDues;
+    return rentDues.filter((r) =>
+      (r.guestName || "").toLowerCase().includes(q) ||
+      (r.guestPhone || "").includes(q) ||
+      (r.bookingReference || "").toLowerCase().includes(q) ||
+      (r.roomName || "").toLowerCase().includes(q)
+    );
+  }, [rentDues, q]);
+
+  const filteredDueInvoices = React.useMemo(() => {
+    if (!q) return dueInvoices;
+    return dueInvoices.filter((inv) =>
+      (inv.booking?.guestName || "").toLowerCase().includes(q) ||
+      (inv.booking?.guestPhone || "").includes(q) ||
+      (inv.booking?.bookingReference || "").toLowerCase().includes(q) ||
+      (inv.invoiceNumber || "").toLowerCase().includes(q)
+    );
+  }, [dueInvoices, q]);
+
+  const filteredPayments = React.useMemo(() => {
+    if (!q) return payments;
+    return payments.filter((p) =>
+      (p.booking?.guestName || p.customer?.name || "").toLowerCase().includes(q) ||
+      (p.booking?.guestPhone || p.customer?.phone || "").includes(q) ||
+      (p.booking?.bookingReference || "").toLowerCase().includes(q)
+    );
+  }, [payments, q]);
+
+  const filteredRefunds = React.useMemo(() => {
+    if (!q) return refunds;
+    return refunds.filter((r) =>
+      (r.booking?.guestName || "").toLowerCase().includes(q) ||
+      (r.booking?.bookingReference || "").toLowerCase().includes(q)
+    );
+  }, [refunds, q]);
+
+  const filteredInvoices = React.useMemo(() => {
+    if (!q) return invoiceRows;
+    return invoiceRows.filter((inv) =>
+      (inv.booking?.guestName || "").toLowerCase().includes(q) ||
+      (inv.booking?.bookingReference || "").toLowerCase().includes(q) ||
+      (inv.invoiceNumber || "").toLowerCase().includes(q)
+    );
+  }, [invoiceRows, q]);
+
+  const rentDuesPage = React.useMemo(() => filteredRentDues.slice((page - 1) * pageSize, page * pageSize), [filteredRentDues, page]);
+  const dueInvoicesPage = React.useMemo(() => filteredDueInvoices.slice((page - 1) * pageSize, page * pageSize), [filteredDueInvoices, page]);
+  const paymentsPage = React.useMemo(() => filteredPayments.slice((page - 1) * pageSize, page * pageSize), [filteredPayments, page]);
+  const refundsPage = React.useMemo(() => filteredRefunds.slice((page - 1) * pageSize, page * pageSize), [filteredRefunds, page]);
+  const invoicesPage = React.useMemo(() => filteredInvoices.slice((page - 1) * pageSize, page * pageSize), [filteredInvoices, page]);
+
+  const activeTotal = activeTab === "rent" ? filteredRentDues.length
+    : activeTab === "due" ? filteredDueInvoices.length
+    : activeTab === "payments" ? filteredPayments.length
+    : activeTab === "refunds" ? filteredRefunds.length
+    : filteredInvoices.length;
 
   const totalPages = Math.max(1, Math.ceil(activeTotal / pageSize));
 
@@ -381,8 +433,31 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Global Search Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Search resident name, phone, room no., or booking ref..."
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
+          />
+        </div>
+        {search && (
+          <button
+            type="button"
+            onClick={() => { setSearch(""); setPage(1); }}
+            className="text-xs text-slate-400 hover:text-white underline self-start sm:self-center"
+          >
+            Clear search
+          </button>
+        )}
+      </div>
+
       {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-2">
         <button
           onClick={() => { setActiveTab("rent"); setPage(1); }}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition ${activeTab === "rent" ? "bg-indigo-600 text-white shadow-glow" : "text-slate-400 hover:text-white"}`}
@@ -476,7 +551,22 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
                       <td className="p-3.5">₹{row.baseRent.toLocaleString("en-IN")}</td>
                       <td className="p-3.5 text-emerald-300">{row.discount ? `−₹${row.discount.toLocaleString("en-IN")}` : "—"}</td>
                       <td className="p-3.5 font-black text-amber-200">₹{row.amountDue.toLocaleString("en-IN")}</td>
-                      <td className="p-3.5 text-right">{row.invoicePaid ? <span className="text-xs text-emerald-300">Paid</span> : status === "upcoming" ? <span className="text-[11px] text-slate-500">Available within 7 days</span> : canEdit ? <Button size="sm" variant="outline" disabled={row.amountDue <= 0} onClick={() => openRentModal(row)}>Record & extend</Button> : <span className="text-xs text-slate-500 font-mono">View Only</span>}</td>
+                      <td className="p-3.5 text-right">
+                        <div className="inline-flex items-center gap-2">
+                          {buildWhatsAppLink(row.guestPhone, `Hi ${row.guestName}, your monthly rent of ₹${(row.totalDueWithPast || row.amountDue).toLocaleString("en-IN")} (${row.bookingReference}) is due on ${new Date(row.dueDate).toLocaleDateString("en-IN")}. Please clear at your earliest convenience. - GenZ Living Space`) && (
+                            <a
+                              href={buildWhatsAppLink(row.guestPhone, `Hi ${row.guestName}, your monthly rent of ₹${(row.totalDueWithPast || row.amountDue).toLocaleString("en-IN")} (${row.bookingReference}) is due on ${new Date(row.dueDate).toLocaleDateString("en-IN")}. Please clear at your earliest convenience. - GenZ Living Space`)!}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Send WhatsApp rent reminder"
+                              className="inline-flex items-center justify-center rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-1.5 text-emerald-300 hover:bg-emerald-500/20 transition"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5" />
+                            </a>
+                          )}
+                          {row.invoicePaid ? <span className="text-xs text-emerald-300">Paid</span> : status === "upcoming" ? <span className="text-[11px] text-slate-500">Available within 7 days</span> : canEdit ? <Button size="sm" variant="outline" disabled={row.amountDue <= 0} onClick={() => openRentModal(row)}>Record & extend</Button> : <span className="text-xs text-slate-500 font-mono">View Only</span>}
+                        </div>
+                      </td>
                     </tr>;
                   })}
                 </tbody>
@@ -519,7 +609,22 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
                     <td className="p-3">₹{invoice.totalAmount.toLocaleString("en-IN")}</td>
                     <td className="p-3 text-emerald-300">₹{invoice.paidAmount.toLocaleString("en-IN")}</td>
                     <td className="p-3 font-black text-amber-300">₹{balance.toLocaleString("en-IN")}</td>
-                    <td className="p-3 text-right">{canEdit ? <Button size="sm" variant="glow" disabled={processingId === invoice.id} onClick={() => openCollection(invoice)}>Record payment</Button> : <span className="text-xs text-slate-500 font-mono">View Only</span>}</td>
+                    <td className="p-3 text-right">
+                      <div className="inline-flex items-center gap-2">
+                        {buildWhatsAppLink(invoice.booking?.guestPhone, `Hi ${invoice.booking?.guestName || "Guest"}, a balance of ₹${balance.toLocaleString("en-IN")} is pending for ${invoice.booking?.bookingReference || invoice.invoiceNumber}. Please clear it at your earliest convenience. - GenZ Living Space`) && (
+                          <a
+                            href={buildWhatsAppLink(invoice.booking?.guestPhone, `Hi ${invoice.booking?.guestName || "Guest"}, a balance of ₹${balance.toLocaleString("en-IN")} is pending for ${invoice.booking?.bookingReference || invoice.invoiceNumber}. Please clear it at your earliest convenience. - GenZ Living Space`)!}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Send WhatsApp balance reminder"
+                            className="inline-flex items-center justify-center rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-1.5 text-emerald-300 hover:bg-emerald-500/20 transition"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5" />
+                          </a>
+                        )}
+                        {canEdit ? <Button size="sm" variant="glow" disabled={processingId === invoice.id} onClick={() => openCollection(invoice)}>Record payment</Button> : <span className="text-xs text-slate-500 font-mono">View Only</span>}
+                      </div>
+                    </td>
                   </tr>;
                 })}
               </tbody>

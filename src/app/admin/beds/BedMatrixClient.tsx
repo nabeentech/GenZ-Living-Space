@@ -10,8 +10,12 @@ import dynamic from "next/dynamic";
 const ShiftRoomModal = dynamic(() => import("@/components/admin/ShiftRoomModal"), {
   ssr: false,
 });
+const CustomerProfileModal = dynamic(() => import("@/components/admin/CustomerProfileModal"), {
+  ssr: false,
+});
 import { Bed as BedIcon, User, Sparkles, Filter, CheckCircle2, AlertTriangle, RefreshCw, ChevronRight, Edit2, Plus, Trash2 } from "lucide-react";
 import { SHARING_NAMES } from "@/lib/room-types";
+import { isWalkInBooking } from "@/lib/booking-source";
 
 interface BedMatrixClientProps {
   hostels: any[];
@@ -30,6 +34,7 @@ export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels, canEd
   const [isUpdatingBed, setIsUpdatingBed] = useState(false);
   const [updateMsg, setUpdateMsg] = useState("");
   const [shiftBookingId, setShiftBookingId] = useState<string | null>(null);
+  const [profileCustomerId, setProfileCustomerId] = useState<string | null>(null);
 
   const [selectedRoom, setSelectedRoom] = useState<any | null>(null);
   const [roomGender, setRoomGender] = useState<string>("");
@@ -617,29 +622,61 @@ export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels, canEd
               </div>
               {selectedBed.bookings?.[0] && (
                 <div className="pt-2 border-t border-slate-800 space-y-1">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
                     <span className="font-bold text-indigo-300 block">
                       Current Occupant:
                     </span>
-                    {canEdit && (
-                      <Button
-                        size="sm"
-                        variant="glow"
-                        onClick={() => {
-                          setShiftBookingId(selectedBed.bookings[0].id);
-                        }}
-                        leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
-                      >
-                        Move Resident
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {selectedBed.bookings[0].customerId && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const cid = selectedBed.bookings[0].customerId;
+                            setSelectedBed(null);
+                            setProfileCustomerId(cid);
+                          }}
+                        >
+                          Profile &amp; Timeline
+                        </Button>
+                      )}
+                      {canEdit && (
+                        <Button
+                          size="sm"
+                          variant="glow"
+                          onClick={() => {
+                            setShiftBookingId(selectedBed.bookings[0].id);
+                          }}
+                          leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
+                        >
+                          Move Resident
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <p className="text-white font-semibold">
-                    {selectedBed.bookings[0].guestName} ({selectedBed.bookings[0].bookingReference})
+                  <p className="text-white font-semibold flex items-center gap-2 flex-wrap">
+                    <span>{selectedBed.bookings[0].guestName} ({selectedBed.bookings[0].bookingReference})</span>
+                    <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                      isWalkInBooking(selectedBed.bookings[0].bookingReference)
+                        ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                        : "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
+                    }`}>
+                      {isWalkInBooking(selectedBed.bookings[0].bookingReference) ? "Walk-In" : "Online"}
+                    </span>
+                    {selectedBed.bookings[0].stayType === "MONTHLY" && !selectedBed.bookings[0].isOpenEnded && (
+                      <span className="rounded px-1.5 py-0.5 text-[10px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30">
+                        Notice Given
+                      </span>
+                    )}
                   </p>
                   <p className="text-slate-400 text-[11px]">
                     Dates: {new Date(selectedBed.bookings[0].checkInDate).toLocaleDateString()} —{" "}
                     {new Date(selectedBed.bookings[0].checkOutDate).toLocaleDateString()}
+                    {selectedBed.bookings[0].balanceAmount > 0 && (
+                      <span className="ml-2 text-amber-300 font-bold">
+                        · Due ₹{selectedBed.bookings[0].balanceAmount.toLocaleString("en-IN")}
+                      </span>
+                    )}
                   </p>
                 </div>
               )}
@@ -1079,6 +1116,14 @@ export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels, canEd
           }}
         />
       )}
+
+      <CustomerProfileModal
+        isOpen={!!profileCustomerId}
+        onClose={() => setProfileCustomerId(null)}
+        customerId={profileCustomerId}
+        canEdit={canEdit}
+        onUpdated={() => window.location.reload()}
+      />
     </div>
   );
 };

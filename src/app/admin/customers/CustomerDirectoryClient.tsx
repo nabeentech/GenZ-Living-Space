@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from "react";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import CustomSelect from "@/components/ui/CustomSelect";
 import dynamic from "next/dynamic";
 
 const ShiftRoomModal = dynamic(() => import("@/components/admin/ShiftRoomModal"), {
@@ -11,19 +12,33 @@ const ShiftRoomModal = dynamic(() => import("@/components/admin/ShiftRoomModal")
 const CustomerProfileModal = dynamic(() => import("@/components/admin/CustomerProfileModal"), {
   ssr: false,
 });
-import { Search, Mail, Phone, User, RefreshCw, Shield, CreditCard, Car } from "lucide-react";
+import { Search, Mail, Phone, User, RefreshCw, Shield, CreditCard, Car, Download, MessageCircle } from "lucide-react";
+import { isWalkInBooking, buildWhatsAppLink } from "@/lib/booking-source";
 
 interface CustomerDirectoryClientProps {
   customers: any[];
+  rooms?: Array<{ id: string; roomNumber: string; floor: number; hostelId: string }>;
   canEdit?: boolean;
 }
 
-export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = ({ customers, canEdit = true }) => {
+export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = ({ customers, rooms = [], canEdit = true }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"name" | "recent" | "bookings">("recent");
-  const [checklistFilter, setChecklistFilter] = useState<"all" | "missing_aadhaar" | "missing_email" | "deposit_due">("all");
+  const [checklistFilter, setChecklistFilter] = useState<"all" | "missing_aadhaar" | "missing_email" | "deposit_due" | "walkin" | "online">("all");
+  const [selectedFloor, setSelectedFloor] = useState<string>("all");
+  const [selectedRoomId, setSelectedRoomId] = useState<string>("all");
   const [shiftBookingId, setShiftBookingId] = useState<string | null>(null);
+
+  const floors = useMemo(() => {
+    const set = new Set<number>();
+    rooms.forEach((r) => set.add(r.floor));
+    return Array.from(set).sort((a, b) => a - b);
+  }, [rooms]);
+
+  const filteredRoomOptions = useMemo(() => {
+    return rooms.filter((r) => selectedFloor === "all" || String(r.floor) === selectedFloor);
+  }, [rooms, selectedFloor]);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -43,6 +58,28 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
       } else if (checklistFilter === "deposit_due") {
         const active = customer.bookings?.find((b: any) => ["CHECKED_IN", "CONFIRMED"].includes(b.bookingStatus));
         if (!active || (active.securityDeposit || 0) <= (active.paidSecurityDeposit || 0)) return false;
+      } else if (checklistFilter === "walkin") {
+        if (!customer.bookings?.some((b: any) => isWalkInBooking(b.bookingReference))) return false;
+      } else if (checklistFilter === "online") {
+        if (!customer.bookings?.some((b: any) => !isWalkInBooking(b.bookingReference))) return false;
+      }
+
+      if (selectedFloor !== "all") {
+        const matchesFloor = customer.bookings?.some(
+          (b: any) =>
+            ["CHECKED_IN", "CONFIRMED"].includes(b.bookingStatus) &&
+            String(b.room?.floor) === selectedFloor
+        );
+        if (!matchesFloor) return false;
+      }
+
+      if (selectedRoomId !== "all") {
+        const matchesRoom = customer.bookings?.some(
+          (b: any) =>
+            ["CHECKED_IN", "CONFIRMED"].includes(b.bookingStatus) &&
+            b.room?.id === selectedRoomId
+        );
+        if (!matchesRoom) return false;
       }
 
       if (!term) return true;
@@ -51,7 +88,10 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
       const phone = (customer.phone || "").toLowerCase();
       const vehicle = (customer.vehicleNumber || "").toLowerCase();
       const aadhaar = (customer.govtIdNumber || "").toLowerCase();
-      return name.includes(term) || email.includes(term) || phone.includes(term) || vehicle.includes(term) || aadhaar.includes(term);
+      const roomMatch = customer.bookings?.some((b: any) =>
+        (b.room?.roomNumber || "").toLowerCase().includes(term)
+      );
+      return name.includes(term) || email.includes(term) || phone.includes(term) || vehicle.includes(term) || aadhaar.includes(term) || Boolean(roomMatch);
     });
 
     // Sort customers
@@ -64,12 +104,12 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
     }
 
     return result;
-  }, [customers, searchTerm, sortBy, checklistFilter]);
+  }, [customers, searchTerm, sortBy, checklistFilter, selectedFloor, selectedRoomId]);
 
   // Reset page to 1 when search or sort criteria change
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, sortBy, checklistFilter]);
+  }, [searchTerm, sortBy, checklistFilter, selectedFloor, selectedRoomId]);
 
   const totalPages = Math.max(1, Math.ceil(filteredCustomers.length / pageSize));
   const paginatedCustomers = useMemo(() => {
@@ -87,14 +127,42 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
     <div className="space-y-6">
       {/* Search & Filter Bar */}
       <div className="glass-panel p-4 sm:p-6 rounded-3xl border border-slate-800 bg-[#111827]/85 space-y-4">
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-900 border border-slate-700">
-          <Search className="w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search by name, email, or phone..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="flex-1 bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none"
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-900 border border-slate-700 md:col-span-1">
+            <Search className="w-4 h-4 text-slate-400 shrink-0" />
+            <input
+              type="text"
+              placeholder="Search name, phone, room no., vehicle..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="flex-1 bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none min-w-0"
+            />
+          </div>
+
+          <CustomSelect
+            value={selectedFloor}
+            onValueChange={(val) => {
+              setSelectedFloor(val);
+              setSelectedRoomId("all");
+            }}
+            options={[
+              { value: "all", label: "All Floors" },
+              ...floors.map((f) => ({ value: String(f), label: `Floor ${f}` })),
+            ]}
+            triggerClassName="p-3 rounded-xl bg-slate-900 border border-slate-700 text-xs"
+          />
+
+          <CustomSelect
+            value={selectedRoomId}
+            onValueChange={setSelectedRoomId}
+            options={[
+              { value: "all", label: "All Rooms" },
+              ...filteredRoomOptions.map((r) => ({
+                value: r.id,
+                label: `Room ${r.roomNumber} (Floor ${r.floor})`,
+              })),
+            ]}
+            triggerClassName="p-3 rounded-xl bg-slate-900 border border-slate-700 text-xs"
           />
         </div>
 
@@ -121,9 +189,11 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">Checklist:</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">Filter:</span>
             {[
               { id: "all", label: "All" },
+              { id: "walkin", label: "Walk-In" },
+              { id: "online", label: "Online" },
               { id: "missing_aadhaar", label: "⚠️ Missing Aadhaar" },
               { id: "missing_email", label: "📧 No Gmail" },
               { id: "deposit_due", label: "🛡️ Deposit Due" },
@@ -140,6 +210,38 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
                 {f.label}
               </button>
             ))}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const headers = ["Name", "Phone", "Email", "Aadhaar/ID", "Vehicle", "Source", "Room", "Bed", "Balance Due"];
+                const rows = filteredCustomers.map((c) => {
+                  const b = c.bookings?.find((bk: any) => ["CHECKED_IN", "CONFIRMED"].includes(bk.bookingStatus)) || c.bookings?.[0];
+                  return [
+                    `"${c.name || ""}"`,
+                    `"${c.phone || ""}"`,
+                    `"${c.email || ""}"`,
+                    `"${c.govtIdNumber || ""}"`,
+                    `"${c.hasVehicle ? (c.vehicleNumber || "Yes") : "No"}"`,
+                    `"${b ? (isWalkInBooking(b.bookingReference) ? "Walk-In" : "Online") : ""}"`,
+                    `"${b?.room?.roomNumber || ""}"`,
+                    `"${b?.bed?.bedNumber || ""}"`,
+                    b?.balanceAmount || 0,
+                  ];
+                });
+                const csv = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+                const link = document.createElement("a");
+                link.setAttribute("href", encodeURI(csv));
+                link.setAttribute("download", `residents_${new Date().toISOString().slice(0, 10)}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }}
+              leftIcon={<Download className="w-3 h-3" />}
+            >
+              Export CSV
+            </Button>
           </div>
         </div>
 
@@ -178,9 +280,18 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
                       </Badge>
                     )}
                     {activeBooking ? (
-                      <Badge variant="indigo" size="sm">
-                        In-House (Rm {activeBooking.room?.roomNumber || "Active"})
-                      </Badge>
+                      <>
+                        <Badge variant="indigo" size="sm">
+                          In-House (Rm {activeBooking.room?.roomNumber || "Active"})
+                        </Badge>
+                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                          isWalkInBooking(activeBooking.bookingReference)
+                            ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                            : "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
+                        }`}>
+                          {isWalkInBooking(activeBooking.bookingReference) ? "Walk-In" : "Online"}
+                        </span>
+                      </>
                     ) : (
                       customer.role === "CUSTOMER" && (
                         <Badge variant="default" size="sm">
@@ -205,9 +316,24 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
                   <span className="truncate">{customer.email || "No email"}</span>
                 </div>
                 {customer.phone && (
-                  <div className="flex items-center gap-2 text-slate-400 group-hover:text-slate-300 transition">
-                    <Phone className="w-3 h-3 shrink-0" />
-                    <span>{customer.phone}</span>
+                  <div className="flex items-center justify-between gap-2 text-slate-400 group-hover:text-slate-300 transition">
+                    <span className="flex items-center gap-2">
+                      <Phone className="w-3 h-3 shrink-0" />
+                      <span>{customer.phone}</span>
+                    </span>
+                    {buildWhatsAppLink(customer.phone, `Hi ${customer.name}, greetings from GenZ Living Space!`) && (
+                      <a
+                        href={buildWhatsAppLink(customer.phone, `Hi ${customer.name}, greetings from GenZ Living Space!`)!}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        title="Message on WhatsApp"
+                        className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300 hover:bg-emerald-500/20"
+                      >
+                        <MessageCircle className="w-2.5 h-2.5" />
+                        WhatsApp
+                      </a>
+                    )}
                   </div>
                 )}
               </div>

@@ -26,6 +26,9 @@ export async function POST(req: Request) {
       guestDateOfBirth,
       hasVehicle = false,
       vehicleNumber = null,
+      drivingLicenseNumber = null,
+      aadhaarFrontImage = null,
+      aadhaarBackImage = null,
       guestsCount = 1,
       guestDetails,
       guestGovtId,
@@ -64,12 +67,21 @@ export async function POST(req: Request) {
       );
     }
     const cleanVehicleNumber = hasVehicle && typeof vehicleNumber === "string" ? vehicleNumber.trim().toUpperCase() : null;
+    const cleanDrivingLicense = hasVehicle && typeof drivingLicenseNumber === "string" ? drivingLicenseNumber.trim().toUpperCase() : null;
     if (hasVehicle && !cleanVehicleNumber) {
       return NextResponse.json(
         { success: false, message: "Vehicle number is required when the guest has their own vehicle." },
         { status: 400 }
       );
     }
+    if (hasVehicle && !cleanDrivingLicense) {
+      return NextResponse.json(
+        { success: false, message: "Driving license number is required when the guest has their own vehicle." },
+        { status: 400 }
+      );
+    }
+    const cleanFrontImg = typeof aadhaarFrontImage === "string" && aadhaarFrontImage.startsWith("data:image/") ? aadhaarFrontImage : null;
+    const cleanBackImg = typeof aadhaarBackImage === "string" && aadhaarBackImage.startsWith("data:image/") ? aadhaarBackImage : null;
 
     const checkIn = new Date(checkInDate);
     const paidAmount = Number(advanceAmount);
@@ -331,8 +343,11 @@ export async function POST(req: Request) {
             dateOfBirth: guestDateOfBirth ? new Date(guestDateOfBirth) : null,
             govtIdType: "AADHAAR",
             govtIdNumber: cleanGovtId,
+            aadhaarFrontImage: cleanFrontImg,
+            aadhaarBackImage: cleanBackImg,
             hasVehicle: Boolean(hasVehicle),
             vehicleNumber: cleanVehicleNumber,
+            drivingLicenseNumber: cleanDrivingLicense,
             passwordHash: validPasswordHash,
             role: "CUSTOMER",
           },
@@ -343,8 +358,11 @@ export async function POST(req: Request) {
           data: {
             govtIdType: customer.govtIdType || "AADHAAR",
             govtIdNumber: customer.govtIdNumber || cleanGovtId,
+            aadhaarFrontImage: cleanFrontImg || customer.aadhaarFrontImage,
+            aadhaarBackImage: cleanBackImg || customer.aadhaarBackImage,
             hasVehicle: Boolean(hasVehicle) || customer.hasVehicle,
             vehicleNumber: cleanVehicleNumber || customer.vehicleNumber,
+            drivingLicenseNumber: cleanDrivingLicense || customer.drivingLicenseNumber,
           },
         });
       }

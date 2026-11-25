@@ -84,6 +84,9 @@ export async function PATCH(
     const vehicleNumber = hasVehicle
       ? (typeof body.vehicleNumber === "string" ? body.vehicleNumber.trim().toUpperCase() : existing.vehicleNumber || "")
       : null;
+    const drivingLicenseNumber = hasVehicle
+      ? (typeof body.drivingLicenseNumber === "string" ? body.drivingLicenseNumber.trim().toUpperCase() : existing.drivingLicenseNumber || "")
+      : null;
 
     if (hasVehicle && !vehicleNumber) {
       return NextResponse.json(
@@ -91,6 +94,19 @@ export async function PATCH(
         { status: 400 }
       );
     }
+    if (hasVehicle && !drivingLicenseNumber) {
+      return NextResponse.json(
+        { success: false, message: "Driving license number is required when the customer has their own vehicle." },
+        { status: 400 }
+      );
+    }
+
+    const aadhaarFrontImage = body.aadhaarFrontImage !== undefined
+      ? (typeof body.aadhaarFrontImage === "string" && body.aadhaarFrontImage.startsWith("data:image/") ? body.aadhaarFrontImage : null)
+      : existing.aadhaarFrontImage;
+    const aadhaarBackImage = body.aadhaarBackImage !== undefined
+      ? (typeof body.aadhaarBackImage === "string" && body.aadhaarBackImage.startsWith("data:image/") ? body.aadhaarBackImage : null)
+      : existing.aadhaarBackImage;
 
     const address = body.address !== undefined ? (typeof body.address === "string" ? body.address.trim() || null : null) : existing.address;
     const emergencyContact = body.emergencyContact !== undefined ? (typeof body.emergencyContact === "string" ? body.emergencyContact.trim() || null : null) : existing.emergencyContact;
@@ -106,8 +122,11 @@ export async function PATCH(
           googleId: emailChanged ? null : existing.googleId,
           govtIdType,
           govtIdNumber,
+          aadhaarFrontImage,
+          aadhaarBackImage,
           hasVehicle,
           vehicleNumber,
+          drivingLicenseNumber,
           address,
           emergencyContact,
         },
@@ -118,8 +137,11 @@ export async function PATCH(
           phone: true,
           govtIdType: true,
           govtIdNumber: true,
+          aadhaarFrontImage: true,
+          aadhaarBackImage: true,
           hasVehicle: true,
           vehicleNumber: true,
+          drivingLicenseNumber: true,
           address: true,
           emergencyContact: true,
           googleId: true,

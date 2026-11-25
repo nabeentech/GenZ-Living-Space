@@ -61,12 +61,12 @@ export const Navbar: React.FC<NavbarProps> = ({ user: propUser }) => {
     <header className="sticky top-0 z-40 w-full border-b border-slate-800/80 bg-[#0B0F19]/85 backdrop-blur-xl transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
         {/* Brand Logo */}
-        <Link href="/" className="flex items-center gap-3 group">
-          <div className="flex flex-col">
-            <span className="font-extrabold text-base sm:text-xl tracking-tight text-white flex items-center gap-1.5">
-              GenZ <span className="text-indigo-400 font-semibold">Colive PG & Guest Rooms</span>
+        <Link href="/" className="flex items-center gap-2 sm:gap-3 group min-w-0 pr-2">
+          <div className="flex flex-col min-w-0">
+            <span className="font-extrabold text-sm sm:text-xl tracking-tight text-white flex items-center gap-1.5 truncate">
+              GenZ <span className="text-indigo-400 font-semibold truncate">Colive PG &amp; Guest Rooms</span>
             </span>
-            <span className="text-[10px] uppercase font-bold tracking-widest text-pink-400 -mt-1">
+            <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-widest text-pink-400 -mt-0.5 sm:-mt-1">
               MADHAPUR • HYD
             </span>
           </div>

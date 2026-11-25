@@ -15,20 +15,76 @@ export default async function WalkInPage() {
   const [hostels, coupons] = await Promise.all([
     prisma.hostel.findMany({
       where: { active: true },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        city: true,
         rooms: {
           where: { active: true, status: "ACTIVE" },
-          include: {
-            roomType: true,
+          orderBy: [{ floor: "asc" }, { roomNumber: "asc" }],
+          select: {
+            id: true,
+            roomNumber: true,
+            floor: true,
+            capacity: true,
+            isAC: true,
+            roomTypeId: true,
+            roomType: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                totalBeds: true,
+                genderCategory: true,
+                basePrice: true,
+                monthlyPrice: true,
+                weeklyDiscountPct: true,
+                pricePerDayNonAC: true,
+                price7DaysNonAC: true,
+                price10DaysNonAC: true,
+                price15DaysNonAC: true,
+                price30DaysNonAC: true,
+                pricePerDayAC: true,
+                price7DaysAC: true,
+                price10DaysAC: true,
+                price15DaysAC: true,
+                price30DaysAC: true,
+                maintenanceFee: true,
+                securityDeposit: true,
+              },
+            },
             beds: {
               where: { active: true },
               orderBy: { bedNumber: "asc" },
+              select: {
+                id: true,
+                bedNumber: true,
+                tier: true,
+                status: true,
+              },
             },
           },
         },
       },
     }),
-    prisma.coupon.findMany({ where: { active: true }, orderBy: { code: "asc" } }),
+    prisma.coupon.findMany({
+      where: { active: true },
+      orderBy: { code: "asc" },
+      select: {
+        id: true,
+        code: true,
+        discountType: true,
+        discountValue: true,
+        minBookingAmount: true,
+        maxDiscountAmount: true,
+        startDate: true,
+        expiryDate: true,
+        usedCount: true,
+        usageLimit: true,
+        applicableHostelId: true,
+        active: true,
+      },
+    }),
   ]);
 
   return (

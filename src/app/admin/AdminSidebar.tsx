@@ -80,27 +80,38 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ user }) => {
 
   return (
     <>
-      {/* Mobile Top Toggle */}
-      <div className="md:hidden flex items-center justify-between p-4 bg-[#0B0F19] border-b border-slate-800">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-600 to-pink-500 flex items-center justify-center">
+      {/* Mobile & Tablet Sticky Top Toggle */}
+      <div className="lg:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-[#0B0F19]/95 backdrop-blur-md border-b border-slate-800">
+        <Link href="/admin" className="flex items-center gap-2 min-w-0">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-600 to-pink-500 flex items-center justify-center shrink-0">
             <Sparkles className="w-3.5 h-3.5 text-white" />
           </div>
-          <span className="font-extrabold text-sm text-white">GenZ Hostels OS</span>
-        </div>
+          <span className="font-extrabold text-sm text-white truncate">GenZ Hostels OS</span>
+        </Link>
         <button
+          type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="p-1.5 rounded-lg bg-slate-900 text-slate-300 hover:text-white"
+          aria-label="Toggle navigation menu"
+          className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white"
         >
           {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
       </div>
 
-      {/* Sidebar Container */}
+      {/* Mobile & Tablet Drawer Backdrop */}
+      {isOpen && (
+        <div
+          className="lg:hidden fixed inset-0 z-40 bg-black/70 backdrop-blur-sm"
+          onClick={() => setIsOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Sidebar Container (Slide-over drawer on mobile/tablet, pinned on desktop lg+) */}
       <aside
         className={`${
-          isOpen ? "block" : "hidden"
-        } md:block w-full md:w-64 bg-[#0B0F19] border-r border-slate-800/80 flex flex-col md:grid md:grid-rows-[auto_minmax(0,1fr)_auto] shrink-0 min-h-screen md:h-screen md:max-h-screen md:min-h-0 md:self-start z-30 transition-all`}
+          isOpen ? "fixed inset-y-0 left-0 flex w-72 z-50" : "hidden"
+        } lg:static lg:grid lg:w-64 lg:grid-rows-[auto_minmax(0,1fr)_auto] bg-[#0B0F19] border-r border-slate-800/80 flex-col shrink-0 h-dvh lg:h-screen lg:max-h-screen lg:min-h-0 lg:self-start transition-all`}
       >
         {/* Brand Header */}
         <div className="p-6 border-b border-slate-800/80">

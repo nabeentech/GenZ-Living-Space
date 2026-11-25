@@ -15,17 +15,51 @@ export default async function AdminBedsPage() {
   const canEdit = canUserEdit(user);
 
   const hostels = await prisma.hostel.findMany({
-    include: {
+    select: {
+      id: true,
+      name: true,
+      city: true,
       rooms: {
-        include: {
-          roomType: true,
+        where: { active: true },
+        orderBy: [{ floor: "asc" }, { roomNumber: "asc" }],
+        select: {
+          id: true,
+          roomNumber: true,
+          floor: true,
+          building: true,
+          capacity: true,
+          genderCategory: true,
+          status: true,
+          isAC: true,
+          roomType: {
+            select: { id: true, name: true, slug: true },
+          },
           beds: {
-            include: {
+            where: { active: true },
+            orderBy: { bedNumber: "asc" },
+            select: {
+              id: true,
+              bedNumber: true,
+              tier: true,
+              status: true,
+              currentOccupantId: true,
               bookings: {
                 where: {
                   bookingStatus: { in: ["CONFIRMED", "CHECKED_IN"] },
                 },
                 take: 1,
+                select: {
+                  id: true,
+                  customerId: true,
+                  bookingReference: true,
+                  guestName: true,
+                  guestPhone: true,
+                  stayType: true,
+                  isOpenEnded: true,
+                  balanceAmount: true,
+                  checkInDate: true,
+                  checkOutDate: true,
+                },
               },
             },
           },

@@ -21,10 +21,13 @@ model User {
   dateOfBirth      DateTime?
   address          String?
   emergencyContact String?
-  govtIdType       String?   // AADHAAR, PASSPORT, DRIVING_LICENSE, VOTER_ID
+  govtIdType       String?   // AADHAAR, PASSPORT, VOTER_ID
   govtIdNumber     String?
+  aadhaarFrontImage String?
+  aadhaarBackImage  String?
   hasVehicle       Boolean   @default(false)
   vehicleNumber    String?
+  drivingLicenseNumber String?
   active           Boolean   @default(true)
   permissions      String?   @default("{}") // JSON string of granular access overrides
   createdAt        DateTime  @default(now())
@@ -259,6 +262,8 @@ model Booking {
   @@index([checkInDate, checkOutDate])
   @@index([createdAt])
   @@index([stayType, bookingStatus])
+  @@index([bookingStatus, checkOutDate])
+  @@index([bookingStatus, balanceAmount])
 }
 
 model Payment {
@@ -283,6 +288,7 @@ model Payment {
 
   @@index([bookingId, status])
   @@index([status, createdAt])
+  @@index([createdAt])
 }
 
 model Refund {
@@ -329,6 +335,7 @@ model Invoice {
   @@index([bookingId, status])
   @@index([dueDate, status])
   @@index([status])
+  @@index([createdAt])
 }
 
 model Coupon {

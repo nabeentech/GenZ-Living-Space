@@ -45,14 +45,14 @@ export const Modal: React.FC<ModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
       <div
         className="fixed inset-0"
         onClick={onClose}
         aria-hidden="true"
       />
       <div
-        className={`relative w-full ${maxWidthStyles[maxWidth]} glass-panel bg-[#111827] border border-slate-700/60 rounded-2xl shadow-2xl p-6 z-10 max-h-[90vh] overflow-y-auto`}
+        className={`relative w-full ${maxWidthStyles[maxWidth]} glass-panel bg-[#111827] border border-slate-700/60 rounded-2xl shadow-2xl p-4 sm:p-6 z-10 max-h-[92dvh] overflow-y-auto`}
       >
         <div className="flex items-start justify-between mb-4">
           <div>

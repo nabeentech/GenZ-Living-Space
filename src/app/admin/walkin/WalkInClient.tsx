@@ -7,6 +7,7 @@ import CustomSelect from "@/components/ui/CustomSelect";
 import DatePicker from "@/components/ui/DatePicker";
 import { addUtcCalendarDays, calculateBookingPrice, getRoomTypePriceRates } from "@/lib/pricing";
 import { SHARING_NAMES, getRoomVariantInfo } from "@/lib/room-types";
+import { compressImageToDataUrl } from "@/lib/image-compress";
 import {
   UserPlus,
   Calendar,
@@ -108,6 +109,10 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
   const [guestDateOfBirth, setGuestDateOfBirth] = useState("");
   const [hasVehicle, setHasVehicle] = useState(false);
   const [vehicleNumber, setVehicleNumber] = useState("");
+  const [drivingLicenseNumber, setDrivingLicenseNumber] = useState("");
+  const [aadhaarFrontImage, setAadhaarFrontImage] = useState<string | null>(null);
+  const [aadhaarBackImage, setAadhaarBackImage] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<{ src: string; label: string } | null>(null);
   const [guestsCount, setGuestsCount] = useState(1);
   const [guestCountInput, setGuestCountInput] = useState("1");
   const [additionalGuests, setAdditionalGuests] = useState<AdditionalGuest[]>([]);
@@ -252,6 +257,9 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
     if (hasVehicle && !vehicleNumber.trim()) {
       return "Vehicle number is required when the guest has their own vehicle.";
     }
+    if (hasVehicle && !drivingLicenseNumber.trim()) {
+      return "Driving license number is required when the guest has their own vehicle.";
+    }
     return "";
   };
 
@@ -345,6 +353,9 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
           guestDateOfBirth,
           hasVehicle,
           vehicleNumber: hasVehicle ? vehicleNumber.trim().toUpperCase() : null,
+          drivingLicenseNumber: hasVehicle ? drivingLicenseNumber.trim().toUpperCase() : null,
+          aadhaarFrontImage,
+          aadhaarBackImage,
           guestsCount,
           guestDetails: allGuestDetails,
           hostelId: selectedHostelId,
@@ -695,7 +706,10 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
               onValueChange={(value) => {
                 const yes = value === "YES";
                 setHasVehicle(yes);
-                if (!yes) setVehicleNumber("");
+                if (!yes) {
+                  setVehicleNumber("");
+                  setDrivingLicenseNumber("");
+                }
               }}
               options={[
                 { value: "NO", label: "No Vehicle" },
@@ -706,22 +720,100 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
           </div>
 
           {hasVehicle && (
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
-                Vehicle Number *
-              </label>
-              <input
-                type="text"
-                required
-                maxLength={20}
-                placeholder="e.g. KA-01-AB-1234"
-                value={vehicleNumber}
-                onChange={(e) => setVehicleNumber(e.target.value.toUpperCase())}
-                className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white uppercase focus:outline-none"
-              />
-            </div>
+            <>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
+                  Vehicle Number *
+                </label>
+                <input
+                  type="text"
+                  required
+                  maxLength={20}
+                  placeholder="e.g. KA-01-AB-1234"
+                  value={vehicleNumber}
+                  onChange={(e) => setVehicleNumber(e.target.value.toUpperCase())}
+                  className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white uppercase focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-indigo-400 mb-1">
+                  Driving License Number *
+                </label>
+                <input
+                  type="text"
+                  required
+                  maxLength={30}
+                  placeholder="e.g. KA01 20200012345"
+                  value={drivingLicenseNumber}
+                  onChange={(e) => setDrivingLicenseNumber(e.target.value.toUpperCase())}
+                  className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white uppercase focus:outline-none"
+                />
+              </div>
+            </>
           )}
 
+        </div>
+
+        {/* Optional Aadhaar Front & Back Upload */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl border border-slate-800 bg-slate-900/40">
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+              Aadhaar Front Photo (Optional)
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                try {
+                  const dataUrl = await compressImageToDataUrl(file);
+                  setAadhaarFrontImage(dataUrl);
+                } catch (err: any) {
+                  setErrorMsg(err.message || "Could not upload Aadhaar front image.");
+                }
+              }}
+              className="block w-full text-xs text-slate-400 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-600/20 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-indigo-200 hover:file:bg-indigo-600/30"
+            />
+            {aadhaarFrontImage && (
+              <div className="mt-2 flex items-center gap-3">
+                <button type="button" onClick={() => setPreviewImage({ src: aadhaarFrontImage, label: "Aadhaar Front" })} className="group relative overflow-hidden rounded-lg border border-slate-700 hover:border-indigo-400 transition">
+                  <img src={aadhaarFrontImage} alt="Aadhaar front" className="h-14 w-24 object-cover" />
+                  <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-[10px] font-bold text-white transition">View</span>
+                </button>
+                <button type="button" onClick={() => setAadhaarFrontImage(null)} className="text-[11px] text-rose-300 underline">Remove</button>
+              </div>
+            )}
+          </div>
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+              Aadhaar Back Photo (Optional)
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                try {
+                  const dataUrl = await compressImageToDataUrl(file);
+                  setAadhaarBackImage(dataUrl);
+                } catch (err: any) {
+                  setErrorMsg(err.message || "Could not upload Aadhaar back image.");
+                }
+              }}
+              className="block w-full text-xs text-slate-400 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-600/20 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-indigo-200 hover:file:bg-indigo-600/30"
+            />
+            {aadhaarBackImage && (
+              <div className="mt-2 flex items-center gap-3">
+                <button type="button" onClick={() => setPreviewImage({ src: aadhaarBackImage, label: "Aadhaar Back" })} className="group relative overflow-hidden rounded-lg border border-slate-700 hover:border-indigo-400 transition">
+                  <img src={aadhaarBackImage} alt="Aadhaar back" className="h-14 w-24 object-cover" />
+                  <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-[10px] font-bold text-white transition">View</span>
+                </button>
+                <button type="button" onClick={() => setAadhaarBackImage(null)} className="text-[11px] text-rose-300 underline">Remove</button>
+              </div>
+            )}
+          </div>
         </div>
         {guestsCount > 1 && (
           <div className="space-y-3">
@@ -875,6 +967,21 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
           {stage < 3 ? <Button type="button" variant="glow" size="lg" onClick={continueToNextStage}>Continue</Button> : <Button type="button" variant="glow" size="lg" isLoading={isSubmitting} onClick={() => void handleSubmit()} rightIcon={<UserPlus className="w-4 h-4" />}>Create Walk-In & Issue Keycard</Button>}
         </div>
       </form>
+
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div className="relative max-w-2xl w-full rounded-2xl border border-slate-700 bg-[#0B0F19] p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-bold text-white">{previewImage.label}</span>
+              <button type="button" onClick={() => setPreviewImage(null)} className="rounded-lg bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-700">Close</button>
+            </div>
+            <img src={previewImage.src} alt={previewImage.label} className="w-full max-h-[75vh] object-contain rounded-xl bg-black" />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

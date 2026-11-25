@@ -17,58 +17,70 @@ export default async function CustomersPage() {
 
   const canEdit = canUserEdit(sessionUser);
 
-  // Fetch customers with optimized lean select
-  const customers = await prisma.user.findMany({
-    where: {
-      role: "CUSTOMER",
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      phone: true,
-      gender: true,
-      avatarUrl: true,
-      dateOfBirth: true,
-      address: true,
-      emergencyContact: true,
-      govtIdType: true,
-      govtIdNumber: true,
-      hasVehicle: true,
-      vehicleNumber: true,
-      googleId: true,
-      role: true,
-      active: true,
-      createdAt: true,
-      bookings: {
-        select: {
-          id: true,
-          bookingReference: true,
-          bookingStatus: true,
-          stayType: true,
-          checkInDate: true,
-          checkOutDate: true,
-          securityDeposit: true,
-          paidSecurityDeposit: true,
-          serviceFee: true,
-          paidMaintenanceFee: true,
-          totalAmount: true,
-          paidAmount: true,
-          balanceAmount: true,
-          hostel: { select: { id: true, name: true, city: true } },
-          room: { select: { id: true, roomNumber: true } },
-          bed: { select: { id: true, bedNumber: true } },
-        },
-        orderBy: {
-          checkInDate: "desc",
-        },
-        take: 5, // Get last 5 bookings
+  // Fetch customers and rooms in parallel
+  const [customers, rooms] = await Promise.all([
+    prisma.user.findMany({
+      where: {
+        role: "CUSTOMER",
       },
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        gender: true,
+        avatarUrl: true,
+        dateOfBirth: true,
+        address: true,
+        emergencyContact: true,
+        govtIdType: true,
+        govtIdNumber: true,
+        hasVehicle: true,
+        vehicleNumber: true,
+        googleId: true,
+        role: true,
+        active: true,
+        createdAt: true,
+        bookings: {
+          select: {
+            id: true,
+            bookingReference: true,
+            bookingStatus: true,
+            stayType: true,
+            checkInDate: true,
+            checkOutDate: true,
+            securityDeposit: true,
+            paidSecurityDeposit: true,
+            serviceFee: true,
+            paidMaintenanceFee: true,
+            totalAmount: true,
+            paidAmount: true,
+            balanceAmount: true,
+            hostel: { select: { id: true, name: true, city: true } },
+            room: { select: { id: true, roomNumber: true, floor: true } },
+            bed: { select: { id: true, bedNumber: true } },
+          },
+          orderBy: {
+            checkInDate: "desc",
+          },
+          take: 5, // Get last 5 bookings
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    }),
+    prisma.room.findMany({
+      where: { active: true },
+      select: {
+        id: true,
+        roomNumber: true,
+        floor: true,
+        hostelId: true,
+      },
+      orderBy: [{ floor: "asc" }, { roomNumber: "asc" }],
+    }),
+  ]);
 
   return (
     <main className="p-6 sm:p-8 space-y-6">
@@ -81,7 +93,7 @@ export default async function CustomersPage() {
         </div>
       </div>
 
-      <CustomerDirectoryClient customers={customers} canEdit={canEdit} />
+      <CustomerDirectoryClient customers={customers} rooms={rooms} canEdit={canEdit} />
     </main>
   );
 }

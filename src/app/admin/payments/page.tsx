@@ -8,50 +8,142 @@ import PaymentsClient from "./PaymentsClient";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminPaymentsPage() {
+export default async function AdminPaymentsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ search?: string }>;
+}) {
   const user = await getSessionUser();
   if (!user || !canAccessModule(user, "payments")) {
     redirect(getFirstAllowedAdminRoute(user));
   }
 
   const canEdit = canUserEdit(user);
+  const resolvedParams = searchParams ? await searchParams : {};
+  const initialSearch = resolvedParams.search || "";
 
   const [payments, refunds, invoices, monthlyBookings] = await Promise.all([
     prisma.payment.findMany({
-      include: {
+      select: {
+        id: true,
+        amount: true,
+        gateway: true,
+        paymentMethod: true,
+        status: true,
+        createdAt: true,
         booking: {
-          include: { hostel: true },
+          select: {
+            id: true,
+            bookingReference: true,
+            guestName: true,
+            guestPhone: true,
+            customerId: true,
+            hostel: { select: { id: true, name: true } },
+          },
         },
-        customer: true,
+        customer: { select: { id: true, name: true, phone: true, email: true } },
       },
       orderBy: { createdAt: "desc" },
-      take: 200,
+      take: 250,
     }),
     prisma.refund.findMany({
-      include: {
+      select: {
+        id: true,
+        amount: true,
+        reason: true,
+        status: true,
+        requestedAt: true,
+        processedAt: true,
         booking: {
-          include: { hostel: true, customer: true },
+          select: {
+            id: true,
+            bookingReference: true,
+            guestName: true,
+            hostel: { select: { id: true, name: true } },
+            customer: { select: { id: true, name: true, email: true } },
+          },
         },
       },
       orderBy: { requestedAt: "desc" },
-      take: 200,
+      take: 250,
     }),
     prisma.invoice.findMany({
-      include: {
-        hostel: true,
-        booking: true,
+      select: {
+        id: true,
+        invoiceNumber: true,
+        bookingId: true,
+        hostelId: true,
+        issueDate: true,
+        dueDate: true,
+        totalAmount: true,
+        paidAmount: true,
+        balanceDue: true,
+        status: true,
+        createdAt: true,
+        hostel: { select: { id: true, name: true } },
+        booking: {
+          select: {
+            id: true,
+            bookingReference: true,
+            customerId: true,
+            guestName: true,
+            guestEmail: true,
+            guestPhone: true,
+            stayType: true,
+            bookingStatus: true,
+            checkOutDate: true,
+            securityDeposit: true,
+            paidSecurityDeposit: true,
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
-      take: 200,
+      take: 400,
     }),
     prisma.booking.findMany({
       where: {
         stayType: "MONTHLY",
         bookingStatus: { in: ["CONFIRMED", "CHECKED_IN"] },
       },
-      include: {
+      select: {
+        id: true,
+        customerId: true,
+        bookingReference: true,
+        guestName: true,
+        guestPhone: true,
+        checkOutDate: true,
+        baseAmount: true,
+        balanceAmount: true,
+        securityDeposit: true,
+        paidSecurityDeposit: true,
+        monthlyRentDiscountAmount: true,
+        monthlyRentDiscountMonths: true,
+        monthlyRentDiscountCyclesApplied: true,
         hostel: { select: { id: true, name: true } },
-        room: { include: { roomType: true } },
+        room: {
+          select: {
+            roomNumber: true,
+            isAC: true,
+            roomType: {
+              select: {
+                id: true,
+                name: true,
+                basePrice: true,
+                monthlyPrice: true,
+                pricePerDayNonAC: true,
+                price7DaysNonAC: true,
+                price10DaysNonAC: true,
+                price15DaysNonAC: true,
+                price30DaysNonAC: true,
+                pricePerDayAC: true,
+                price7DaysAC: true,
+                price10DaysAC: true,
+                price15DaysAC: true,
+                price30DaysAC: true,
+              },
+            },
+          },
+        },
         bed: { select: { bedNumber: true } },
         invoices: {
           where: { status: { not: "CANCELLED" } },
@@ -68,7 +160,7 @@ export default async function AdminPaymentsPage() {
         },
       },
       orderBy: { checkOutDate: "asc" },
-      take: 200,
+      take: 500,
     }),
   ]);
 
@@ -138,6 +230,7 @@ export default async function AdminPaymentsPage() {
         initialRefunds={refunds}
         invoices={invoices}
         rentDues={rentDues}
+        initialSearch={initialSearch}
         canEdit={canEdit}
       />
     </div>

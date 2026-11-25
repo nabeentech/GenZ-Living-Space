@@ -19,33 +19,114 @@ export default async function CheckInPage() {
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  // Today's Expected Check-ins
-  const expectedCheckIns = await prisma.booking.findMany({
-    where: {
-      bookingStatus: "CONFIRMED",
-    },
-    include: {
-      hostel: true,
-      room: { include: { roomType: true } },
-      bed: true,
-    },
-    orderBy: { checkInDate: "asc" },
-  });
-
-  // Current Checked-In Guests (Eligible for Check-out)
-  const currentResidents = await prisma.booking.findMany({
-    where: {
-      bookingStatus: "CHECKED_IN",
-    },
-    include: {
-      hostel: true,
-      room: { include: { roomType: true } },
-      bed: true,
-      additionalCharges: true,
-      invoices: { orderBy: { dueDate: "asc" } },
-    },
-    orderBy: { checkOutDate: "asc" },
-  });
+  // Fetch expected check-ins and current residents in parallel with lean select (excluding qrCodeData/image blobs)
+  const [expectedCheckIns, currentResidents] = await Promise.all([
+    prisma.booking.findMany({
+      where: {
+        bookingStatus: "CONFIRMED",
+      },
+      select: {
+        id: true,
+        bookingReference: true,
+        customerId: true,
+        guestName: true,
+        guestEmail: true,
+        guestPhone: true,
+        guestGovtId: true,
+        checkInDate: true,
+        checkOutDate: true,
+        stayType: true,
+        totalAmount: true,
+        paidAmount: true,
+        balanceAmount: true,
+        securityDeposit: true,
+        paidSecurityDeposit: true,
+        bookingStatus: true,
+        paymentStatus: true,
+        hostel: { select: { id: true, name: true } },
+        room: {
+          select: {
+            id: true,
+            roomNumber: true,
+            floor: true,
+            roomType: { select: { id: true, name: true } },
+          },
+        },
+        bed: { select: { id: true, bedNumber: true } },
+        invoices: {
+          orderBy: { dueDate: "asc" },
+          select: {
+            id: true,
+            invoiceNumber: true,
+            totalAmount: true,
+            paidAmount: true,
+            balanceDue: true,
+            dueDate: true,
+            status: true,
+          },
+        },
+      },
+      orderBy: { checkInDate: "asc" },
+    }),
+    prisma.booking.findMany({
+      where: {
+        bookingStatus: "CHECKED_IN",
+      },
+      select: {
+        id: true,
+        bookingReference: true,
+        customerId: true,
+        guestName: true,
+        guestEmail: true,
+        guestPhone: true,
+        guestGovtId: true,
+        checkInDate: true,
+        checkOutDate: true,
+        checkInTime: true,
+        checkedInBy: true,
+        stayType: true,
+        totalAmount: true,
+        paidAmount: true,
+        balanceAmount: true,
+        securityDeposit: true,
+        paidSecurityDeposit: true,
+        bookingStatus: true,
+        paymentStatus: true,
+        hostel: { select: { id: true, name: true } },
+        room: {
+          select: {
+            id: true,
+            roomNumber: true,
+            floor: true,
+            roomType: { select: { id: true, name: true } },
+          },
+        },
+        bed: { select: { id: true, bedNumber: true } },
+        additionalCharges: {
+          select: {
+            id: true,
+            category: true,
+            description: true,
+            amount: true,
+            status: true,
+          },
+        },
+        invoices: {
+          orderBy: { dueDate: "asc" },
+          select: {
+            id: true,
+            invoiceNumber: true,
+            totalAmount: true,
+            paidAmount: true,
+            balanceDue: true,
+            dueDate: true,
+            status: true,
+          },
+        },
+      },
+      orderBy: { checkOutDate: "asc" },
+    }),
+  ]);
 
   return (
     <div className="space-y-6">

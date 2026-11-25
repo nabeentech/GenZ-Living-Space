@@ -5,6 +5,7 @@ import Button from "@/components/ui/Button";
 import CustomSelect from "@/components/ui/CustomSelect";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
+import PaginationBar from "@/components/ui/PaginationBar";
 import { HelpCircle, CheckCircle2, MessageSquare, Clock, Send } from "lucide-react";
 
 interface ComplaintsClientProps {
@@ -20,10 +21,13 @@ export const ComplaintsClient: React.FC<ComplaintsClientProps> = ({
   const [newStatus, setNewStatus] = useState("RESOLVED");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 15;
 
   const filteredTickets = tickets.filter(
     (t) => statusFilter === "all" || t.status === statusFilter
   );
+  const paginatedTickets = filteredTickets.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const handleOpenReply = (ticket: any) => {
     setSelectedTicket(ticket);
@@ -98,7 +102,7 @@ export const ComplaintsClient: React.FC<ComplaintsClientProps> = ({
           </div>
         ) : (
           <div className="space-y-4">
-            {filteredTickets.map((t) => (
+            {paginatedTickets.map((t) => (
               <div
                 key={t.id}
                 className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-3"
@@ -173,6 +177,13 @@ export const ComplaintsClient: React.FC<ComplaintsClientProps> = ({
             ))}
           </div>
         )}
+        <PaginationBar
+          currentPage={currentPage}
+          totalItems={filteredTickets.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          itemLabel="tickets"
+        />
       </div>
 
       {/* Reply Modal */}
