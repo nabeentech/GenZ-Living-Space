@@ -269,11 +269,29 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
             >
               {/* Header */}
               <div className="flex items-start justify-between gap-3">
-                <div className="flex-1">
-                  <h3 className="font-bold text-white text-sm sm:text-base group-hover:text-indigo-300 transition">
-                    {customer.name}
-                  </h3>
-                  <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  {customer.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={customer.avatarUrl}
+                      alt={customer.name}
+                      className="w-11 h-11 rounded-xl object-cover border border-indigo-500/40 shrink-0"
+                    />
+                  ) : (
+                    <div className="w-11 h-11 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center justify-center text-xs font-extrabold text-indigo-300 shrink-0">
+                      {customer.name
+                        ?.split(" ")
+                        .filter(Boolean)
+                        .slice(0, 2)
+                        .map((p: string) => p[0].toUpperCase())
+                        .join("") || <User className="w-4 h-4" />}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-white text-sm sm:text-base group-hover:text-indigo-300 transition truncate">
+                      {customer.name}
+                    </h3>
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
                     {customer.gender && (
                       <Badge variant={getGenderBadgeVariant(customer.gender)} size="sm">
                         {customer.gender}
@@ -300,8 +318,9 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
                       )
                     )}
                   </div>
+                  </div>
                 </div>
-                <div className="text-right">
+                <div className="text-right shrink-0">
                   <div className="text-2xl font-black text-indigo-400">
                     {customer.bookings?.length || 0}
                   </div>

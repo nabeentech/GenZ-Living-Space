@@ -286,18 +286,49 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
       >
         {/* Sticky Panel Header */}
         <div className="flex items-start justify-between gap-4 border-b border-slate-800 bg-[#111827]/95 px-5 py-4 sm:px-6">
-          <div className="min-w-0">
-            <span className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-400">
-              Customer Profile &amp; Ledger
-            </span>
-            <h2 className="truncate text-xl font-black text-white mt-0.5">
-              {customer ? customer.name : "Customer Profile & Timeline"}
-            </h2>
-            <p className="truncate text-xs text-slate-400 mt-0.5">
-              {activeBooking
-                ? `${activeBooking.hostel?.name || "Property"} · Rm ${activeBooking.room?.roomNumber || "—"} (${activeBooking.bed?.bedNumber || "—"}) · ${activeBooking.bookingReference}`
-                : "Resident verification checklist & full payment timeline"}
-            </p>
+          <div className="flex items-center gap-3.5 min-w-0">
+            {customer?.avatarUrl ? (
+              <button
+                type="button"
+                onClick={() =>
+                  setPreviewImage({
+                    src: customer.avatarUrl,
+                    label: `${customer.name} — Profile Photo`,
+                  })
+                }
+                title="Click to enlarge profile photo"
+                className="shrink-0 group relative"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={customer.avatarUrl}
+                  alt={customer.name}
+                  className="w-12 h-12 rounded-2xl object-cover border-2 border-indigo-500/50 group-hover:border-indigo-400 transition"
+                />
+              </button>
+            ) : customer ? (
+              <div className="w-12 h-12 rounded-2xl bg-slate-800/80 border border-slate-700 flex items-center justify-center text-sm font-black text-indigo-300 shrink-0">
+                {customer.name
+                  ?.split(" ")
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .map((p: string) => p[0].toUpperCase())
+                  .join("")}
+              </div>
+            ) : null}
+            <div className="min-w-0">
+              <span className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-400">
+                Customer Profile &amp; Ledger
+              </span>
+              <h2 className="truncate text-xl font-black text-white mt-0.5">
+                {customer ? customer.name : "Customer Profile & Timeline"}
+              </h2>
+              <p className="truncate text-xs text-slate-400 mt-0.5">
+                {activeBooking
+                  ? `${activeBooking.hostel?.name || "Property"} · Rm ${activeBooking.room?.roomNumber || "—"} (${activeBooking.bed?.bedNumber || "—"}) · ${activeBooking.bookingReference}`
+                  : "Resident verification checklist & full payment timeline"}
+              </p>
+            </div>
           </div>
           <button
             type="button"

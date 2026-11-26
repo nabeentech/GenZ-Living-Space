@@ -30,6 +30,7 @@ export async function GET(
         email: true,
         phone: true,
         gender: true,
+        avatarUrl: true,
         dateOfBirth: true,
         address: true,
         emergencyContact: true,

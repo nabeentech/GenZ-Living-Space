@@ -39,6 +39,7 @@ model User {
   supportTickets   SupportTicket[]
   assignedTasks    HousekeepingTask[] @relation("AssignedHousekeeping")
   auditLogs        AuditLog[]
+  homeTheaterBookings HomeTheaterBooking[]
 
   @@index([role, active])
   @@index([phone])
@@ -77,6 +78,7 @@ model Hostel {
   tasks        HousekeepingTask[]
   amenities    HostelAmenity[]
   galleryImages GalleryImage[]
+  expenses     Expense[]
 }
 
 model Amenity {
@@ -490,5 +492,58 @@ model GalleryImage {
   updatedAt   DateTime @updatedAt
 
   hostel      Hostel?  @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+}
+
+model Expense {
+  id             String   @id @default(cuid())
+  hostelId       String?
+  title          String
+  category       String   // POWER_BILLS, WATER_BILLS, STAFF_SALARY, ELECTRIC_WORKS, PLUMBING_WORKS, DAILY_ESSENTIALS, INTERNET_WIFI, FOOD_KITCHEN, HOUSEKEEPING_LAUNDRY, PROPERTY_RENT, APPLIANCES_REPAIRS, OTHER
+  amount         Float
+  expenseDate    DateTime @default(now())
+  paymentMode    String   @default("CASH") // CASH, UPI, BANK_TRANSFER, CARD
+  status         String   @default("PAID") // PAID, PENDING
+  vendorName     String?
+  vendorPhone    String?
+  receiptImage   String?  // Compressed WebP data URL
+  isRecurring    Boolean  @default(false)
+  notes          String?
+  recordedById   String?
+  recordedByName String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  hostel         Hostel?  @relation(fields: [hostelId], references: [id], onDelete: SetNull)
+
+  @@index([expenseDate])
+  @@index([hostelId, expenseDate])
+  @@index([category, expenseDate])
+  @@index([status, expenseDate])
+}
+
+model HomeTheaterBooking {
+  id               String   @id @default(cuid())
+  bookingCode      String   @unique
+  userId           String?
+  bookingId        String?
+  residentName     String
+  residentPhone    String?
+  roomBedLabel     String?
+  slotDateKey      String   // YYYY-MM-DD in Asia/Kolkata
+  slotKey          String   // MORNING, AFTERNOON, EVENING, NIGHT
+  title            String?  // Movie / Match / Event
+  guestCount       Int      @default(2)
+  notes            String?
+  status           String   @default("BOOKED") // BOOKED, COMPLETED, BLOCKED, CANCELLED
+  bookedByRole     String   @default("RESIDENT") // RESIDENT, ADMIN
+  bookedByName     String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user             User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([slotDateKey, slotKey])
+  @@index([userId, slotDateKey])
+  @@index([status, slotDateKey])
 }
 

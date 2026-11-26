@@ -19,9 +19,76 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
 
-    const { name, phone, gender, govtIdType, govtIdNumber, address, emergencyContact } = await req.json().catch(() => ({}));
+    const body = await req.json().catch(() => ({}));
+    const {
+      name,
+      phone,
+      gender,
+      govtIdType,
+      govtIdNumber,
+      address,
+      emergencyContact,
+      avatarUrl,
+    } = body;
 
-    // Validate required fields
+    // Validate avatarUrl if provided
+    let normalizedAvatarUrl: string | null | undefined = undefined;
+    if (avatarUrl !== undefined) {
+      if (avatarUrl === null || avatarUrl === "") {
+        normalizedAvatarUrl = null;
+      } else if (typeof avatarUrl === "string") {
+        const trimmed = avatarUrl.trim();
+        if (!trimmed.startsWith("data:image/") && !trimmed.startsWith("https://")) {
+          return NextResponse.json(
+            { success: false, message: "Invalid profile photo format." },
+            { status: 400 }
+          );
+        }
+        if (trimmed.length > 1_500_000) {
+          return NextResponse.json(
+            { success: false, message: "Profile photo is too large. Please upload a smaller photo." },
+            { status: 400 }
+          );
+        }
+        normalizedAvatarUrl = trimmed;
+      } else {
+        return NextResponse.json(
+          { success: false, message: "Invalid profile photo value." },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Photo-only update path (when uploading/removing avatar directly)
+    if (normalizedAvatarUrl !== undefined && name === undefined && phone === undefined) {
+      const updatedUser = await prisma.user.update({
+        where: { id: user.id },
+        data: { avatarUrl: normalizedAvatarUrl },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          phone: true,
+          avatarUrl: true,
+          gender: true,
+          govtIdType: true,
+          govtIdNumber: true,
+          address: true,
+          emergencyContact: true,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: normalizedAvatarUrl
+          ? "Profile photo updated successfully"
+          : "Profile photo removed",
+        data: { user: updatedUser },
+      });
+    }
+
+    // Validate required fields for full profile update
     if (typeof name !== "string" || !name.trim() || name.trim().length > 100 || !isValidIndianMobile(phone)) {
       return NextResponse.json(
         { success: false, message: "Enter a name (up to 100 characters) and a valid 10-digit Indian mobile number." },
@@ -40,6 +107,7 @@ export async function PATCH(req: Request) {
         govtIdNumber: govtIdNumber || user.govtIdNumber,
         address: address?.trim(),
         emergencyContact: emergencyContact?.trim(),
+        ...(normalizedAvatarUrl !== undefined ? { avatarUrl: normalizedAvatarUrl } : {}),
       },
       select: {
         id: true,
@@ -47,6 +115,7 @@ export async function PATCH(req: Request) {
         name: true,
         role: true,
         phone: true,
+        avatarUrl: true,
         gender: true,
         govtIdType: true,
         govtIdNumber: true,

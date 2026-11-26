@@ -8,6 +8,12 @@ import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import DatePicker from "@/components/ui/DatePicker";
 import CustomSelect from "@/components/ui/CustomSelect";
+import {
+  HomeTheaterCustomerPanel,
+  CustomerTheaterBooking,
+  CustomerTheaterSlotView,
+} from "@/components/public/HomeTheaterCustomerPanel";
+import { compressImageToDataUrl } from "@/lib/image-compress";
 import { isValidIndianMobile, normalizeIndianMobileForInput } from "@/lib/phone-validation";
 import {
   Calendar,
@@ -26,6 +32,10 @@ import {
   LogOut,
   Download,
   CreditCard,
+  Film,
+  Camera,
+  User as UserIcon,
+  Trash2,
 } from "lucide-react";
 
 interface CustomerDashboardClientProps {
@@ -33,6 +43,9 @@ interface CustomerDashboardClientProps {
   initialBookings: any[];
   initialTickets: any[];
   hostels: any[];
+  initialTheaterDate?: string;
+  initialTheaterDaySlots?: CustomerTheaterSlotView[];
+  initialMyTheaterBookings?: CustomerTheaterBooking[];
 }
 
 function isLongStayBooking(booking: any) {
@@ -60,9 +73,12 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
   initialBookings,
   initialTickets,
   hostels,
+  initialTheaterDate = "",
+  initialTheaterDaySlots = [],
+  initialMyTheaterBookings = [],
 }) => {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"bookings" | "support" | "profile">("bookings");
+  const [activeTab, setActiveTab] = useState<"bookings" | "theater" | "support" | "profile">("bookings");
   const [bookings, setBookings] = useState(initialBookings);
   const [tickets, setTickets] = useState(initialTickets);
 
@@ -117,6 +133,60 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
   });
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [profileMsg, setProfileMsg] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(user.avatarUrl || null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    setIsUploadingAvatar(true);
+    setProfileMsg("");
+    try {
+      const compressed = await compressImageToDataUrl(file, 450, 0.7);
+      const res = await fetch("/api/auth/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ avatarUrl: compressed }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Photo upload failed");
+      }
+      setAvatarUrl(compressed);
+      setProfileMsg("Profile photo updated successfully");
+      setActiveTab("profile");
+      router.refresh();
+    } catch (err: any) {
+      setProfileMsg(err.message || "Could not upload photo. Please pick a valid image.");
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    setIsUploadingAvatar(true);
+    setProfileMsg("");
+    try {
+      const res = await fetch("/api/auth/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ avatarUrl: null }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Could not remove photo");
+      }
+      setAvatarUrl(null);
+      setProfileMsg("Profile photo removed");
+      router.refresh();
+    } catch (err: any) {
+      setProfileMsg(err.message || "Error removing profile photo");
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
 
   // Find most recent active/upcoming confirmed booking
   const activeBooking = bookings.find(
@@ -444,14 +514,38 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
       {/* Welcome Banner */}
       <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800 bg-gradient-to-r from-indigo-950/40 via-purple-950/30 to-[#111827] flex flex-col sm:flex-row sm:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
-          {user.avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={user.avatarUrl}
-              alt={user.name}
-              className="w-14 h-14 rounded-2xl object-cover border-2 border-indigo-500/50 shadow-glow shrink-0"
-            />
-          ) : null}
+          <div className="relative shrink-0">
+            {avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={avatarUrl}
+                alt={user.name}
+                className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover border-2 border-indigo-500/50 shadow-glow"
+              />
+            ) : (
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-indigo-500/20 border-2 border-indigo-500/40 flex items-center justify-center text-lg font-black text-indigo-200">
+                {user.name
+                  ?.split(" ")
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .map((p: string) => p[0].toUpperCase())
+                  .join("") || <UserIcon className="w-6 h-6" />}
+              </div>
+            )}
+            <label
+              title="Upload profile photo"
+              className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-indigo-600 hover:bg-indigo-500 border border-slate-900 flex items-center justify-center cursor-pointer shadow-md transition"
+            >
+              <Camera className="w-3 h-3 text-white" />
+              <input
+                type="file"
+                accept="image/*"
+                disabled={isUploadingAvatar}
+                onChange={handleAvatarUpload}
+                className="hidden"
+              />
+            </label>
+          </div>
           <div className="space-y-1">
             <span className="text-xs uppercase font-extrabold tracking-widest text-indigo-400">
               Resident Portal
@@ -483,7 +577,7 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-2">
         <button
           onClick={() => setActiveTab("bookings")}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition ${activeTab === "bookings"
@@ -492,6 +586,16 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
             }`}
         >
           My Stays & Bookings ({bookings.length})
+        </button>
+        <button
+          onClick={() => setActiveTab("theater")}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition inline-flex items-center gap-1.5 ${activeTab === "theater"
+              ? "bg-indigo-600 text-white shadow-glow"
+              : "text-slate-400 hover:text-white"
+            }`}
+        >
+          <Film className="w-3.5 h-3.5" />
+          Home Theater (Free)
         </button>
         <button
           onClick={() => setActiveTab("support")}
@@ -561,6 +665,14 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
                       Invoice
                     </Button>
                   </Link>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setActiveTab("theater")}
+                    leftIcon={<Film className="w-4 h-4 text-indigo-400" />}
+                  >
+                    Book Home Theater
+                  </Button>
 
                   {/* Monthly Tenant Actions */}
                   {activeBooking.stayType === "MONTHLY" ? (
@@ -956,6 +1068,23 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
         </div>
       )}
 
+      {/* TAB 2: HOME THEATER */}
+      {activeTab === "theater" && (
+        <HomeTheaterCustomerPanel
+          isActiveResident={Boolean(activeBooking)}
+          activeStayLabel={
+            activeBooking?.room && activeBooking?.bed
+              ? `Active Resident · Room ${activeBooking.room.roomNumber} · Bed ${activeBooking.bed.bedNumber}`
+              : activeBooking
+              ? "Active Resident"
+              : null
+          }
+          initialDate={initialTheaterDate || new Date().toISOString().slice(0, 10)}
+          initialDaySlots={initialTheaterDaySlots}
+          initialMyBookings={initialMyTheaterBookings}
+        />
+      )}
+
       {/* TAB 3: PROFILE */}
       {activeTab === "profile" && (
         <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800 bg-[#111827]/80 space-y-6 max-w-2xl">
@@ -979,6 +1108,61 @@ export const CustomerDashboardClient: React.FC<CustomerDashboardClientProps> = (
               {profileMsg}
             </div>
           )}
+
+          {/* Profile Photo Section */}
+          <div className="p-4 rounded-2xl border border-slate-800 bg-slate-900/60 flex flex-wrap items-center gap-4">
+            {avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={avatarUrl}
+                alt={user.name}
+                className="w-20 h-20 rounded-2xl object-cover border-2 border-indigo-500/50 shrink-0"
+              />
+            ) : (
+              <div className="w-20 h-20 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-300 shrink-0">
+                <UserIcon className="w-8 h-8" />
+              </div>
+            )}
+
+            <div className="space-y-2 min-w-0 flex-1">
+              <div>
+                <h4 className="text-sm font-bold text-white">Profile Photo</h4>
+                <p className="text-[11px] text-slate-400">
+                  Upload a clear face photo so reception staff can identify you easily during check-in.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold cursor-pointer transition">
+                  <Camera className="w-3.5 h-3.5" />
+                  <span>
+                    {isUploadingAvatar
+                      ? "Uploading..."
+                      : avatarUrl
+                      ? "Change Photo"
+                      : "Upload Photo"}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={isUploadingAvatar}
+                    onChange={handleAvatarUpload}
+                    className="hidden"
+                  />
+                </label>
+                {avatarUrl && (
+                  <button
+                    type="button"
+                    disabled={isUploadingAvatar}
+                    onClick={handleRemoveAvatar}
+                    className="inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-semibold transition disabled:opacity-50"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Remove
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
 
           <div className="space-y-4 text-xs">
             <div>

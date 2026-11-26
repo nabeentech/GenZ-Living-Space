@@ -26,6 +26,9 @@ const toLocalDateInput = (date: Date) => {
 interface WalkInClientProps {
   hostels: any[];
   coupons: any[];
+  initialHostelId?: string;
+  initialRoomId?: string;
+  initialBedId?: string;
 }
 
 interface AdditionalGuest {
@@ -46,8 +49,17 @@ const createAdditionalGuest = (): AdditionalGuest => ({
   dateOfBirth: "",
 });
 
-export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) => {
-  const [selectedHostelId, setSelectedHostelId] = useState(hostels[0]?.id || "");
+export const WalkInClient: React.FC<WalkInClientProps> = ({
+  hostels,
+  coupons,
+  initialHostelId,
+  initialRoomId,
+  initialBedId,
+}) => {
+  const [selectedHostelId, setSelectedHostelId] = useState(() => {
+    if (initialHostelId && hostels.some((h) => h.id === initialHostelId)) return initialHostelId;
+    return hostels[0]?.id || "";
+  });
 
   const activeHostel = useMemo(
     () => hostels.find((h) => h.id === selectedHostelId) || hostels[0],
@@ -55,10 +67,14 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
   );
 
   const rooms = useMemo(() => activeHostel?.rooms || [], [activeHostel]);
+  const initialMatchedRoom = useMemo(
+    () => (initialRoomId ? rooms.find((r: any) => r.id === initialRoomId) : null) || rooms[0],
+    [rooms, initialRoomId]
+  );
 
-  const [selectedRoomTypeId, setSelectedRoomTypeId] = useState(rooms[0]?.roomTypeId || "");
-  const [selectedFloor, setSelectedFloor] = useState(rooms[0] ? String(rooms[0].floor) : "");
-  const [selectedRoomId, setSelectedRoomId] = useState(rooms[0]?.id || "");
+  const [selectedRoomTypeId, setSelectedRoomTypeId] = useState(initialMatchedRoom?.roomTypeId || "");
+  const [selectedFloor, setSelectedFloor] = useState(initialMatchedRoom ? String(initialMatchedRoom.floor) : "");
+  const [selectedRoomId, setSelectedRoomId] = useState(initialMatchedRoom?.id || "");
   const roomTypes = useMemo(() => Array.from(
     new Map<string, any>(rooms.filter((room: any) => room.roomType).map((room: any) => [room.roomTypeId, room.roomType])).values()
   ), [rooms]);
@@ -72,7 +88,12 @@ export const WalkInClient: React.FC<WalkInClientProps> = ({ hostels, coupons }) 
   );
 
   const availableBeds = useMemo(() => activeRoom?.beds || [], [activeRoom]);
-  const [selectedBedId, setSelectedBedId] = useState(availableBeds.find((bed: any) => bed.status === "AVAILABLE")?.id || "");
+  const [selectedBedId, setSelectedBedId] = useState(() => {
+    if (initialBedId && availableBeds.some((b: any) => b.id === initialBedId && b.status === "AVAILABLE")) {
+      return initialBedId;
+    }
+    return availableBeds.find((bed: any) => bed.status === "AVAILABLE")?.id || "";
+  });
   const selectedBed = availableBeds.find((bed: any) => bed.id === selectedBedId);
   const maxGuestsForSelectedBed = selectedBed?.tier === "DOUBLE" ? 2 : 1;
 

@@ -15,6 +15,8 @@ import {
   Clock,
   Shield,
   TrendingUp,
+  TrendingDown,
+  Receipt,
   RotateCcw,
   ArrowRight,
   AlertTriangle,
@@ -31,6 +33,7 @@ interface ReportsClientProps {
   invoices: any[];
   activeBookings: any[];
   refunds: any[];
+  expenses?: any[];
 }
 
 type DatePreset = "today" | "yesterday" | "last7" | "thisMonth" | "lastMonth" | "all" | "custom";
@@ -59,12 +62,21 @@ const normalizeMethod = (payment: any): "CASH" | "UPI" | "CARD" | "BANK" | "ONLI
   return "CASH";
 };
 
+const normalizeExpenseMode = (mode: string): "CASH" | "UPI" | "CARD" | "BANK" => {
+  const raw = (mode || "").toUpperCase();
+  if (raw === "UPI") return "UPI";
+  if (raw === "CARD") return "CARD";
+  if (raw === "BANK_TRANSFER" || raw === "BANK") return "BANK";
+  return "CASH";
+};
+
 export const ReportsClient: React.FC<ReportsClientProps> = ({
   hostels,
   payments,
   invoices,
   activeBookings,
   refunds,
+  expenses = [],
 }) => {
   const todayKey = useMemo(() => getIndiaDateKey(new Date()), []);
 
@@ -239,6 +251,52 @@ export const ReportsClient: React.FC<ReportsClientProps> = ({
 
   const actualEarnedIncome = Math.max(0, moneyReceived - depositsCollectedInRange - refundsGiven);
 
+  // Expenses in range (matching property & payment mode)
+  const filteredPaidExpenses = useMemo(() => {
+    return expenses.filter((e) => {
+      if (e.status !== "PAID") return false;
+      if (!inDateRange(e.expenseDate)) return false;
+      if (selectedHostelId !== "all" && e.hostelId !== selectedHostelId) return false;
+      if (modeFilter !== "all" && normalizeExpenseMode(e.paymentMode) !== modeFilter) return false;
+      return true;
+    });
+  }, [expenses, dateRange, selectedHostelId, modeFilter]);
+
+  const totalPaidExpenses = useMemo(
+    () => filteredPaidExpenses.reduce((sum, e) => sum + e.amount, 0),
+    [filteredPaidExpenses]
+  );
+
+  const pendingExpensesSummary = useMemo(() => {
+    const list = expenses.filter((e) => {
+      if (e.status !== "PENDING") return false;
+      if (selectedHostelId !== "all" && e.hostelId !== selectedHostelId) return false;
+      return true;
+    });
+    return {
+      count: list.length,
+      total: list.reduce((sum, e) => sum + e.amount, 0),
+    };
+  }, [expenses, selectedHostelId]);
+
+  const cashSpentInRange = useMemo(
+    () =>
+      filteredPaidExpenses
+        .filter((e) => normalizeExpenseMode(e.paymentMode) === "CASH")
+        .reduce((sum, e) => sum + e.amount, 0),
+    [filteredPaidExpenses]
+  );
+
+  const sharedExpensesInRange = useMemo(
+    () =>
+      filteredPaidExpenses
+        .filter((e) => !e.hostelId)
+        .reduce((sum, e) => sum + e.amount, 0),
+    [filteredPaidExpenses]
+  );
+
+  const netProfit = actualEarnedIncome - totalPaidExpenses;
+
   // Payment method breakdown
   const methodBreakdown = useMemo(() => {
     const totals: Record<"CASH" | "UPI" | "CARD" | "BANK" | "ONLINE", number> = {
@@ -290,6 +348,10 @@ export const ReportsClient: React.FC<ReportsClientProps> = ({
           .filter((b) => b.hostelId === h.id && (stayFilter === "all" || b.stayType === stayFilter))
           .reduce((s, b) => s + (b.paidSecurityDeposit || 0), 0);
 
+        const spent = filteredPaidExpenses
+          .filter((e) => e.hostelId === h.id)
+          .reduce((s, e) => s + e.amount, 0);
+
         return {
           id: h.id,
           name: h.name,
@@ -301,9 +363,10 @@ export const ReportsClient: React.FC<ReportsClientProps> = ({
           received,
           pending,
           deposits,
+          spent,
         };
       });
-  }, [hostels, selectedHostelId, filteredInvoices, filteredPayments, pendingInvoices, activeBookings, stayFilter]);
+  }, [hostels, selectedHostelId, filteredInvoices, filteredPayments, pendingInvoices, activeBookings, stayFilter, filteredPaidExpenses]);
 
   const collectionPercent = totalBilled > 0 ? Math.min(100, Math.round((moneyReceived / totalBilled) * 100)) : 0;
 
@@ -317,7 +380,8 @@ export const ReportsClient: React.FC<ReportsClientProps> = ({
       "Total Billed (INR)",
       "Money Received (INR)",
       "Yet to Come / Pending (INR)",
-      "Deposits Kept Safe (INR)",
+      "Total Deposits Kept (INR)",
+      "Money Spent (INR)",
     ];
     const rows = propertySummaries.map((h) => [
       `"${h.name}"`,
@@ -328,7 +392,21 @@ export const ReportsClient: React.FC<ReportsClientProps> = ({
       h.received,
       h.pending,
       h.deposits,
+      h.spent,
     ]);
+    if (sharedExpensesInRange > 0 && selectedHostelId === "all") {
+      rows.push([
+        '"Shared / All Properties Expenses"',
+        '""',
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        sharedExpensesInRange,
+      ]);
+    }
     const csv = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
     const link = document.createElement("a");
     link.setAttribute("href", encodeURI(csv));
@@ -457,7 +535,7 @@ export const ReportsClient: React.FC<ReportsClientProps> = ({
       </div>
 
       {/* 2. Plain-English Money Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {/* Card 1: Total Bill Amount */}
         <div className="rounded-3xl border border-slate-800 bg-[#111827]/90 p-5 space-y-2">
           <div className="flex items-center justify-between">
@@ -508,10 +586,10 @@ export const ReportsClient: React.FC<ReportsClientProps> = ({
           </p>
         </div>
 
-        {/* Card 5: Guest Deposits Kept Safe */}
+        {/* Card 5: Total Deposits Kept */}
         <div className="rounded-3xl border border-cyan-500/30 bg-cyan-500/10 p-5 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-cyan-300">5. Deposits Kept Safe</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-cyan-300">5. Total Deposits Kept</span>
             <Shield className="w-4 h-4 text-cyan-400" />
           </div>
           <div className="text-3xl font-black text-cyan-200">₹{depositsHeldActive.toLocaleString("en-IN")}</div>
@@ -529,6 +607,54 @@ export const ReportsClient: React.FC<ReportsClientProps> = ({
           <div className="text-3xl font-black text-rose-300">₹{refundsGiven.toLocaleString("en-IN")}</div>
           <p className="text-xs text-slate-400">
             {pendingRefundCount > 0 ? `${pendingRefundCount} refund request(s) waiting` : "No pending refund requests"}
+          </p>
+        </div>
+
+        {/* Card 7: Total Money Spent (Expenses) */}
+        <Link href="/admin/expenses" className="block group">
+          <div className="h-full rounded-3xl border border-orange-500/30 bg-orange-500/10 p-5 space-y-2 group-hover:border-orange-400/60 transition">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-orange-300">7. Money Spent (Bills)</span>
+              <TrendingDown className="w-4 h-4 text-orange-400" />
+            </div>
+            <div className="text-3xl font-black text-orange-200">
+              ₹{Math.round(totalPaidExpenses).toLocaleString("en-IN")}
+            </div>
+            <p className="text-xs text-orange-200/80">
+              {pendingExpensesSummary.count > 0
+                ? `₹${Math.round(pendingExpensesSummary.total).toLocaleString("en-IN")} unpaid (${pendingExpensesSummary.count} bills) →`
+                : `${filteredPaidExpenses.length} paid expense(s) · View Tracker →`}
+            </p>
+          </div>
+        </Link>
+
+        {/* Card 8: Net Profit (Money You Keep) */}
+        <div
+          className={`rounded-3xl border p-5 space-y-2 ${
+            netProfit >= 0
+              ? "border-emerald-500/40 bg-emerald-500/15"
+              : "border-rose-500/40 bg-rose-500/15"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span
+              className={`text-xs font-bold uppercase tracking-wider ${
+                netProfit >= 0 ? "text-emerald-300" : "text-rose-300"
+              }`}
+            >
+              8. Net Profit (You Keep)
+            </span>
+            <Receipt className={`w-4 h-4 ${netProfit >= 0 ? "text-emerald-400" : "text-rose-400"}`} />
+          </div>
+          <div
+            className={`text-3xl font-black ${
+              netProfit >= 0 ? "text-emerald-200" : "text-rose-200"
+            }`}
+          >
+            {netProfit < 0 ? "-" : ""}₹{Math.abs(Math.round(netProfit)).toLocaleString("en-IN")}
+          </div>
+          <p className="text-xs text-slate-300">
+            Actual income (₹{Math.round(actualEarnedIncome).toLocaleString("en-IN")}) minus paid expenses
           </p>
         </div>
       </div>
@@ -602,6 +728,21 @@ export const ReportsClient: React.FC<ReportsClientProps> = ({
               );
             })}
           </div>
+          <div className="grid grid-cols-2 gap-2.5 pt-3 border-t border-slate-800 text-xs">
+            <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-2.5">
+              <div className="text-[10px] font-bold uppercase text-rose-300">Cash Spent on Bills</div>
+              <div className="text-sm font-black text-white mt-0.5">
+                ₹{Math.round(cashSpentInRange).toLocaleString("en-IN")}
+              </div>
+            </div>
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-2.5">
+              <div className="text-[10px] font-bold uppercase text-emerald-300">Net Cash in Counter</div>
+              <div className="text-sm font-black text-white mt-0.5">
+                {methodBreakdown[0].amount - cashSpentInRange < 0 ? "-" : ""}₹
+                {Math.abs(Math.round(methodBreakdown[0].amount - cashSpentInRange)).toLocaleString("en-IN")}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -620,7 +761,8 @@ export const ReportsClient: React.FC<ReportsClientProps> = ({
                 <th className="p-3">Total Billed</th>
                 <th className="p-3">Money Received</th>
                 <th className="p-3">Yet to Come</th>
-                <th className="p-3">Deposits Kept Safe</th>
+                <th className="p-3">Total Deposits Kept</th>
+                <th className="p-3">Money Spent</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
@@ -637,8 +779,19 @@ export const ReportsClient: React.FC<ReportsClientProps> = ({
                   <td className="p-3 font-bold text-emerald-300">₹{h.received.toLocaleString("en-IN")}</td>
                   <td className="p-3 font-bold text-amber-300">₹{h.pending.toLocaleString("en-IN")}</td>
                   <td className="p-3 font-semibold text-cyan-300">₹{h.deposits.toLocaleString("en-IN")}</td>
+                  <td className="p-3 font-semibold text-orange-300">₹{Math.round(h.spent).toLocaleString("en-IN")}</td>
                 </tr>
               ))}
+              {sharedExpensesInRange > 0 && selectedHostelId === "all" && (
+                <tr className="bg-slate-900/30">
+                  <td className="p-3 font-semibold text-slate-300" colSpan={6}>
+                    Common / Shared Expenses (Across All Properties)
+                  </td>
+                  <td className="p-3 font-bold text-orange-300">
+                    ₹{Math.round(sharedExpensesInRange).toLocaleString("en-IN")}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

@@ -5,6 +5,7 @@ import Footer from "@/components/public/Footer";
 import { getSessionUser } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { generateBookingQRCode } from "@/lib/qr";
+import { ACTIVE_THEATER_STATUSES, getIndiaNowDateKey } from "@/lib/home-theater";
 import CustomerDashboardClient from "./CustomerDashboardClient";
 
 export const dynamic = "force-dynamic";
@@ -62,6 +63,51 @@ export default async function DashboardPage() {
     select: { id: true, name: true, city: true },
   });
 
+  const todayKey = getIndiaNowDateKey();
+  const [theaterDayRows, myTheaterRows] = await Promise.all([
+    prisma.homeTheaterBooking.findMany({
+      where: {
+        slotDateKey: todayKey,
+        status: { in: ACTIVE_THEATER_STATUSES },
+      },
+      select: {
+        id: true,
+        slotDateKey: true,
+        slotKey: true,
+        status: true,
+        userId: true,
+        title: true,
+      },
+    }),
+    prisma.homeTheaterBooking.findMany({
+      where: { userId: user.id },
+      orderBy: [{ slotDateKey: "desc" }, { createdAt: "desc" }],
+    }),
+  ]);
+
+  const initialTheaterDaySlots = theaterDayRows.map((row) => ({
+    id: row.id,
+    slotDateKey: row.slotDateKey,
+    slotKey: row.slotKey,
+    status: row.status,
+    isMine: row.userId === user.id,
+    title: row.userId === user.id || row.status === "BLOCKED" ? row.title : null,
+  }));
+
+  const initialMyTheaterBookings = myTheaterRows.map((row) => ({
+    id: row.id,
+    bookingCode: row.bookingCode,
+    slotDateKey: row.slotDateKey,
+    slotKey: row.slotKey,
+    title: row.title,
+    guestCount: row.guestCount,
+    notes: row.notes,
+    status: row.status,
+    roomBedLabel: row.roomBedLabel,
+    bookedByRole: row.bookedByRole,
+    createdAt: row.createdAt.toISOString(),
+  }));
+
   return (
     <div className="min-h-screen bg-[#0B0F19] text-slate-100 flex flex-col">
       <Navbar user={user} />
@@ -73,6 +119,9 @@ export default async function DashboardPage() {
             initialBookings={bookingsWithQr}
             initialTickets={tickets}
             hostels={hostels}
+            initialTheaterDate={todayKey}
+            initialTheaterDaySlots={initialTheaterDaySlots}
+            initialMyTheaterBookings={initialMyTheaterBookings}
           />
         </div>
       </main>

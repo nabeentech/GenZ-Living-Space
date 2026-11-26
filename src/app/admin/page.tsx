@@ -14,6 +14,7 @@ import {
   Bed as BedIcon,
   Sparkles,
   TrendingUp,
+  TrendingDown,
   AlertCircle,
   HelpCircle,
   ArrowRight,
@@ -62,6 +63,7 @@ export default async function AdminDashboardPage({
   const hostelWhere = selectedHostelId !== "all" ? { hostelId: selectedHostelId } : {};
   const bookingDateWhere = rangeStart ? { createdAt: { gte: rangeStart } } : {};
   const paymentDateWhere = rangeStart ? { createdAt: { gte: rangeStart } } : {};
+  const expenseDateWhere = rangeStart ? { expenseDate: { gte: rangeStart } } : {};
 
   const hideFinancials = isFinancialsHidden(sessionUser);
   const canCheckIn = canAccessModule(sessionUser, "checkin");
@@ -71,6 +73,7 @@ export default async function AdminDashboardPage({
   const canExtensions = canAccessModule(sessionUser, "extensions");
   const canPayments = canAccessModule(sessionUser, "payments");
   const canPricing = canAccessModule(sessionUser, "pricing");
+  const canExpenses = canAccessModule(sessionUser, "expenses");
 
   const next3DaysEnd = new Date();
   next3DaysEnd.setDate(next3DaysEnd.getDate() + 3);
@@ -95,6 +98,8 @@ export default async function AdminDashboardPage({
     pendingExtensionRevenue,
     pendingBalanceAgg,
     vacatingBookings,
+    paidExpenseAgg,
+    pendingExpenseAgg,
   ] = await Promise.all([
     prisma.hostel.findMany({
       select: { id: true, name: true },
@@ -215,11 +220,28 @@ export default async function AdminDashboardPage({
       orderBy: { checkOutDate: "asc" },
       take: 10,
     }),
+    prisma.expense.aggregate({
+      where: {
+        ...hostelWhere,
+        ...expenseDateWhere,
+        status: "PAID",
+      },
+      _sum: { amount: true },
+    }),
+    prisma.expense.aggregate({
+      where: {
+        ...hostelWhere,
+        status: "PENDING",
+      },
+      _sum: { amount: true },
+    }),
   ]);
 
   const occupancyRate = allBeds > 0 ? Math.round((occupiedBeds / allBeds) * 100) : 0;
   const totalRevenue = paymentRevenueAgg._sum.amount ?? 0;
   const totalPendingBalance = pendingBalanceAgg._sum.balanceAmount ?? 0;
+  const totalExpensesPaid = paidExpenseAgg._sum.amount ?? 0;
+  const totalExpensesPending = pendingExpenseAgg._sum.amount ?? 0;
 
   return (
     <div className="space-y-8">
@@ -428,6 +450,47 @@ export default async function AdminDashboardPage({
             </span>
           </div>
         </Link>
+
+        {/* Money Spent (Expenses) */}
+        {canExpenses ? (
+          <Link href="/admin/expenses">
+            <div className="glass-panel p-5 rounded-2xl border border-orange-500/20 bg-[#101626]/80 space-y-2 hover:border-orange-500/50 transition cursor-pointer h-full">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-orange-300">Money Spent</span>
+                <TrendingDown className="w-4 h-4 text-orange-400" />
+              </div>
+              <span className="text-2xl font-black text-white block">
+                {hideFinancials ? (
+                  <span className="font-mono text-slate-500 font-bold" title="Financial figures restricted for your role">
+                    ••••••
+                  </span>
+                ) : (
+                  `₹${Math.round(totalExpensesPaid).toLocaleString("en-IN")}`
+                )}
+              </span>
+              <span className="text-[10px] text-amber-300 font-semibold block">
+                {hideFinancials
+                  ? "Financials Restricted"
+                  : totalExpensesPending > 0
+                  ? `₹${Math.round(totalExpensesPending).toLocaleString("en-IN")} unpaid bills →`
+                  : "Track power, water & staff bills →"}
+              </span>
+            </div>
+          </Link>
+        ) : (
+          <div className="glass-panel p-5 rounded-2xl border border-orange-500/20 bg-[#101626]/80 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-orange-300">Money Spent</span>
+              <TrendingDown className="w-4 h-4 text-orange-400" />
+            </div>
+            <span className="text-2xl font-black text-white block">
+              {hideFinancials ? "••••••" : `₹${Math.round(totalExpensesPaid).toLocaleString("en-IN")}`}
+            </span>
+            <span className="text-[10px] text-slate-400 font-semibold block">
+              {hideFinancials ? "Financials Restricted" : "Paid bills in period"}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Ready to Vacate / Notice Active List */}

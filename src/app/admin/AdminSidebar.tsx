@@ -28,6 +28,7 @@ import {
   DollarSign,
   Image as ImageIcon,
   ShieldCheck,
+  Film,
 } from "lucide-react";
 import Badge from "@/components/ui/Badge";
 import { canAccessModule } from "@/lib/permissions";
@@ -55,12 +56,14 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ user }) => {
     { label: "Check-In / Out QR Desk", href: "/admin/checkin", icon: <QrCode className="w-4 h-4" />, roles: ["RECEPTIONIST", "PROPERTY_MANAGER", "SUPER_ADMIN"] },
     { label: "Walk-In Reservation", href: "/admin/walkin", icon: <UserPlus className="w-4 h-4" />, roles: ["RECEPTIONIST", "PROPERTY_MANAGER", "SUPER_ADMIN"] },
     { label: "Bookings Management", href: "/admin/bookings", icon: <BookOpen className="w-4 h-4" />, roles: ["RECEPTIONIST", "PROPERTY_MANAGER", "SUPER_ADMIN"] },
+    { label: "Home Theater", href: "/admin/theater", icon: <Film className="w-4 h-4" />, roles: ["RECEPTIONIST", "PROPERTY_MANAGER", "SUPER_ADMIN"] },
     { label: "Stay Extensions", href: "/admin/extensions", icon: <Calendar className="w-4 h-4" />, roles: ["PROPERTY_MANAGER", "FINANCE", "SUPER_ADMIN"] },
     { label: "Customers Directory", href: "/admin/customers", icon: <Users className="w-4 h-4" />, roles: ["PROPERTY_MANAGER", "SUPER_ADMIN"] },
     { label: "Housekeeping & Clean", href: "/admin/housekeeping", icon: <Sparkle className="w-4 h-4" />, roles: ["PROPERTY_MANAGER", "HOUSEKEEPING", "SUPER_ADMIN"] },
     { label: "Complaints & Support", href: "/admin/complaints", icon: <HelpCircle className="w-4 h-4" />, roles: ["PROPERTY_MANAGER", "SUPPORT_STAFF", "SUPER_ADMIN"] },
     { label: "Coupons & Promos", href: "/admin/coupons", icon: <Tag className="w-4 h-4" />, roles: ["SUPER_ADMIN"] },
     { label: "Payments & Invoices", href: "/admin/payments", icon: <CreditCard className="w-4 h-4" />, roles: ["PROPERTY_MANAGER", "FINANCE", "SUPER_ADMIN"] },
+    { label: "Expenses & Bills", href: "/admin/expenses", icon: <DollarSign className="w-4 h-4" />, roles: ["PROPERTY_MANAGER", "FINANCE", "SUPER_ADMIN"] },
     { label: "Reports & Analytics", href: "/admin/reports", icon: <BarChart3 className="w-4 h-4" />, roles: ["FINANCE", "SUPER_ADMIN"] },
     { label: "Gallery Management", href: "/admin/gallery", icon: <ImageIcon className="w-4 h-4" />, roles: ["SUPER_ADMIN", "PROPERTY_MANAGER"] },
     { label: "Website CMS", href: "/admin/cms", icon: <Globe className="w-4 h-4" />, roles: ["SUPER_ADMIN"] },

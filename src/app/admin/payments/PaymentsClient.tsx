@@ -398,7 +398,7 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
   const renderPagination = (currentCount: number) => {
     if (currentCount <= pageSize) return null;
     return (
-      <div className="pt-4 mt-2 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+      <div className="px-4 sm:px-6 py-4 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
         <div>
           Showing <span className="font-bold text-white">{(page - 1) * pageSize + 1}</span> to{" "}
           <span className="font-bold text-white">
@@ -572,7 +572,7 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
                 </tbody>
               </table>
             </div>
-            {renderPagination(rentDues.length)}
+            {renderPagination(filteredRentDues.length)}
           </div>
           <p className="text-[11px] text-slate-500">Rent due dates follow the current stay end date. Each collection creates a payment and invoice, then extends the stay by one 30-day cycle. If a stay is several cycles overdue, collect each displayed cycle in turn. Security deposit and one-time maintenance are excluded.</p>
         </section>
@@ -630,7 +630,7 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
               </tbody>
             </table>
           </div>
-          {renderPagination(dueInvoices.length)}
+          {renderPagination(filteredDueInvoices.length)}
         </div>
       )}
 
@@ -682,7 +682,7 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
               </tbody>
             </table>
           </div>
-          {renderPagination(payments.length)}
+          {renderPagination(filteredPayments.length)}
         </div>
       )}
 
@@ -772,7 +772,7 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
               </tbody>
             </table>
           </div>
-          {renderPagination(refunds.length)}
+          {renderPagination(filteredRefunds.length)}
         </div>
       )}
 
@@ -809,15 +809,15 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
                       {inv.hostel.name}
                     </td>
                     <td className="p-3.5 text-slate-400">
-                      {new Date(inv.issueDate).toLocaleDateString()}
+                      {new Date(inv.issueDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}
                     </td>
-                    <td className="p-3.5">₹{inv.baseAmount.toLocaleString()}</td>
-                    <td className="p-3.5">₹{inv.taxAmount.toLocaleString()}</td>
+                    <td className="p-3.5">₹{(inv.baseAmount ?? 0).toLocaleString("en-IN")}</td>
+                    <td className="p-3.5">₹{(inv.taxAmount ?? 0).toLocaleString("en-IN")}</td>
                     <td className="p-3.5 font-black text-emerald-400">
-                      ₹{inv.totalAmount.toLocaleString()}
+                      ₹{(inv.totalAmount ?? 0).toLocaleString("en-IN")}
                     </td>
-                    <td className="p-3.5">₹{inv.paidAmount.toLocaleString("en-IN")}</td>
-                    <td className="p-3.5 text-amber-300">₹{Math.max(0, inv.totalAmount - inv.paidAmount).toLocaleString("en-IN")}<span className="mt-1 block text-[10px] text-slate-500">Due {new Date(inv.dueDate).toLocaleDateString()}</span></td>
+                    <td className="p-3.5">₹{(inv.paidAmount ?? 0).toLocaleString("en-IN")}</td>
+                    <td className="p-3.5 text-amber-300">₹{Math.max(0, inv.totalAmount - inv.paidAmount).toLocaleString("en-IN")}<span className="mt-1 block text-[10px] text-slate-500">Due {new Date(inv.dueDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}</span></td>
                     <td className="p-3.5"><Badge variant={inv.status === "PAID" ? "available" : "warning"} size="sm">{inv.status}</Badge></td>
                     <td className="p-3.5 text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -838,7 +838,7 @@ export const PaymentsClient: React.FC<PaymentsClientProps> = ({
               </tbody>
             </table>
           </div>
-          {renderPagination(invoiceRows.length)}
+          {renderPagination(filteredInvoices.length)}
         </div>
       )}
 

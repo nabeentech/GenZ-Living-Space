@@ -7,11 +7,16 @@ import WalkInClient from "./WalkInClient";
 
 export const dynamic = "force-dynamic";
 
-export default async function WalkInPage() {
+export default async function WalkInPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ hostelId?: string; roomId?: string; bedId?: string }>;
+}) {
   const user = await getSessionUser();
   if (!user || !canAccessModule(user, "walkin")) {
     redirect(getFirstAllowedAdminRoute(user));
   }
+  const resolved = searchParams ? await searchParams : {};
   const [hostels, coupons] = await Promise.all([
     prisma.hostel.findMany({
       where: { active: true },
@@ -99,7 +104,13 @@ export default async function WalkInPage() {
         </p>
       </div>
 
-      <WalkInClient hostels={hostels} coupons={coupons} />
+      <WalkInClient
+        hostels={hostels}
+        coupons={coupons}
+        initialHostelId={resolved.hostelId}
+        initialRoomId={resolved.roomId}
+        initialBedId={resolved.bedId}
+      />
     </div>
   );
 }

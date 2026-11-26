@@ -1,11 +1,13 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import Link from "next/link";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import CustomSelect from "@/components/ui/CustomSelect";
 import dynamic from "next/dynamic";
+import FloorBlueprintMap from "@/components/admin/FloorBlueprintMap";
 
 const ShiftRoomModal = dynamic(() => import("@/components/admin/ShiftRoomModal"), {
   ssr: false,
@@ -13,7 +15,7 @@ const ShiftRoomModal = dynamic(() => import("@/components/admin/ShiftRoomModal")
 const CustomerProfileModal = dynamic(() => import("@/components/admin/CustomerProfileModal"), {
   ssr: false,
 });
-import { Bed as BedIcon, User, Sparkles, Filter, CheckCircle2, AlertTriangle, RefreshCw, ChevronRight, Edit2, Plus, Trash2 } from "lucide-react";
+import { Bed as BedIcon, User, Sparkles, Filter, CheckCircle2, AlertTriangle, RefreshCw, ChevronRight, Edit2, Plus, Trash2, Map as MapIcon, List, UserPlus } from "lucide-react";
 import { SHARING_NAMES } from "@/lib/room-types";
 import { isWalkInBooking } from "@/lib/booking-source";
 
@@ -28,6 +30,7 @@ export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels, canEd
   );
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedFloor, setSelectedFloor] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<"blueprint" | "list">("blueprint");
 
   const [selectedBed, setSelectedBed] = useState<any | null>(null);
   const [newBedStatus, setNewBedStatus] = useState<string>("");
@@ -321,28 +324,57 @@ export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels, canEd
           ))}
         </div>
 
-        {/* Legend / Status Filter */}
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          {[
-            { id: "all", label: "All Statuses" },
-            { id: "AVAILABLE", label: "Available", color: "text-emerald-400" },
-            { id: "OCCUPIED", label: "Occupied", color: "text-purple-400" },
-            { id: "RESERVED", label: "Reserved", color: "text-blue-400" },
-            { id: "CLEANING", label: "Cleaning", color: "text-amber-400" },
-            { id: "MAINTENANCE", label: "Maintenance", color: "text-red-400" },
-          ].map((st) => (
+        {/* View Mode Switcher + Status Filter */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            {[
+              { id: "all", label: "All Statuses" },
+              { id: "AVAILABLE", label: "Available", color: "text-emerald-400" },
+              { id: "OCCUPIED", label: "Occupied", color: "text-purple-400" },
+              { id: "RESERVED", label: "Reserved", color: "text-blue-400" },
+              { id: "CLEANING", label: "Cleaning", color: "text-amber-400" },
+              { id: "MAINTENANCE", label: "Maintenance", color: "text-red-400" },
+            ].map((st) => (
+              <button
+                key={st.id}
+                onClick={() => setStatusFilter(st.id)}
+                className={`px-2.5 py-1 rounded-lg transition text-xs font-semibold ${
+                  statusFilter === st.id
+                    ? "bg-slate-800 text-white border border-slate-700"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <span className={st.color || ""}>{st.label}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="inline-flex rounded-xl border border-slate-800 bg-slate-950 p-1 text-xs">
             <button
-              key={st.id}
-              onClick={() => setStatusFilter(st.id)}
-              className={`px-2.5 py-1 rounded-lg transition text-xs font-semibold ${
-                statusFilter === st.id
-                  ? "bg-slate-800 text-white border border-slate-700"
-                  : "text-slate-400 hover:text-slate-200"
+              type="button"
+              onClick={() => setViewMode("blueprint")}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-bold transition ${
+                viewMode === "blueprint"
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "text-slate-400 hover:text-white"
               }`}
             >
-              <span className={st.color || ""}>{st.label}</span>
+              <MapIcon className="w-3.5 h-3.5" />
+              Floor Blueprint
             </button>
-          ))}
+            <button
+              type="button"
+              onClick={() => setViewMode("list")}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-bold transition ${
+                viewMode === "list"
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <List className="w-3.5 h-3.5" />
+              Room List
+            </button>
+          </div>
         </div>
       </div>
 
@@ -446,28 +478,44 @@ export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels, canEd
         </div>
       )}
 
-      {/* Grid of Rooms and Beds */}
+      {/* Blueprint Map View OR Classic Room List */}
       <div className="space-y-8">
-        {filteredHostels.map((h) => (
-          <div
-            key={h.id}
-            className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800 bg-[#101626]/80 space-y-6"
-          >
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-              <div>
-                <h2 className="text-xl font-black text-white">{h.name}</h2>
-                <span className="text-xs text-slate-400">{h.address}</span>
-              </div>
-              <Badge variant="indigo" size="md">
-                {selectedFloor !== null
-                  ? `Floor ${selectedFloor}: ${filteredRooms.length} Rooms`
-                  : `${h.rooms.length} Rooms`}
-              </Badge>
-            </div>
+        {filteredHostels.map((h) => {
+          const activeFloorNumber = selectedFloor ?? floorsWithStats[0]?.floor ?? 1;
+          const activeFloorRooms = h.rooms.filter((r: any) => r.floor === activeFloorNumber);
 
-            {/* Rooms Grid */}
-            <div className="space-y-6">
-              {filteredRooms.map((room: any) => {
+          return (
+            <div
+              key={h.id}
+              className="glass-panel p-4 sm:p-6 lg:p-8 rounded-3xl border border-slate-800 bg-[#101626]/80 space-y-6 min-w-0"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-slate-800">
+                <div>
+                  <h2 className="text-xl font-black text-white">{h.name}</h2>
+                  <span className="text-xs text-slate-400">{h.address || h.city}</span>
+                </div>
+                <Badge variant="indigo" size="md">
+                  {viewMode === "blueprint"
+                    ? `Floor ${activeFloorNumber}: ${activeFloorRooms.length} Rooms`
+                    : selectedFloor !== null
+                    ? `Floor ${selectedFloor}: ${filteredRooms.length} Rooms`
+                    : `${h.rooms.length} Rooms`}
+                </Badge>
+              </div>
+
+              {viewMode === "blueprint" ? (
+                <FloorBlueprintMap
+                  hostel={h}
+                  floorNumber={activeFloorNumber}
+                  floorRooms={activeFloorRooms}
+                  statusFilter={statusFilter}
+                  canEdit={canEdit}
+                  onSelectBed={handleBedClick}
+                  onEditRoom={handleEditRoom}
+                />
+              ) : (
+                <div className="space-y-6">
+                  {filteredRooms.map((room: any) => {
                 const visibleBeds =
                   statusFilter === "all"
                     ? room.beds
@@ -586,9 +634,11 @@ export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels, canEd
                   </div>
                 );
               })}
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Bed Detail & Quick Status Edit Modal */}
@@ -670,8 +720,8 @@ export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels, canEd
                     )}
                   </p>
                   <p className="text-slate-400 text-[11px]">
-                    Dates: {new Date(selectedBed.bookings[0].checkInDate).toLocaleDateString()} —{" "}
-                    {new Date(selectedBed.bookings[0].checkOutDate).toLocaleDateString()}
+                    Dates: {new Date(selectedBed.bookings[0].checkInDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })} —{" "}
+                    {new Date(selectedBed.bookings[0].checkOutDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}
                     {selectedBed.bookings[0].balanceAmount > 0 && (
                       <span className="ml-2 text-amber-300 font-bold">
                         · Due ₹{selectedBed.bookings[0].balanceAmount.toLocaleString("en-IN")}
@@ -681,6 +731,19 @@ export const BedMatrixClient: React.FC<BedMatrixClientProps> = ({ hostels, canEd
                 </div>
               )}
             </div>
+
+            {selectedBed.status === "AVAILABLE" && canEdit && (
+              <Link
+                href={`/admin/walkin?hostelId=${encodeURIComponent(selectedBed.hostel.id)}&roomId=${encodeURIComponent(selectedBed.room.id)}&bedId=${encodeURIComponent(selectedBed.id)}`}
+                className="flex items-center justify-between rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-4 py-3 text-xs font-bold text-emerald-200 hover:bg-emerald-500/25 transition"
+              >
+                <span className="flex items-center gap-2">
+                  <UserPlus className="w-4 h-4 text-emerald-300" />
+                  Book Walk-In Resident into Room {selectedBed.room.roomNumber} · {selectedBed.bedNumber}
+                </span>
+                <span>Book Now →</span>
+              </Link>
+            )}
 
             {/* Change Status Form or View Only Notice */}
             {!canEdit ? (

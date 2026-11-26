@@ -13,7 +13,7 @@ export default async function AdminReportsPage() {
     redirect(getFirstAllowedAdminRoute(user));
   }
 
-  const [hostels, payments, invoices, activeBookings, refunds] = await Promise.all([
+  const [hostels, payments, invoices, activeBookings, refunds, expenses] = await Promise.all([
     prisma.hostel.findMany({
       select: {
         id: true,
@@ -125,6 +125,19 @@ export default async function AdminReportsPage() {
       },
       orderBy: { requestedAt: "desc" },
     }),
+    prisma.expense.findMany({
+      select: {
+        id: true,
+        hostelId: true,
+        title: true,
+        category: true,
+        amount: true,
+        expenseDate: true,
+        paymentMode: true,
+        status: true,
+      },
+      orderBy: { expenseDate: "desc" },
+    }),
   ]);
 
   return (
@@ -135,7 +148,7 @@ export default async function AdminReportsPage() {
         </span>
         <h1 className="text-3xl font-black text-white">Money &amp; Revenue Report</h1>
         <p className="text-xs text-slate-400 mt-0.5">
-          Simple view of how much you billed, how much money you received, who still owes you, and deposits kept safe.
+          Simple view of how much you billed, how much money you received, money spent on bills, and your net profit.
         </p>
       </div>
 
@@ -145,6 +158,7 @@ export default async function AdminReportsPage() {
         invoices={invoices}
         activeBookings={activeBookings}
         refunds={refunds}
+        expenses={expenses}
       />
     </div>
   );
