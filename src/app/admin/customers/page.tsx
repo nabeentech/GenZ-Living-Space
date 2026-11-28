@@ -88,7 +88,7 @@ export default async function CustomersPage() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-white">Customers Directory</h1>
           <p className="text-sm text-slate-400 mt-1">
-            Manage and view all registered guests in the system
+            View actual booked guests and current in-house residents (unbooked test sign-ups separated)
           </p>
         </div>
       </div>

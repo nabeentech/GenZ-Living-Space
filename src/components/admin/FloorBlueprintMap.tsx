@@ -2,7 +2,7 @@
 
 import React, { useMemo } from "react";
 import { mapFloorRoomsToBlueprint } from "@/lib/floor-blueprint";
-import { ArrowDown, ArrowUp, Edit2, Wind, Zap } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Edit2, Wind, Zap } from "lucide-react";
 
 interface FloorBlueprintMapProps {
   hostel: any;
@@ -229,12 +229,12 @@ export const FloorBlueprintMap: React.FC<FloorBlueprintMapProps> = ({
                 <div className="grid grid-cols-[repeat(5,136px)_88px_repeat(5,136px)] gap-2 items-stretch">
                   {row.leftSlots.map((slot) => renderRoomBox(slot))}
 
-                  {/* Central Vertical Lift Shaft / Empty Corridor */}
+                  {/* Central Vertical Lift Shaft / Vertical Corridor */}
                   <div
                     className={`rounded-xl border flex flex-col items-center justify-center text-center px-1 py-2 ${
                       row.centerType === "LIFT_SHAFT"
                         ? "border-indigo-500/40 bg-indigo-950/30 text-indigo-200"
-                        : "border-slate-800/70 bg-slate-900/35"
+                        : "border-slate-700/80 bg-slate-900/65 text-slate-400"
                     }`}
                   >
                     {row.centerType === "LIFT_SHAFT" ? (
@@ -245,19 +245,37 @@ export const FloorBlueprintMap: React.FC<FloorBlueprintMapProps> = ({
                         </span>
                         <ArrowDown className="w-3.5 h-3.5 text-indigo-300 mt-1" />
                       </>
-                    ) : null}
+                    ) : (
+                      <span className="text-[9px] font-bold uppercase tracking-widest [writing-mode:vertical-rl] rotate-180">
+                        Corridor
+                      </span>
+                    )}
                   </div>
 
                   {row.rightSlots.map((slot) => renderRoomBox(slot))}
                 </div>
 
-                {/* Empty Horizontal Corridor Walkway between rows */}
+                {/* Horizontal Corridor Walkways (idx 0 = top corridor, idx 2 = bottom corridor; idx 1 = back-to-back empty divider) */}
                 {idx < rows.length - 1 && (
-                  <div className="grid grid-cols-[1fr_88px_1fr] gap-2 items-center my-1">
-                    <div className="h-5 rounded-lg bg-slate-900/45 border border-slate-800/60" />
-                    <div className="h-5 rounded-lg bg-slate-900/30 border border-slate-800/40" />
-                    <div className="h-5 rounded-lg bg-slate-900/45 border border-slate-800/60" />
-                  </div>
+                  idx === 1 ? (
+                    <div className="h-3 my-0.5 rounded-lg bg-slate-950/60 border border-slate-800/40" />
+                  ) : (
+                    <div className="grid grid-cols-[1fr_88px_1fr] gap-2 items-center my-1">
+                      <div className="h-7 rounded-lg bg-slate-900/80 border border-slate-700/80 flex items-center justify-center gap-3 text-[10px] font-extrabold uppercase tracking-[0.25em] text-slate-400">
+                        <ArrowLeft className="w-3.5 h-3.5" />
+                        <span>Corridor</span>
+                        <ArrowLeft className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="h-7 rounded-lg bg-slate-900/50 border border-slate-800/60 flex items-center justify-center text-[9px] text-slate-500 font-bold">
+                        ┼
+                      </div>
+                      <div className="h-7 rounded-lg bg-slate-900/80 border border-slate-700/80 flex items-center justify-center gap-3 text-[10px] font-extrabold uppercase tracking-[0.25em] text-slate-400">
+                        <ArrowRight className="w-3.5 h-3.5" />
+                        <span>Corridor</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </div>
+                    </div>
+                  )
                 )}
               </React.Fragment>
             ))}

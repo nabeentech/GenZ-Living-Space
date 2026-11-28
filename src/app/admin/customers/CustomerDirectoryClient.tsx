@@ -24,6 +24,7 @@ interface CustomerDirectoryClientProps {
 export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = ({ customers, rooms = [], canEdit = true }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [staySegment, setStaySegment] = useState<"inhouse" | "booked" | "signups_only">("booked");
   const [sortBy, setSortBy] = useState<"name" | "recent" | "bookings">("recent");
   const [checklistFilter, setChecklistFilter] = useState<"all" | "missing_aadhaar" | "missing_email" | "deposit_due" | "walkin" | "online">("all");
   const [selectedFloor, setSelectedFloor] = useState<string>("all");
@@ -44,10 +45,38 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 18;
 
+  // Segment counts so unbooked test/browse sign-ups never inflate actual hostel guest numbers
+  const segmentCounts = useMemo(() => {
+    let inHouse = 0;
+    let booked = 0;
+    let signupsOnly = 0;
+    for (const c of customers) {
+      const bList = c.bookings || [];
+      if (bList.length === 0) {
+        signupsOnly++;
+      } else {
+        booked++;
+        if (bList.some((b: any) => ["CHECKED_IN", "CONFIRMED"].includes(b.bookingStatus))) {
+          inHouse++;
+        }
+      }
+    }
+    return { inHouse, booked, signupsOnly };
+  }, [customers]);
+
   // Filter and sort customers
   const filteredCustomers = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     let result = customers.filter((customer) => {
+      const hasAnyBooking = (customer.bookings?.length || 0) > 0;
+      const hasActiveStay = customer.bookings?.some((b: any) =>
+        ["CHECKED_IN", "CONFIRMED"].includes(b.bookingStatus)
+      );
+
+      if (staySegment === "inhouse" && !hasActiveStay) return false;
+      if (staySegment === "booked" && !hasAnyBooking) return false;
+      if (staySegment === "signups_only" && hasAnyBooking) return false;
+
       if (checklistFilter === "missing_aadhaar") {
         const valid = customer.govtIdType === "AADHAAR"
           ? /^\d{12}$/.test(customer.govtIdNumber || "")
@@ -104,12 +133,12 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
     }
 
     return result;
-  }, [customers, searchTerm, sortBy, checklistFilter, selectedFloor, selectedRoomId]);
+  }, [customers, staySegment, searchTerm, sortBy, checklistFilter, selectedFloor, selectedRoomId]);
 
   // Reset page to 1 when search or sort criteria change
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, sortBy, checklistFilter, selectedFloor, selectedRoomId]);
+  }, [staySegment, searchTerm, sortBy, checklistFilter, selectedFloor, selectedRoomId]);
 
   const totalPages = Math.max(1, Math.ceil(filteredCustomers.length / pageSize));
   const paginatedCustomers = useMemo(() => {
@@ -127,6 +156,37 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
     <div className="space-y-6">
       {/* Search & Filter Bar */}
       <div className="glass-panel p-4 sm:p-6 rounded-3xl border border-slate-800 bg-[#111827]/85 space-y-4">
+        {/* Resident Segment Switcher (Excludes unbooked signups from real guest counts) */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              { id: "booked", label: `Booked Guests (${segmentCounts.booked})` },
+              { id: "inhouse", label: `In-House Now (${segmentCounts.inHouse})` },
+              { id: "signups_only", label: `Sign-Ups Only · 0 Bookings (${segmentCounts.signupsOnly})` },
+            ].map((seg) => (
+              <button
+                key={seg.id}
+                type="button"
+                onClick={() => setStaySegment(seg.id as any)}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition ${
+                  staySegment === seg.id
+                    ? seg.id === "signups_only"
+                      ? "bg-slate-700 text-white border border-slate-500"
+                      : "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20"
+                    : "bg-slate-900 border border-slate-800 text-slate-400 hover:text-white"
+                }`}
+              >
+                {seg.label}
+              </button>
+            ))}
+          </div>
+          {staySegment !== "signups_only" && segmentCounts.signupsOnly > 0 && (
+            <span className="text-[11px] text-slate-400">
+              {segmentCounts.signupsOnly} unbooked sign-up/test account(s) hidden from guest list
+            </span>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-900 border border-slate-700 md:col-span-1">
             <Search className="w-4 h-4 text-slate-400 shrink-0" />
@@ -250,7 +310,12 @@ export const CustomerDirectoryClient: React.FC<CustomerDirectoryClientProps> = (
           <span className="font-bold text-white">
             {Math.min(currentPage * pageSize, filteredCustomers.length)}
           </span>{" "}
-          of <span className="font-bold text-white">{filteredCustomers.length}</span> guests {filteredCustomers.length !== customers.length && `(filtered from ${customers.length})`}
+          of <span className="font-bold text-white">{filteredCustomers.length}</span>{" "}
+          {staySegment === "signups_only"
+            ? "unbooked sign-up accounts"
+            : staySegment === "inhouse"
+            ? "currently in-house residents"
+            : `booked guests (${segmentCounts.inHouse} currently in-house)`}
         </div>
       </div>
 

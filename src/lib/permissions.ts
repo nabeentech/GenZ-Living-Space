@@ -313,7 +313,7 @@ export const PERMISSION_PRESETS: {
   },
   {
     id: "supervisor_no_financials",
-    name: "Floor Supervisor (No Financials)",
+    name: "Supervisor (No Financials)",
     role: "SUPERVISOR",
     description: "Inspect beds, rooms, check-ins, theater slots, housekeeping & complaints; monetary figures are masked.",
     permissions: DEFAULT_ROLE_PERMISSIONS.SUPERVISOR,
