@@ -12,6 +12,7 @@ export async function POST(req: Request) {
       !hasPermission(user.role, [
         ROLES.SUPER_ADMIN,
         ROLES.PROPERTY_MANAGER,
+        ROLES.SUPERVISOR,
         ROLES.RECEPTIONIST,
       ])
     ) {

@@ -108,6 +108,28 @@ export async function PATCH(
       ? (typeof body.aadhaarBackImage === "string" && body.aadhaarBackImage.startsWith("data:image/") ? body.aadhaarBackImage : null)
       : existing.aadhaarBackImage;
 
+    let avatarUrl = existing.avatarUrl;
+    if (body.avatarUrl !== undefined) {
+      if (body.avatarUrl === null || body.avatarUrl === "") {
+        avatarUrl = null;
+      } else if (typeof body.avatarUrl === "string") {
+        const trimmed = body.avatarUrl.trim();
+        if (!trimmed.startsWith("data:image/") && !trimmed.startsWith("https://")) {
+          return NextResponse.json(
+            { success: false, message: "Invalid customer profile photo format." },
+            { status: 400 }
+          );
+        }
+        if (trimmed.length > 1_500_000) {
+          return NextResponse.json(
+            { success: false, message: "Profile photo is too large. Please upload a smaller image." },
+            { status: 400 }
+          );
+        }
+        avatarUrl = trimmed;
+      }
+    }
+
     const address = body.address !== undefined ? (typeof body.address === "string" ? body.address.trim() || null : null) : existing.address;
     const emergencyContact = body.emergencyContact !== undefined ? (typeof body.emergencyContact === "string" ? body.emergencyContact.trim() || null : null) : existing.emergencyContact;
 
@@ -120,6 +142,7 @@ export async function PATCH(
           email: rawEmail,
           // Reset googleId if email changed so the new Gmail account can link on next Google Sign-In
           googleId: emailChanged ? null : existing.googleId,
+          avatarUrl,
           govtIdType,
           govtIdNumber,
           aadhaarFrontImage,
@@ -135,6 +158,7 @@ export async function PATCH(
           name: true,
           email: true,
           phone: true,
+          avatarUrl: true,
           govtIdType: true,
           govtIdNumber: true,
           aadhaarFrontImage: true,

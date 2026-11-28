@@ -35,6 +35,7 @@ export async function POST(
     const isStaff = hasPermission(user.role, [
       ROLES.SUPER_ADMIN,
       ROLES.PROPERTY_MANAGER,
+      ROLES.SUPERVISOR,
       ROLES.RECEPTIONIST,
     ]);
 

@@ -21,15 +21,15 @@ export const Modal: React.FC<ModalProps> = ({
   maxWidth = "md",
 }) => {
   useEffect(() => {
+    if (!isOpen) return;
+    const prevOverflow = document.body.style.overflow;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-      window.addEventListener("keydown", handleKeyDown);
-    }
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.body.style.overflow = "unset";
+      document.body.style.overflow = prevOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [isOpen, onClose]);
@@ -45,14 +45,14 @@ export const Modal: React.FC<ModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
       <div
         className="fixed inset-0"
         onClick={onClose}
         aria-hidden="true"
       />
       <div
-        className={`relative w-full ${maxWidthStyles[maxWidth]} glass-panel bg-[#111827] border border-slate-700/60 rounded-2xl shadow-2xl p-4 sm:p-6 z-10 max-h-[92dvh] overflow-y-auto`}
+        className={`relative w-full ${maxWidthStyles[maxWidth]} glass-panel bg-[#111827] border border-slate-700/60 rounded-2xl shadow-2xl p-4 sm:p-6 z-10 max-h-[92dvh] overflow-y-auto overscroll-contain my-auto`}
       >
         <div className="flex items-start justify-between mb-4">
           <div>

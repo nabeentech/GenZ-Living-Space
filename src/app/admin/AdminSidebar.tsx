@@ -47,20 +47,20 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ user }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const allNavItems: { label: string; href: string; icon: React.ReactNode; roles: string[] }[] = [
-    { label: "Dashboard Overview", href: "/admin", icon: <LayoutDashboard className="w-4 h-4" />, roles: ["SUPER_ADMIN", "FINANCE", "HOUSEKEEPING", "SUPPORT_STAFF", "PROPERTY_MANAGER", "RECEPTIONIST"] },
+    { label: "Dashboard Overview", href: "/admin", icon: <LayoutDashboard className="w-4 h-4" />, roles: ["SUPER_ADMIN", "FINANCE", "HOUSEKEEPING", "SUPPORT_STAFF", "PROPERTY_MANAGER", "SUPERVISOR", "RECEPTIONIST"] },
     { label: "Reception Desk", href: "/admin/receptionist", icon: <QrCode className="w-4 h-4" />, roles: ["RECEPTIONIST", "SUPER_ADMIN"] },
     { label: "Manager Panel", href: "/admin/manager", icon: <LayoutDashboard className="w-4 h-4" />, roles: ["PROPERTY_MANAGER", "SUPER_ADMIN"] },
-    { label: "Visual Bed Matrix", href: "/admin/beds", icon: <Grid className="w-4 h-4" />, roles: ["PROPERTY_MANAGER", "SUPER_ADMIN"] },
-    { label: "Room Management", href: "/admin/rooms", icon: <Wind className="w-4 h-4" />, roles: ["PROPERTY_MANAGER", "RECEPTIONIST", "SUPER_ADMIN"] },
+    { label: "Visual Bed Matrix", href: "/admin/beds", icon: <Grid className="w-4 h-4" />, roles: ["PROPERTY_MANAGER", "SUPERVISOR", "SUPER_ADMIN"] },
+    { label: "Room Management", href: "/admin/rooms", icon: <Wind className="w-4 h-4" />, roles: ["PROPERTY_MANAGER", "SUPERVISOR", "RECEPTIONIST", "SUPER_ADMIN"] },
     { label: "Pricing Management", href: "/admin/pricing", icon: <DollarSign className="w-4 h-4" />, roles: ["PROPERTY_MANAGER", "FINANCE", "SUPER_ADMIN"] },
-    { label: "Check-In / Out QR Desk", href: "/admin/checkin", icon: <QrCode className="w-4 h-4" />, roles: ["RECEPTIONIST", "PROPERTY_MANAGER", "SUPER_ADMIN"] },
-    { label: "Walk-In Reservation", href: "/admin/walkin", icon: <UserPlus className="w-4 h-4" />, roles: ["RECEPTIONIST", "PROPERTY_MANAGER", "SUPER_ADMIN"] },
-    { label: "Bookings Management", href: "/admin/bookings", icon: <BookOpen className="w-4 h-4" />, roles: ["RECEPTIONIST", "PROPERTY_MANAGER", "SUPER_ADMIN"] },
-    { label: "Home Theater", href: "/admin/theater", icon: <Film className="w-4 h-4" />, roles: ["RECEPTIONIST", "PROPERTY_MANAGER", "SUPER_ADMIN"] },
+    { label: "Check-In / Out QR Desk", href: "/admin/checkin", icon: <QrCode className="w-4 h-4" />, roles: ["RECEPTIONIST", "PROPERTY_MANAGER", "SUPERVISOR", "SUPER_ADMIN"] },
+    { label: "Walk-In Reservation", href: "/admin/walkin", icon: <UserPlus className="w-4 h-4" />, roles: ["RECEPTIONIST", "PROPERTY_MANAGER", "SUPERVISOR", "SUPER_ADMIN"] },
+    { label: "Bookings Management", href: "/admin/bookings", icon: <BookOpen className="w-4 h-4" />, roles: ["RECEPTIONIST", "PROPERTY_MANAGER", "SUPERVISOR", "SUPER_ADMIN"] },
+    { label: "Home Theater", href: "/admin/theater", icon: <Film className="w-4 h-4" />, roles: ["RECEPTIONIST", "PROPERTY_MANAGER", "SUPERVISOR", "SUPER_ADMIN"] },
     { label: "Stay Extensions", href: "/admin/extensions", icon: <Calendar className="w-4 h-4" />, roles: ["PROPERTY_MANAGER", "FINANCE", "SUPER_ADMIN"] },
-    { label: "Customers Directory", href: "/admin/customers", icon: <Users className="w-4 h-4" />, roles: ["PROPERTY_MANAGER", "SUPER_ADMIN"] },
-    { label: "Housekeeping & Clean", href: "/admin/housekeeping", icon: <Sparkle className="w-4 h-4" />, roles: ["PROPERTY_MANAGER", "HOUSEKEEPING", "SUPER_ADMIN"] },
-    { label: "Complaints & Support", href: "/admin/complaints", icon: <HelpCircle className="w-4 h-4" />, roles: ["PROPERTY_MANAGER", "SUPPORT_STAFF", "SUPER_ADMIN"] },
+    { label: "Customers Directory", href: "/admin/customers", icon: <Users className="w-4 h-4" />, roles: ["PROPERTY_MANAGER", "SUPERVISOR", "SUPER_ADMIN"] },
+    { label: "Housekeeping & Clean", href: "/admin/housekeeping", icon: <Sparkle className="w-4 h-4" />, roles: ["PROPERTY_MANAGER", "SUPERVISOR", "HOUSEKEEPING", "SUPER_ADMIN"] },
+    { label: "Complaints & Support", href: "/admin/complaints", icon: <HelpCircle className="w-4 h-4" />, roles: ["PROPERTY_MANAGER", "SUPERVISOR", "SUPPORT_STAFF", "SUPER_ADMIN"] },
     { label: "Coupons & Promos", href: "/admin/coupons", icon: <Tag className="w-4 h-4" />, roles: ["SUPER_ADMIN"] },
     { label: "Payments & Invoices", href: "/admin/payments", icon: <CreditCard className="w-4 h-4" />, roles: ["PROPERTY_MANAGER", "FINANCE", "SUPER_ADMIN"] },
     { label: "Expenses & Bills", href: "/admin/expenses", icon: <DollarSign className="w-4 h-4" />, roles: ["PROPERTY_MANAGER", "FINANCE", "SUPER_ADMIN"] },
@@ -114,42 +114,42 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ user }) => {
       <aside
         className={`${
           isOpen ? "fixed inset-y-0 left-0 flex w-72 z-50" : "hidden"
-        } lg:static lg:grid lg:w-64 lg:grid-rows-[auto_minmax(0,1fr)_auto] bg-[#0B0F19] border-r border-slate-800/80 flex-col shrink-0 h-dvh lg:h-screen lg:max-h-screen lg:min-h-0 lg:self-start transition-all`}
+        } lg:static lg:flex lg:w-64 bg-[#0B0F19] border-r border-slate-800/80 flex-col shrink-0 h-dvh lg:h-screen lg:max-h-screen lg:min-h-0 lg:self-start overflow-hidden transition-all`}
       >
         {/* Brand Header */}
-        <div className="p-6 border-b border-slate-800/80">
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center shadow-glow group-hover:scale-105 transition-transform">
+        <div className="p-5 border-b border-slate-800/80 shrink-0 min-w-0">
+          <Link href="/" className="flex items-center gap-3 group min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center shadow-glow group-hover:scale-105 transition-transform shrink-0">
               <Sparkles className="w-4 h-4 text-white" />
             </div>
-            <div>
-              <span className="font-black text-base tracking-tight text-white block">
+            <div className="min-w-0">
+              <span className="font-black text-base tracking-tight text-white block truncate">
                 GenZ <span className="text-indigo-400">Hostels OS</span>
               </span>
-              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block truncate">
                 Proprietary PMS
               </span>
             </div>
           </Link>
 
           {/* User Role Card */}
-          <div className="mt-4 p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
-            <div className="space-y-0.5 truncate">
-              <span className="font-bold text-xs text-white block truncate">
+          <div className="mt-4 p-3 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1.5 min-w-0">
+            <div className="flex items-center justify-between gap-2 min-w-0">
+              <span className="font-bold text-xs text-white truncate">
                 {user.name}
               </span>
-              <span className="text-[10px] text-slate-400 block truncate">
-                {user.email}
-              </span>
+              <Badge variant="indigo" size="sm" className="shrink-0 text-[9px] whitespace-nowrap">
+                {user.role.replace(/_/g, " ")}
+              </Badge>
             </div>
-            <Badge variant="indigo" size="sm" className="shrink-0 text-[9px]">
-              {user.role.replace("_", " ")}
-            </Badge>
+            <span className="text-[10px] text-slate-400 block truncate" title={user.email}>
+              {user.email}
+            </span>
           </div>
         </div>
 
         {/* Navigation Links */}
-        <nav className="min-h-0 p-3 space-y-1 overflow-y-auto overscroll-y-contain">
+        <nav className="flex-1 min-h-0 min-w-0 p-3 space-y-1 overflow-y-auto overscroll-y-contain custom-scrollbar">
           {navItems.map((item) => {
             const isActive = pathname === item.href;
             return (
@@ -157,36 +157,36 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ user }) => {
                 key={item.href}
                 href={item.href}
                 onClick={() => setIsOpen(false)}
-                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${
+                className={`w-full min-w-0 flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${
                   isActive
-                    ? "bg-indigo-600 text-white shadow-glow"
+                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/25"
                     : "text-slate-400 hover:text-white hover:bg-slate-900/60"
                 }`}
               >
-                <span className={isActive ? "text-white" : "text-slate-400"}>
+                <span className={`shrink-0 ${isActive ? "text-white" : "text-slate-400"}`}>
                   {item.icon}
                 </span>
-                <span>{item.label}</span>
+                <span className="truncate">{item.label}</span>
               </Link>
             );
           })}
         </nav>
 
         {/* Bottom Actions */}
-        <div className="p-4 border-t border-slate-800/80 space-y-2">
+        <div className="p-4 border-t border-slate-800/80 space-y-2 shrink-0 min-w-0">
           <Link
             href="/"
-            className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-slate-400 hover:text-white hover:bg-slate-900 transition"
+            className="w-full min-w-0 flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-slate-400 hover:text-white hover:bg-slate-900 transition"
           >
-            <Layers className="w-4 h-4 text-slate-500" />
-            <span>Customer Website</span>
+            <Layers className="w-4 h-4 text-slate-500 shrink-0" />
+            <span className="truncate">Customer Website</span>
           </Link>
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-950/30 transition"
+            className="w-full min-w-0 flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-950/30 transition"
           >
-            <LogOut className="w-4 h-4" />
-            <span>Sign Out</span>
+            <LogOut className="w-4 h-4 shrink-0" />
+            <span className="truncate">Sign Out</span>
           </button>
         </div>
       </aside>

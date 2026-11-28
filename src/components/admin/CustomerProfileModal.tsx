@@ -54,6 +54,7 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
   const [hasVehicle, setHasVehicle] = useState(false);
   const [vehicleNumber, setVehicleNumber] = useState("");
   const [drivingLicenseNumber, setDrivingLicenseNumber] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [aadhaarFrontImage, setAadhaarFrontImage] = useState<string | null>(null);
   const [aadhaarBackImage, setAadhaarBackImage] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<{ src: string; label: string } | null>(null);
@@ -92,6 +93,7 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
       setEmail(c.email || "");
       setGovtIdType(c.govtIdType && c.govtIdType !== "DRIVING_LICENSE" ? c.govtIdType : "AADHAAR");
       setGovtIdNumber(c.govtIdNumber || "");
+      setAvatarUrl(c.avatarUrl || null);
       setAadhaarFrontImage(c.aadhaarFrontImage || null);
       setAadhaarBackImage(c.aadhaarBackImage || null);
       setHasVehicle(Boolean(c.hasVehicle));
@@ -180,6 +182,7 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
           email,
           govtIdType,
           govtIdNumber: govtIdNumber.trim(),
+          avatarUrl,
           aadhaarFrontImage,
           aadhaarBackImage,
           hasVehicle,
@@ -899,7 +902,36 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                     </>
                   )}
 
-                  <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                  <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                    <div>
+                      <span className="block text-[11px] font-semibold text-slate-300 mb-1.5">Customer Profile Photo</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          e.target.value = "";
+                          if (!file) return;
+                          try {
+                            const dataUrl = await compressImageToDataUrl(file, 450, 0.7);
+                            setAvatarUrl(dataUrl);
+                          } catch (err: any) {
+                            setProfileMsg({ type: "err", text: err.message || "Could not upload profile photo." });
+                          }
+                        }}
+                        className="block w-full text-[11px] text-slate-400 file:mr-2 file:rounded-lg file:border-0 file:bg-indigo-600/20 file:px-2.5 file:py-1 file:text-[11px] file:font-semibold file:text-indigo-200 hover:file:bg-indigo-600/30"
+                      />
+                      {avatarUrl && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <button type="button" onClick={() => setPreviewImage({ src: avatarUrl, label: "Profile Photo" })} className="group relative overflow-hidden rounded-lg border border-slate-700 hover:border-indigo-400 transition">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={avatarUrl} alt="Profile photo" className="h-12 w-12 object-cover" />
+                            <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-[9px] font-bold text-white transition">View</span>
+                          </button>
+                          <button type="button" onClick={() => setAvatarUrl(null)} className="text-[10px] text-rose-300 underline">Remove</button>
+                        </div>
+                      )}
+                    </div>
                     <div>
                       <span className="block text-[11px] font-semibold text-slate-300 mb-1.5">Aadhaar Front Photo (Optional)</span>
                       <input

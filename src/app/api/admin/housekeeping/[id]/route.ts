@@ -13,6 +13,7 @@ export async function PATCH(
       !hasPermission(user.role, [
         ROLES.SUPER_ADMIN,
         ROLES.PROPERTY_MANAGER,
+        ROLES.SUPERVISOR,
         ROLES.HOUSEKEEPING,
       ])
     ) {

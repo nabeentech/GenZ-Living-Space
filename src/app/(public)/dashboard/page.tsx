@@ -21,6 +21,7 @@ export default async function DashboardPage() {
     const adminHome: Record<string, string> = {
       SUPER_ADMIN: "/admin",
       PROPERTY_MANAGER: "/admin/manager",
+      SUPERVISOR: "/admin",
       RECEPTIONIST: "/admin/receptionist",
       FINANCE: "/admin",
       HOUSEKEEPING: "/admin",

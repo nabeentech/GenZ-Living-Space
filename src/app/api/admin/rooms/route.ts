@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     const sessionUser = await getSessionUser();
 
     // Check authorization
-    if (!sessionUser || ![ROLES.SUPER_ADMIN, ROLES.PROPERTY_MANAGER, ROLES.RECEPTIONIST].includes(sessionUser.role as any)) {
+    if (!sessionUser || ![ROLES.SUPER_ADMIN, ROLES.PROPERTY_MANAGER, ROLES.SUPERVISOR, ROLES.RECEPTIONIST].includes(sessionUser.role as any)) {
       return NextResponse.json(
         { success: false, message: "Unauthorized access" },
         { status: 403 }

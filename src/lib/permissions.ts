@@ -202,6 +202,23 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, UserPermissions> = {
     canDelete: false,
     hideFinancialAmounts: false,
   },
+  SUPERVISOR: {
+    allowedModules: [
+      "dashboard",
+      "beds",
+      "rooms",
+      "checkin",
+      "walkin",
+      "bookings",
+      "theater",
+      "customers",
+      "housekeeping",
+      "complaints",
+    ],
+    canEdit: true,
+    canDelete: false,
+    hideFinancialAmounts: true,
+  },
   RECEPTIONIST: {
     allowedModules: [
       "reception",
@@ -297,14 +314,9 @@ export const PERMISSION_PRESETS: {
   {
     id: "supervisor_no_financials",
     name: "Floor Supervisor (No Financials)",
-    role: "PROPERTY_MANAGER",
-    description: "Inspect beds, rooms, check-in statuses, and housekeeping; all price and monetary figures are masked.",
-    permissions: {
-      allowedModules: ["beds", "rooms", "bookings", "housekeeping", "complaints", "checkin"],
-      canEdit: false,
-      canDelete: false,
-      hideFinancialAmounts: true,
-    },
+    role: "SUPERVISOR",
+    description: "Inspect beds, rooms, check-ins, theater slots, housekeeping & complaints; monetary figures are masked.",
+    permissions: DEFAULT_ROLE_PERMISSIONS.SUPERVISOR,
   },
   {
     id: "finance_officer",

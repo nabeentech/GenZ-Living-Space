@@ -58,6 +58,7 @@ interface StaffManagementClientProps {
 const AVAILABLE_ROLES = [
   { value: "SUPER_ADMIN", label: "Super Administrator", badgeVariant: "indigo" as const },
   { value: "PROPERTY_MANAGER", label: "Property Manager", badgeVariant: "coral" as const },
+  { value: "SUPERVISOR", label: "Floor Supervisor", badgeVariant: "occupied" as const },
   { value: "RECEPTIONIST", label: "Receptionist / Front Desk", badgeVariant: "cyan" as const },
   { value: "FINANCE", label: "Finance & Accounts", badgeVariant: "success" as const },
   { value: "HOUSEKEEPING", label: "Housekeeping", badgeVariant: "warning" as const },

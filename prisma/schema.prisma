@@ -15,7 +15,7 @@ model User {
   googleId         String?   @unique
   name             String
   phone            String?
-  role             String    @default("CUSTOMER") // SUPER_ADMIN, PROPERTY_MANAGER, RECEPTIONIST, FINANCE, HOUSEKEEPING, SUPPORT_STAFF, CUSTOMER
+  role             String    @default("CUSTOMER") // SUPER_ADMIN, PROPERTY_MANAGER, SUPERVISOR, RECEPTIONIST, FINANCE, HOUSEKEEPING, SUPPORT_STAFF, CUSTOMER
   avatarUrl        String?
   gender           String?   // MALE, FEMALE, OTHER
   dateOfBirth      DateTime?

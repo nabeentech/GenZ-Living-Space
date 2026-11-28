@@ -46,7 +46,7 @@ export const AdminTopBar: React.FC<AdminTopBarProps> = ({ user }) => {
         <div className="text-right hidden sm:block">
           <span className="text-xs font-bold text-white block">{user.name}</span>
           <span className="text-[10px] text-indigo-400 font-mono">
-            {user.role.replace("_", " ")}
+            {user.role.replace(/_/g, " ")}
           </span>
         </div>
       </div>

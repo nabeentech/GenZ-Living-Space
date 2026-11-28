@@ -221,7 +221,7 @@ export const FloorBlueprintMap: React.FC<FloorBlueprintMapProps> = ({
           </span>
         </div>
 
-        <div className="w-full overflow-x-auto pb-2 touch-pan-x overscroll-x-contain">
+        <div className="w-full overflow-x-auto pb-2">
           <div className="w-[1528px] min-w-[1528px] space-y-2">
             {rows.map((row, idx) => (
               <React.Fragment key={row.id}>

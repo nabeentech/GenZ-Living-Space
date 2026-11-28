@@ -10,7 +10,7 @@ export async function PATCH(
 ) {
   try {
     const user = await getSessionUser();
-    if (!user || !hasPermission(user.role, [ROLES.SUPER_ADMIN, ROLES.PROPERTY_MANAGER, ROLES.RECEPTIONIST, ROLES.HOUSEKEEPING])) {
+    if (!user || !hasPermission(user.role, [ROLES.SUPER_ADMIN, ROLES.PROPERTY_MANAGER, ROLES.SUPERVISOR, ROLES.RECEPTIONIST, ROLES.HOUSEKEEPING])) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 403 });
     }
     if (!canUserEdit(user)) {

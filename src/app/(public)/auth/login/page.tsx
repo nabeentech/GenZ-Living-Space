@@ -14,6 +14,7 @@ import { Sparkles, Lock, Mail, ArrowRight } from "lucide-react";
 const ROLE_REDIRECTS: Record<string, string> = {
   RECEPTIONIST: "/admin/receptionist",
   PROPERTY_MANAGER: "/admin/manager",
+  SUPERVISOR: "/admin",
   SUPER_ADMIN: "/admin",
   FINANCE: "/admin",
   HOUSEKEEPING: "/admin",
